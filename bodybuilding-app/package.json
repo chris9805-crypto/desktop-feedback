@@ -1,0 +1,13 @@
+{
+  "name": "ironblock",
+  "version": "1.0.0",
+  "description": "Structured, progressive training blocks for serious bodybuilding",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "start": "node tools/serve.mjs",
+    "bundle": "node tools/bundle.mjs"
+  },
+  "engines": { "node": ">=20" }
+}
