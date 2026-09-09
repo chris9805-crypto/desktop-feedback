@@ -43,6 +43,127 @@ spreadsheet a year ago.
 
 ---
 
+## Getting it on your phone
+
+Three routes, easiest first.
+
+### 1. GitHub Pages — the proper install
+
+The repository ships a workflow (`.github/workflows/ironblock-pages.yml`) that
+tests and deploys the app. It does nothing until you switch Pages on:
+
+1. **Settings → Pages → Source: GitHub Actions**
+2. **Actions** tab → *Deploy IronBlock* → **Run workflow**
+3. It builds in about a minute and gives you a URL like
+   `https://<your-username>.github.io/<repo>/`
+4. Open that in **Safari** on the iPhone → **Share** → **Add to Home Screen**
+
+You get a real app icon, full screen with no browser chrome, and — because the
+URL is HTTPS — the service worker registers, so **it opens with no signal**.
+That last part matters more than it sounds; a lot of gyms are basements.
+
+Note that enabling Pages makes the app itself publicly readable. Your training
+data is unaffected: it never leaves your phone, so there is nothing on the
+server to expose.
+
+### 2. Same-WiFi, no setup
+
+On a computer on the same network:
+
+```bash
+cd bodybuilding-app && npm start
+```
+
+Then open `http://<that-computer's-IP>:8080` on the phone. Fine for trying it;
+you can still Add to Home Screen. But a plain-HTTP address on your network is
+not a secure origin, so **the offline cache will not install** and the app needs
+the computer running and reachable.
+
+### 3. One file
+
+`npm run bundle` writes `dist/ironblock.html` — the entire app, no server. AirDrop
+or email it to yourself and open it from Files. Good for a look; not good as
+your log, because file-opened pages are the least reliable place iOS keeps
+stored data.
+
+**Whichever route you take, do this once a week:** Settings → **Copy export to
+clipboard**, and paste it somewhere. The data lives in one browser on one device
+and nothing else has a copy.
+
+## Your first week
+
+### Before session one (five minutes)
+
+Answer the three setup questions honestly. The number of days is the one people
+get wrong — pick the number you will still hit in week four, not the number you
+want to be true. Four is plenty. Three is plenty.
+
+### Session one is a measuring session
+
+This is the part no app can do for you, and the only part that is genuinely
+manual. On every exercise the card says **"—"** where the weight goes, because
+nothing has been logged yet. So:
+
+1. Warm up. Tap *How do I warm up for this?* if you want the ramp worked out.
+2. Do your first set at a weight you are **confident** about.
+3. Type that weight in and confirm.
+4. Answer *how many more could you have done?* honestly.
+
+**Start too light.** If the card asks for 8 reps with 3 left in the tank and you
+finish thinking "I had six left" — good. Say six. The app will jump the weight
+properly next time. Starting 10kg light costs you one session; starting 10kg
+heavy costs you a month and possibly a shoulder.
+
+Expect session one to take longer than the estimate. You are entering numbers
+that will never need entering again.
+
+### Sessions two to four
+
+Now it does the work. Each card arrives with the weight and reps already filled
+in, and the button says `Done — 60kg × 8`. If that is what you did, one tap.
+Steppers if you need 62.5 instead. The keyboard should barely appear.
+
+The **only** thing it needs from you is the effort question after each set, and
+it is worth being precise about what honest means here: *how many more reps
+could you have completed with good form, at that moment?* Not how many you could
+have survived. If the last rep was a grind and the next would have collapsed,
+that is **1 more** — not none.
+
+Systematically over-reporting effort ("none left" when two were left) makes the
+app hold weights it should be adding to. Under-reporting makes it chase you up
+in weight until something gives. It self-corrects either way, but slowly, and
+week one is where it matters most.
+
+### The flashcards at the end
+
+Thirty seconds, and they are what makes week two different from week one. The
+soreness question is asking about **when you walked in today**, not how you feel
+now. Joint pain always reduces volume, so do not be brave about it.
+
+Skipping is fine — it means "no signal", not "it was easy".
+
+### What week two will look like
+
+Different, and specifically:
+
+- Weights on most exercises will have moved, each for a stated reason.
+- A few exercises will get **more sets** — the ones you recovered well from.
+- Anything you reported as still sore, or painful in the joint, gets **fewer**.
+- If a first-week weight was badly off, it gets corrected in one jump rather
+  than crept up on.
+
+### Things that trip people up
+
+| What happens | What it means |
+|---|---|
+| An exercise says *"Same weight — prove it again"* | Beginner mode. You hit the top of the range; do it once more cleanly and it goes up. |
+| A weight goes **down** | You missed the bottom of the rep range. Getting the reps is the point, not the number on the bar. |
+| Week five is much lighter | That is the easy week and it is not optional. It is where the previous four weeks turn into muscle. |
+| Estimated max has not moved | Normal inside a block. Volume and effort climb first; strength shows up after the easy week. |
+| You miss a session | Log the next one. Nothing breaks. The plan waits. |
+
+---
+
 ## Three modes
 
 The mode changes the **training**, not just the wording. It is picked on first

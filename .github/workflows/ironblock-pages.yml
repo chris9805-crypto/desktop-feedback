@@ -1,0 +1,65 @@
+# Publish IronBlock to GitHub Pages.
+#
+# This workflow is inert until Pages is switched on for the repository
+# (Settings → Pages → Source: GitHub Actions). Turning it on makes the app
+# available at a public URL - the training data still never leaves the phone,
+# but the app itself becomes publicly readable, so it is a deliberate step
+# rather than something that happens on its own.
+#
+# An HTTPS origin is what makes the iPhone install work properly: the service
+# worker only registers on a secure origin, and without it the app cannot open
+# in a gym with no signal.
+
+name: Deploy IronBlock
+
+on:
+  push:
+    branches:
+      - main
+      - claude/bodybuilding-workout-app-ixj3hg
+    paths:
+      - 'bodybuilding-app/**'
+      - '.github/workflows/ironblock-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time; a queued run supersedes an older one rather than
+# fighting it.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # No dependencies to install - the test suite runs on Node alone.
+      - name: Run the test suite
+        working-directory: bodybuilding-app
+        run: node --test test/*.test.js
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - name: Upload the app
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Served from a subpath (/<repo>/), which the app handles: every
+          # path in the page, the manifest and the service worker is relative.
+          path: bodybuilding-app
+      - id: deployment
+        uses: actions/deploy-pages@v4

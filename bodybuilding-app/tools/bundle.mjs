@@ -21,6 +21,9 @@ import { fileURLToPath } from 'node:url';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const ENTRY = resolve(ROOT, 'js/app.js');
 const OUT = resolve(ROOT, 'dist/ironblock.html');
+// A second build for hosts that supply their own document skeleton and inject
+// the page body - the same app, without the wrapper tags.
+const OUT_FRAGMENT = resolve(ROOT, 'dist/ironblock.fragment.html');
 
 // Static, relative imports only - which is all this codebase uses.
 const IMPORT_RE = /^[ \t]*import\s+([\s\S]*?)\s*from\s*['"](\.[^'"]+)['"];?[ \t]*$/gm;
@@ -116,6 +119,17 @@ ${chunks.join('\n')}
 </html>
 `;
 
+const fragment = `<title>IronBlock</title>
+<style>${css}</style>
+<noscript><p style="padding:24px;font-family:system-ui">IronBlock needs JavaScript — it runs entirely in your browser with no server behind it.</p></noscript>
+<script type="module">
+${chunks.join('\n')}
+</script>
+`;
+
 await mkdir(dirname(OUT), { recursive: true });
 await writeFile(OUT, html);
-console.log(`Bundled ${order.length} modules -> ${relative(ROOT, OUT)} (${Math.round(html.length / 1024)} KB)`);
+await writeFile(OUT_FRAGMENT, fragment);
+console.log(`Bundled ${order.length} modules`);
+console.log(`  ${relative(ROOT, OUT)} (${Math.round(html.length / 1024)} KB)  standalone`);
+console.log(`  ${relative(ROOT, OUT_FRAGMENT)} (${Math.round(fragment.length / 1024)} KB)  for a host-supplied skeleton`);
