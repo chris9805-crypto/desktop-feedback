@@ -17,6 +17,8 @@ import { e1rm } from './engine/onerm.js';
 import { uid } from './util/id.js';
 import { getMode, DEFAULT_MODE } from './data/modes.js';
 import { analyse } from './engine/imbalance.js';
+import { progressFor } from './engine/progress.js';
+import { newProfile, buildCard, decodeCard, safeName } from './engine/crew.js';
 
 const STORAGE_KEY = 'ironblock.state.v1';
 const SCHEMA_VERSION = 1;
@@ -38,6 +40,9 @@ function defaultState() {
       // and a beginner can turn them off.
       mode: null,
       plainLanguage: null,
+      // Crew is opt-in: nothing is shared until you make a code yourself.
+      profile: null,
+      crew: [],
       equipment: 'full',
       onboarded: false,
     },
@@ -143,6 +148,81 @@ class Store {
         active: s.active ? { ...s.active, entries: convertEntries(s.active.entries) } : null,
       };
     });
+  }
+
+  /* ------------------------------------------------------------ progress */
+
+  /**
+   * Streak, XP, level and achievements. Cached on the identity of the sessions
+   * array, which every write replaces - this walks the whole log, and the
+   * dashboard asks for it several times a render.
+   */
+  progress() {
+    if (this._progressSessions !== this.state.sessions) {
+      this._progressSessions = this.state.sessions;
+      this._progress = progressFor(this.state);
+    }
+    return this._progress;
+  }
+
+  /** Sessions and sets logged in the last seven days, for the crew card. */
+  weekTotals() {
+    const since = Date.now() - 7 * 86400000;
+    const recent = this.state.sessions.filter((s) => s.date >= since);
+    return {
+      sessions: recent.length,
+      sets: recent.reduce((n, s) =>
+        n + (s.entries ?? []).reduce((k, e) => k + e.sets.filter((x) => !x.warmup).length, 0), 0),
+    };
+  }
+
+  /* ---------------------------------------------------------------- crew */
+
+  profile() {
+    return this.state.settings.profile;
+  }
+
+  setProfileName(name) {
+    return this.update((s) => ({
+      ...s,
+      settings: {
+        ...s.settings,
+        profile: s.settings.profile
+          ? { ...s.settings.profile, name: safeName(name) }
+          : newProfile(name),
+      },
+    }));
+  }
+
+  /** Your own shareable summary. Nothing leaves the device until you send it. */
+  myCard() {
+    const profile = this.profile() ?? newProfile('You');
+    return buildCard(profile, this.progress(), this.weekTotals());
+  }
+
+  /**
+   * Add or refresh someone from a code they sent you. Matching on the id in
+   * the code means a newer card from the same person replaces their old one
+   * rather than listing them twice.
+   */
+  addCrewCode(code) {
+    const card = decodeCard(code);
+    if (card.id === this.profile()?.id) throw new Error('That is your own code.');
+    this.update((s) => ({
+      ...s,
+      settings: {
+        ...s.settings,
+        crew: [...(s.settings.crew ?? []).filter((c) => c.id !== card.id), card],
+      },
+    }));
+    return card;
+  }
+
+  removeCrew(id) {
+    return this.update((s) => ({
+      ...s,
+      settings: { ...s.settings, crew: (s.settings.crew ?? []).filter((c) => c.id !== id) },
+    }));
   }
 
   /** The active training mode, falling back to the sensible middle. */

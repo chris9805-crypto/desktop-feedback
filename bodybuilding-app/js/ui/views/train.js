@@ -21,6 +21,8 @@ import {
 import { nextPosition, sessionProgress, setCard, effortCard, exerciseCheckCard } from './cards.js';
 import { buildCards } from './review.js';
 import { getMode } from '../../data/modes.js';
+import { sessionXp, followedPlan, newlyEarned } from '../../engine/progress.js';
+import { ACHIEVEMENT_BY_ID } from '../../data/achievements.js';
 import { store } from '../../store.js';
 import { getExercise, EXERCISES } from '../../data/exercises.js';
 import { getProgram } from '../../data/programs.js';
@@ -608,6 +610,7 @@ function runReview(active) {
   };
 
   const save = () => {
+    const before = store.progress();
     const session = store.finishSession();
     rest.stop();
     flow.pendingEffort = null;
@@ -615,7 +618,7 @@ function runReview(active) {
     flow.listView = false;
     backdrop.remove();
     render();
-    showSummary(session);
+    showSummary(session, before);
   };
 
   backdrop.append(panel);
@@ -624,46 +627,103 @@ function runReview(active) {
   draw();
 }
 
-function showSummary(session) {
+/**
+ * The moment after a session is saved.
+ *
+ * This is the payoff, and the old version of it was a table of numbers. What
+ * makes someone come back is seeing that the last hour moved something -
+ * so it leads with the XP earned and where it came from, then any badge that
+ * just unlocked, then the records. Numbers people care about, in order.
+ */
+function showSummary(session, before) {
   if (!session) return;
   const unit = store.state.settings.unit;
-  const sets = session.entries.reduce((n, e) => n + e.sets.length, 0);
-  const volume = session.entries.reduce((n, e) => n + tonnage(e.sets), 0);
+  const after = store.progress();
+  const program = getProgram(session.programId);
+  const deload = program ? session.week >= (program.accumulationWeeks ?? 4) : false;
+
   const prs = session.entries.map((e) => {
     const best = bestSet(e.sets);
     if (!best) return null;
     const now = e1rm(best.weight, best.reps, best.rir ?? 0);
-    const before = e.prescription?.e1rmBefore ?? 0;
-    return before && now > before * 1.005
-      ? { name: getExercise(e.exerciseId)?.name, gain: now - before, now }
+    const previous = e.prescription?.e1rmBefore ?? 0;
+    return previous && now > previous * 1.005
+      ? { name: getExercise(e.exerciseId)?.name, now: Math.round(now) }
       : null;
   }).filter(Boolean);
 
-  const dialog = h('div', {
-    style: 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50;display:grid;place-items:center;padding:16px',
-  });
-  dialog.append(h('div', { class: 'card', style: 'max-width:460px;width:100%' },
-    h('h2', {}, 'Session logged'),
-    h('div', { class: 'grid grid-3', style: 'margin:16px 0' },
-      h('div', { class: 'stat' }, h('span', { class: 'label' }, 'Sets'), h('span', { class: 'value num' }, String(sets))),
-      h('div', { class: 'stat' }, h('span', { class: 'label' }, 'Volume'), h('span', { class: 'value num' }, `${Math.round(volume).toLocaleString()}${unit}`)),
-      h('div', { class: 'stat' }, h('span', { class: 'label' }, 'Time'), h('span', { class: 'value num' }, fmtDuration(session.durationSec))),
+  const xp = sessionXp(session, { isPr: prs.length > 0, deload, onPlan: followedPlan(session) });
+  const badges = newlyEarned(before, after).map((id) => ACHIEVEMENT_BY_ID[id]).filter(Boolean);
+  const sets = session.entries.reduce((n, e) => n + e.sets.length, 0);
+
+  const dialog = h('div', { class: 'celebrate-backdrop' });
+  const panel = h('div', { class: 'celebrate' },
+    h('div', { class: 'celebrate-xp' },
+      h('span', { class: 'celebrate-amount num' }, `+${xp.total}`),
+      h('span', { class: 'celebrate-unit' }, 'XP'),
     ),
-    prs.length
-      ? h('div', {},
-          h('h4', {}, 'Estimated max moved up'),
-          h('ul', { class: 'cues', style: 'margin-top:6px' },
-            ...prs.map((p) => h('li', {}, `${p.name} — now ${Math.round(p.now)}${unit} (+${p.gain.toFixed(1)})`))),
-        )
-      : h('p', { class: 'secondary small' },
-          'No estimated max moved today. That is normal inside a block - volume and effort ' +
-          'climb first, and the strength shows up after the deload.'),
-    h('div', { class: 'row', style: 'justify-content:flex-end;margin-top:14px' },
-      h('button', { class: 'btn-primary', onClick: () => dialog.remove() }, 'Done'),
+    h('h2', {}, deload ? 'Easy week done' : 'Session done'),
+    h('div', { class: 'chips', style: 'justify-content:center' },
+      chipEl(`${sets} sets`),
+      // A session logged in under a minute is someone catching up on paper
+      // notes, not a workout. "0 min" just reads as broken.
+      session.durationSec >= 60 && chipEl(fmtDuration(session.durationSec)),
+      after.streak.current > 1 && chipEl(`${after.streak.current} in a row`),
     ),
-  ));
-  dialog.addEventListener('click', (ev) => { if (ev.target === dialog) dialog.remove(); });
+    h('div', { class: 'xp-lines' }, ...xp.lines.map((line) => h('div', { class: 'xp-line' },
+      h('span', {}, line.label),
+      h('span', { class: 'num' }, `+${line.amount}`),
+    ))),
+  );
+
+  if (badges.length) {
+    panel.append(h('div', { class: 'unlocked' },
+      h('h4', {}, badges.length === 1 ? 'Badge unlocked' : 'Badges unlocked'),
+      ...badges.map((b) => h('div', { class: `unlocked-badge tier-${b.tier}` },
+        h('span', { class: 'badge-icon' }, b.icon),
+        h('div', {}, h('b', {}, b.name), h('div', { class: 'muted small' }, b.blurb)),
+        h('span', { class: 'num tiny' }, `+${b.xp}`),
+      )),
+    ));
+  }
+
+  if (prs.length) {
+    panel.append(h('div', { class: 'unlocked' },
+      h('h4', {}, 'New best'),
+      ...prs.map((p) => h('div', { class: 'pr-row' },
+        h('span', {}, p.name),
+        h('span', { class: 'num' }, fmtWeight(p.now, unit)),
+      )),
+    ));
+  }
+
+  // Level-up gets its own line rather than being buried in the numbers.
+  if (after.level.level > (before?.level.level ?? after.level.level)) {
+    panel.append(h('div', { class: 'levelup' },
+      h('b', {}, `Level ${after.level.level}`), ' — ', levelName(after.level.level)));
+  }
+
+  panel.append(h('button', {
+    class: 'btn-primary btn-lg celebrate-done',
+    onClick: () => { dialog.remove(); render(); },
+  }, 'Done'));
+
+  dialog.append(panel);
+  dialog.addEventListener('click', (ev) => { if (ev.target === dialog) { dialog.remove(); render(); } });
   document.body.append(dialog);
+}
+
+function chipEl(text) {
+  return text ? h('span', { class: 'chip' }, text) : null;
+}
+
+function levelName(level) {
+  if (level >= 30) return 'Veteran';
+  if (level >= 20) return 'Advanced';
+  if (level >= 12) return 'Seasoned';
+  if (level >= 6) return 'Committed';
+  if (level >= 3) return 'Building';
+  return 'Getting started';
 }
 
 export { rest };

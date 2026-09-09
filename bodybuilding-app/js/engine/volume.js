@@ -86,9 +86,18 @@ export function volumeReport(totals) {
   });
 }
 
-/** Muscles that need attention now, worst first - drives the dashboard callout. */
-export function volumeFlags(totals) {
+/**
+ * Muscles that need attention now, worst first.
+ *
+ * `weekComplete` matters more than it looks. Being under minimum effective
+ * volume is only meaningful once the week has actually happened - flagging it
+ * on day one, when almost every muscle is trivially under its weekly target,
+ * tells someone they are failing at a week they have not had yet. Being over
+ * the recoverable ceiling is actionable at any point, because the sets are
+ * already done.
+ */
+export function volumeFlags(totals, { weekComplete = true } = {}) {
   return volumeReport(totals)
-    .filter((r) => r.status.zone === 'over-mrv' || r.status.zone === 'below-mev')
+    .filter((r) => r.status.zone === 'over-mrv' || (weekComplete && r.status.zone === 'below-mev'))
     .sort((a, b) => (a.status.zone === 'over-mrv' ? -1 : 1) - (b.status.zone === 'over-mrv' ? -1 : 1));
 }

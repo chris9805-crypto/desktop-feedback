@@ -10,6 +10,7 @@ import * as exercises from './ui/views/exercises.js';
 import * as settings from './ui/views/settings.js';
 import * as learn from './ui/views/learn.js';
 import * as onboarding from './ui/views/onboarding.js';
+import * as crew from './ui/views/crew.js';
 import { listen as listenForInstall } from './ui/install.js';
 
 /**
@@ -22,7 +23,8 @@ const ROUTES = [
   { path: '/train', label: 'Train', view: train, tab: true, icon: 'dumbbell' },
   { path: '/programs', label: 'Programs', view: programs, tab: true, icon: 'calendar' },
   { path: '/history', label: 'Progress', view: history, tab: true, icon: 'chart' },
-  { path: '/learn', label: 'Learn', view: learn, tab: true, icon: 'book' },
+  { path: '/crew', label: 'Crew', view: crew, tab: true, icon: 'people' },
+  { path: '/learn', label: 'Learn', view: learn },
   { path: '/exercises', label: 'Exercises', view: exercises },
   { path: '/settings', label: 'Settings', view: settings },
   { path: '/welcome', label: 'Welcome', view: onboarding },
@@ -34,6 +36,7 @@ const ICONS = {
   calendar: 'M4 5h16v16H4zm0 5h16M8 3v4m8-4v4',
   chart: 'M4 20V10m5 10V4m5 16v-7m5 7V8',
   book: 'M4 4h7a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4zm16 0h-7a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h7z',
+  people: 'M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM2 20v-1a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v1m3-6h1a5 5 0 0 1 5 5v1',
 };
 
 function icon(name) {

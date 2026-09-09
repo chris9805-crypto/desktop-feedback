@@ -23,8 +23,8 @@ import { muscleName, isPlural } from '../../data/muscles.js';
 import { getMode } from '../../data/modes.js';
 import { loadStep } from '../../engine/progression.js';
 import { showTerm } from '../term.js';
-import { chooseSheet } from '../sheet.js';
-import { EFFORT_CHOICES, effortShort, warmupAdvice } from '../explain.js';
+import { chooseSheet, alertSheet } from '../sheet.js';
+import { EFFORT_CHOICES, effortShort, warmupAdvice, reasonLine, tagLabel } from '../explain.js';
 
 /* ------------------------------------------------------------- position */
 
@@ -121,14 +121,20 @@ export function setCard(active, position, opts) {
     }),
   ));
 
+  // One line, not a paragraph. The full reasoning is a tap away for the people
+  // who want it and out of the way for the people mid-set.
   if (currentWeight == null) {
-    card.append(h('p', { class: 'setcard-hint' },
-      'First time on this one — set the weight you are using and the app takes over from here. ' +
-      'Bodyweight only? Enter 0.'));
+    card.append(h('p', { class: 'setcard-hint' }, 'New lift — set your weight. Bodyweight? Enter 0.'));
   } else if (p.previous) {
-    card.append(h('p', { class: 'setcard-hint' },
-      `Last time: ${fmtWeight(p.previous.weight, unit)} × ${p.previous.reps}` +
-      (p.previous.rir != null ? ` with ${effortShort(p.previous.rir).toLowerCase()}` : '')));
+    card.append(h('div', { class: 'lastline' },
+      h('span', { class: 'lastline-label' }, 'Last'),
+      h('span', {}, `${fmtWeight(p.previous.weight, unit)} × ${p.previous.reps}`),
+      p.previous.rir != null && h('span', { class: 'muted' }, effortShort(p.previous.rir).toLowerCase()),
+      h('button', {
+        class: 'lastline-why', type: 'button',
+        onClick: () => alertSheet({ title: tagLabel(p.tag), body: reasonLine(p, unit) }),
+      }, 'why?'),
+    ));
   }
 
   if (p.tempo) {
@@ -265,9 +271,8 @@ export function effortCard(active, position, opts) {
     ),
     h('h2', { class: 'setcard-question' }, 'How many more could you have done?'),
     h('p', { class: 'setcard-hint' },
-      'Best honest guess. This is the one thing the app cannot work out for you, and it is ',
-      h('button', { class: 'term', type: 'button', onClick: () => showTerm('rir') }, 'what sets next week'),
-      '.'),
+      h('button', { class: 'term', type: 'button', onClick: () => showTerm('rir') }, 'Why this matters'),
+    ),
   );
 
   const options = h('div', { class: 'bigchoice' });

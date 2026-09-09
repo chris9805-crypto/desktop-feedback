@@ -9,7 +9,7 @@ No account, no server, no subscription. Everything lives in your browser.
 
 ```bash
 npm start           # http://localhost:8080
-npm test            # 139 tests, no dependencies
+npm test            # 176 tests, no dependencies
 npm run bundle      # dist/ironblock.html — the whole app in one file
 npm run icons       # regenerate the home-screen icons
 ```
@@ -161,6 +161,66 @@ Different, and specifically:
 | Week five is much lighter | That is the easy week and it is not optional. It is where the previous four weeks turn into muscle. |
 | Estimated max has not moved | Normal inside a block. Volume and effort climb first; strength shows up after the easy week. |
 | You miss a session | Log the next one. Nothing breaks. The plan waits. |
+
+---
+
+## Streaks, levels and badges
+
+Gamification in a training app is easy to get actively wrong, and the wrong
+version would argue with everything else here. A **daily** streak pushes people
+to train seven days a week. **XP per set** rewards training past what you can
+recover from — the exact thing the volume engine spends its time preventing.
+
+So the incentives point at the behaviours that actually produce results:
+
+- **The streak counts sessions, not days.** Rest never breaks it. What breaks it
+  is going long enough without training that you have clearly skipped something.
+  It warns you before it lapses rather than after.
+- **XP is mostly for turning up.** Tripling your sets is worth less than one
+  extra session. Reporting effort and answering the recovery questions is worth
+  points, because those are what make the next week correct.
+- **The easy week is worth more than a hard one**, and finishing one is a gold
+  badge. It is the most-skipped week in training and the one that converts the
+  previous four into muscle, so the scoring makes skipping it cost you.
+- **No badge rewards volume for its own sake.** There is no "most sets in a
+  week" — that would be the app arguing with itself, and a test enforces it.
+
+Fourteen badges, three tiers, each tied to something in the log: sessions
+logged, clean weeks, blocks finished, honest reporting, personal bests, and a
+week where every muscle landed in its productive range.
+
+Finishing a session shows what it earned and where each point came from, plus
+any badge that just unlocked and any lift that hit a new best.
+
+## Crew — comparing progress without a server
+
+**There is no backend, and adding one would change what this app is.** A live
+leaderboard or a discussion forum needs accounts, storage and moderation, and
+would put everybody's training log on someone else's computer. Right now yours
+has never left your phone.
+
+So sharing works the way game consoles did before they were online. You copy a
+short code, send it to someone you train with, they paste it in — and each of
+you gets a standings table built from the codes you hold. Manual and
+asynchronous. In exchange it is **real**: no invented users, no fabricated
+leaderboard, no account, nothing uploaded.
+
+A code carries your name, level, streak and the week's totals. Nothing else —
+not your log, not your weights, not your bodyweight. Codes arriving from other
+people are treated as hostile input: names are stripped to letters and digits,
+every number is clamped, and malformed codes are refused with an explanation.
+
+**Standings rank by streak, then sessions — never by weight lifted.** Ranking a
+crew by tonnage just tells you who is heaviest, and tells a beginner they are
+losing at something they cannot win for two years. Showing up is a competition
+anyone can be in on their first day.
+
+### What is honestly not here
+
+Live leaderboards against strangers, following people, and community discussion
+threads. All three need a server. The Crew screen says so rather than showing an
+empty "coming soon" feed, because a fake social feature is worse than an honest
+small one.
 
 ---
 
@@ -433,10 +493,13 @@ no session runs past 105 minutes.
 
 ```
 js/
-  data/         exercises, programs, muscles + landmarks, glossary, modes
+  data/         exercises, programs, muscles + landmarks, glossary, modes,
+                achievements
   engine/
     equipment.js     substituting movements for the kit you have
     imbalance.js     strength ratios, stalled muscles, side-to-side
+    progress.js      streaks, XP, levels, badges
+    crew.js          share codes and standings, no server
     onerm.js         estimated 1RM and its inverse
     progression.js   the decision: what goes on the bar today
     volume.js        fractional set counting against landmarks
@@ -452,7 +515,7 @@ js/
   store.js      state + localStorage persistence
 sw.js           offline cache
 manifest.webmanifest, icons/   home-screen install
-test/           139 tests: engine, program design audit, store, modes,
+test/           176 tests: engine, program design audit, store, modes,
                 weak-point detection, beginner layer, equipment adaptation,
                 offline shell, bundle, docs
 tools/          dev server, single-file bundler
