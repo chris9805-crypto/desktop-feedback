@@ -16,15 +16,15 @@
  * writes the plan, so confirming is genuinely the common case.
  */
 
-import { h, clear, fmtWeight, fmtClock } from '../dom.js';
+import { h, fmtWeight } from '../dom.js';
 import { store } from '../../store.js';
 import { getExercise } from '../../data/exercises.js';
-import { muscleName } from '../../data/muscles.js';
+import { muscleName, isPlural } from '../../data/muscles.js';
 import { getMode } from '../../data/modes.js';
 import { loadStep } from '../../engine/progression.js';
 import { showTerm } from '../term.js';
 import { chooseSheet } from '../sheet.js';
-import { EFFORT_CHOICES, effortShort, warmupAdvice, targetLine } from '../explain.js';
+import { EFFORT_CHOICES, effortShort, warmupAdvice } from '../explain.js';
 
 /* ------------------------------------------------------------- position */
 

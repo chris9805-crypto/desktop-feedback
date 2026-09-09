@@ -24,6 +24,7 @@ const { recommendProgram } = await import('../js/ui/views/onboarding.js');
 const { PROGRAMS, getProgram } = await import('../js/data/programs.js');
 const { EXERCISES, getExercise } = await import('../js/data/exercises.js');
 const { EQUIPMENT_PROFILES, substituteFor, adaptationReport, adaptDays } = await import('../js/engine/equipment.js');
+const GLOSSARY_MUSCLES = await import('../js/data/muscles.js');
 const { prescribe } = await import('../js/engine/progression.js');
 const { newMesocycle, weekPlan } = await import('../js/engine/mesocycle.js');
 
@@ -240,4 +241,18 @@ test('a new install starts un-onboarded so the walkthrough runs', () => {
   assert.equal(store.state.settings.onboarded, false);
   assert.equal(store.state.settings.mode, null);
   assert.equal(store.state.settings.equipment, 'full');
+});
+
+test('questions about a muscle are grammatical for that muscle', () => {
+  // "How does your lats look" appears after every single session. Getting it
+  // wrong there reads as carelessness about everything else too.
+  const { MUSCLES, isPlural } = GLOSSARY_MUSCLES;
+  for (const [id, muscle] of Object.entries(MUSCLES)) {
+    assert.equal(typeof muscle.plural, 'boolean', `${id} does not say whether it is plural`);
+  }
+  assert.equal(isPlural('chest'), false);
+  assert.equal(isPlural('upperBack'), false);
+  assert.equal(isPlural('lats'), true);
+  assert.equal(isPlural('quads'), true);
+  assert.equal(isPlural('nonsense'), true, 'an unknown muscle falls back to the common case');
 });

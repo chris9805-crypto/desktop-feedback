@@ -15,7 +15,9 @@
 import { getProgram } from '../data/programs.js';
 import { getExercise } from '../data/exercises.js';
 import { MUSCLES } from '../data/muscles.js';
-import { setChangeFromFeedback, isDeloadWeek, defaultRest } from './progression.js';
+import {
+  setChangeFromFeedback, isDeloadWeek, defaultRest, sessionVolumeModifier,
+} from './progression.js';
 import { plannedSetsByMuscle } from './volume.js';
 import { uid } from '../util/id.js';
 import { adaptDays, DEFAULT_PROFILE } from './equipment.js';
@@ -57,6 +59,25 @@ export function newMesocycle(program, {
     completed: {},     // `${week}:${dayId}` -> sessionId
     status: 'active',
   };
+}
+
+/**
+ * Merge the session-level cards across one week.
+ *
+ * Worst report wins on fatigue, best on strength: one brutal session you
+ * crawled out of matters more than three comfortable ones, because it is the
+ * one you have to recover from.
+ */
+export function sessionCardsForWeek(sessions, mesoId, week) {
+  const relevant = sessions.filter((s) => s.mesoId === mesoId && s.week === week && s.session);
+  if (!relevant.length) return null;
+  const merged = {};
+  for (const { session } of relevant) {
+    if (session.effort != null) merged.effort = Math.max(merged.effort ?? 0, session.effort);
+    if (session.stamina != null) merged.stamina = Math.max(merged.stamina ?? 0, session.stamina);
+    if (session.strength != null) merged.strength = Math.min(merged.strength ?? 2, session.strength);
+  }
+  return Object.keys(merged).length ? merged : null;
 }
 
 /** Merge the per-muscle feedback recorded across one week of sessions. */
@@ -117,6 +138,12 @@ export function computeExtras(program, sessions, mesoId, weekIndex, { lagging = 
 
   for (let w = 1; w <= lastWeek; w++) {
     const feedback = feedbackForWeek(sessions, mesoId, w - 1);
+    // How the *sessions* went, as opposed to how each muscle felt. Applies to
+    // everything trained that week rather than to one muscle.
+    const cards = sessionCardsForWeek(sessions, mesoId, w - 1);
+    const session = cards ? sessionVolumeModifier(cards) : { delta: 0, reason: '' };
+    if (session.delta !== 0) notes.session = session.reason;
+
     for (const muscleId of Object.keys(MUSCLES)) {
       const slots = growableSlots(program, muscleId);
       if (!slots.length) continue;
@@ -129,8 +156,8 @@ export function computeExtras(program, sessions, mesoId, weekIndex, { lagging = 
       // A weak point gets an extra set a week - but only while it is actually
       // recovering. Piling volume onto a muscle that reported joint pain or
       // lingering soreness makes it weaker, not stronger.
-      let delta = change.delta;
-      let reason = change.reason;
+      let delta = change.delta + session.delta;
+      let reason = session.delta !== 0 ? `${change.reason} ${session.reason}` : change.reason;
       if (priority.has(muscleId) && delta > 0) {
         delta += WEAK_POINT_BONUS_SETS;
         reason = `${change.reason} Extra set on top: this is a weak point you are specialising in.`;

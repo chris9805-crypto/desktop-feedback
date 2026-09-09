@@ -24,10 +24,11 @@
 import { h } from '../dom.js';
 import { store } from '../../store.js';
 import { getMode } from '../../data/modes.js';
-import { muscleName } from '../../data/muscles.js';
+import { muscleName, isPlural } from '../../data/muscles.js';
 import { getProgram } from '../../data/programs.js';
 import { feedbackTargets } from '../../engine/mesocycle.js';
 import { question } from './cards.js';
+import { sessionVolumeModifier } from '../../engine/progression.js';
 
 /** Session-level cards, in the order the mode wants them. */
 export function buildCards(active) {
@@ -39,6 +40,7 @@ export function buildCards(active) {
 
   for (const key of mode.sessionCards) {
     if (key === 'effort') cards.push(effortCard());
+    if (key === 'stamina') cards.push(staminaCard());
     if (key === 'strength') cards.push(strengthCard());
     if (key === 'connection') cards.push(connectionCard());
     if (key === 'look') for (const muscle of muscles) cards.push(lookCard(muscle));
@@ -70,7 +72,7 @@ function effortCard() {
   };
 }
 
-function strengthCard() {
+function staminaCard() {
   return {
     id: 'stamina',
     render: (onPick) => h('div', {},
@@ -85,6 +87,26 @@ function strengthCard() {
         ],
         selected: store.state.active?.session?.stamina,
         onPick: (v) => { store.setSessionCard('stamina', v); onPick(); },
+      }),
+    ),
+  };
+}
+
+function strengthCard() {
+  return {
+    id: 'strength',
+    render: (onPick) => h('div', {},
+      question({
+        title: 'Did you feel stronger than last time?',
+        hint: 'Compared with the last time you did this session. A run of "weaker" is how ' +
+              'you find out fatigue has caught up with you before the easy week was due.',
+        options: [
+          { value: 2, label: 'Stronger', detail: 'The weights moved better than last time' },
+          { value: 1, label: 'About the same', detail: 'No real difference' },
+          { value: 0, label: 'Weaker', detail: 'Same weights felt heavier than they should' },
+        ],
+        selected: store.state.active?.session?.strength,
+        onPick: (v) => { store.setSessionCard('strength', v); onPick(); },
       }),
     ),
   };
@@ -115,11 +137,13 @@ function connectionCard() {
  * did - it is just asked the way a lifter actually thinks about it.
  */
 function lookCard(muscle) {
+  const name = muscleName(muscle).toLowerCase();
+  const verb = isPlural(muscle) ? 'do they' : 'does it';
   return {
     id: `look-${muscle}`,
     render: (onPick) => h('div', {},
       question({
-        title: `How does your ${muscleName(muscle).toLowerCase()} look right now?`,
+        title: `Your ${name} — how full ${verb} look right now?`,
         hint: 'Right after training, in the mirror. Fuller than usual means the work landed.',
         options: [
           { value: 3, label: 'Blown up', detail: 'Noticeably bigger than normal' },
@@ -173,28 +197,11 @@ function weakPointCard(muscle) {
           { value: 'unsure', label: 'Not sure', detail: 'Keep watching it' },
           { value: 'disagree', label: 'No', detail: 'Leave it alone' },
         ],
-        selected: store.state.active?.session?.weakPoint,
-        onPick: (v) => { store.setSessionCard('weakPoint', v); onPick(); },
+        selected: store.state.active?.session?.weakPoint?.verdict,
+        onPick: (v) => { store.setSessionCard('weakPoint', { muscle, verdict: v }); onPick(); },
       }),
     ),
   };
 }
 
-/**
- * A session-level modifier on top of the per-muscle answers.
- *
- * The per-muscle questions catch a muscle that is not recovering. This catches
- * the case where *you* are not recovering - a brutal session you faded badly
- * in means the whole week's volume steps back, not just one muscle's.
- */
-export function sessionVolumeModifier(sessionCard = {}) {
-  const effort = Number(sessionCard.effort ?? 1);
-  const stamina = Number(sessionCard.stamina ?? 0);
-  if (effort >= 3 && stamina >= 2) {
-    return { delta: -1, reason: 'A brutal session you faded badly in - the whole week backs off a set.' };
-  }
-  if (effort <= 0 && stamina <= 0) {
-    return { delta: 1, reason: 'The session was easy and you never faded - there is room for more work.' };
-  }
-  return { delta: 0, reason: '' };
-}
+export { sessionVolumeModifier };

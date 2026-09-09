@@ -174,13 +174,35 @@ class Store {
    * does not re-run on every render of every screen.
    */
   weakPoints() {
-    if (!this.mode().showImbalances) return { findings: [], lagging: [] };
-    const key = `${this.state.sessions.length}:${this.state.sessions.at(-1)?.id ?? ''}`;
-    if (this._weakPointKey !== key) {
-      this._weakPointKey = key;
-      this._weakPoints = analyse(this.state.sessions);
+    if (!this.mode().showImbalances) return { findings: [], lagging: [], dismissed: [] };
+    // Cached on the identity of the sessions array. Every store write replaces
+    // it, so reference equality is exact - unlike a length-and-last-id key,
+    // which two different histories can share.
+    if (this._weakPointSessions !== this.state.sessions) {
+      this._weakPointSessions = this.state.sessions;
+      const result = analyse(this.state.sessions);
+      // The review card asks whether you agree with what the log found, and
+      // says the app will stop nagging if you do not. Honour that: a muscle you
+      // have dismissed is not steered volume and is not raised again.
+      const dismissed = this.dismissedWeakPoints();
+      this._weakPoints = {
+        ...result,
+        dismissed,
+        findings: result.findings.filter((f) => !f.lagging.every((m) => dismissed.includes(m))),
+        lagging: result.lagging.filter((m) => !dismissed.includes(m)),
+      };
     }
     return this._weakPoints;
+  }
+
+  /** Muscles you have explicitly told the app are not a weak point. */
+  dismissedWeakPoints() {
+    const verdicts = new Map();
+    for (const session of [...this.state.sessions].sort((a, b) => a.date - b.date)) {
+      const answer = session.session?.weakPoint;
+      if (answer?.muscle && answer.verdict) verdicts.set(answer.muscle, answer.verdict);
+    }
+    return [...verdicts].filter(([, verdict]) => verdict === 'disagree').map(([muscle]) => muscle);
   }
 
   /* ---------------------------------------------------------- mesocycles */

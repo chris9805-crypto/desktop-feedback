@@ -105,7 +105,7 @@ export const MODES = {
     tempo: null,
 
     setChecks: ['form'],
-    sessionCards: ['effort', 'strength', 'look'],
+    sessionCards: ['effort', 'stamina', 'strength', 'look'],
 
     showCues: true,
     showTempo: false,
@@ -144,7 +144,7 @@ export const MODES = {
     tempo: null,
 
     setChecks: ['side'],
-    sessionCards: ['effort', 'strength', 'look', 'weakpoint'],
+    sessionCards: ['effort', 'stamina', 'strength', 'look', 'weakpoint'],
 
     showCues: false,
     showTempo: false,

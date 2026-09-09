@@ -321,6 +321,46 @@ export function setChangeFromFeedback(fb = {}) {
   return { delta: 1, reason: 'Recovered well with a real pump - the standard weekly step up.' };
 }
 
+/**
+ * A session-level modifier on next week's volume, on top of the per-muscle
+ * answers.
+ *
+ * The per-muscle questions catch a muscle that has not recovered. This catches
+ * the case where *you* have not recovered: a brutal session you faded badly in,
+ * or a run of feeling weaker than last time, means the whole week steps back
+ * rather than one muscle. It applies to every muscle trained that week, and is
+ * still clamped by MRV and by the floor that never strips a slot out of
+ * existence.
+ *
+ *   effort    0 easy · 1 solid · 2 hard · 3 brutal
+ *   stamina   0 did not fade · 1 faded a little · 2 faded a lot
+ *   strength  0 weaker than last time · 1 same · 2 stronger
+ */
+export function sessionVolumeModifier(card = {}) {
+  // Absent is not zero. Skipping the cards must never be read as "the session
+  // was easy and I never faded" - unanswered means no signal, and no signal
+  // means no change.
+  const answered = card.effort != null || card.stamina != null || card.strength != null;
+  if (!answered) return { delta: 0, reason: '' };
+
+  const effort = card.effort == null ? 1 : clamp(card.effort, 0, 3);
+  const stamina = card.stamina == null ? 0 : clamp(card.stamina, 0, 3);
+  const strength = card.strength == null ? 1 : clamp(card.strength, 0, 2);
+
+  // The "easy" bonus needs both questions actually answered - inferring a
+  // never-faded session from a single tap is how volume creeps up on someone.
+  if (card.effort != null && card.stamina != null && effort <= 0 && stamina <= 0) {
+    return { delta: 1, reason: 'The session was easy and you never faded - there is room for more work.' };
+  }
+  if (effort >= 3 && stamina >= 2) {
+    return { delta: -1, reason: 'A brutal session you faded badly in - the whole week backs off a set.' };
+  }
+  if (strength === 0 && (effort >= 2 || stamina >= 1)) {
+    return { delta: -1, reason: 'You felt weaker and the session was a grind - fatigue has caught up, so volume steps back.' };
+  }
+  return { delta: 0, reason: '' };
+}
+
 function clamp(v, lo, hi) {
   const n = Number(v);
   if (!Number.isFinite(n)) return lo;

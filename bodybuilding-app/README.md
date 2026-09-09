@@ -9,7 +9,7 @@ No account, no server, no subscription. Everything lives in your browser.
 
 ```bash
 npm start           # http://localhost:8080
-npm test            # 135 tests, no dependencies
+npm test            # 139 tests, no dependencies
 npm run bundle      # dist/ironblock.html — the whole app in one file
 npm run icons       # regenerate the home-screen icons
 ```
@@ -128,12 +128,17 @@ Three or four questions, one screen each, about thirty seconds:
 | **Stamina** | Did you fade as it went on? | Fading early means volume, not load, is too high |
 | **Strength** | Stronger or weaker than last time? | A run of "weaker" means fatigue caught up early |
 | **Look** | How does the muscle look right now? | The most honest available proxy for whether the dose landed |
-| **Weak point** | Advanced only — agree with what the log found? | Confirms or dismisses specialisation |
+| **Weak point** | Advanced only — agree with what the log found? | Agreeing steers an extra set there; disagreeing stops it being raised again |
 
 One question at a time, each stating its consequence. A single dense form asking
 nine things gets skipped, and skipped feedback is the same as no feedback — the
 app falls back to a default step up and stops being able to tell a good week
 from a bad one.
+
+Skipping is still fine, and explicitly means *no signal* rather than "it was
+easy": an unanswered card changes nothing. The per-muscle answers decide whether
+a *muscle* gets more work; these decide whether *you* do, and apply across the
+whole following week.
 
 ---
 
@@ -326,7 +331,7 @@ js/
   store.js      state + localStorage persistence
 sw.js           offline cache
 manifest.webmanifest, icons/   home-screen install
-test/           135 tests: engine, program design audit, store, modes,
+test/           139 tests: engine, program design audit, store, modes,
                 weak-point detection, beginner layer, equipment adaptation,
                 offline shell, bundle, docs
 tools/          dev server, single-file bundler

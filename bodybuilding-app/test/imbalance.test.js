@@ -26,7 +26,7 @@ const { MUSCLES } = await import('../js/data/muscles.js');
 const { getProgram } = await import('../js/data/programs.js');
 const { getExercise, EXERCISE_BY_ID } = await import('../js/data/exercises.js');
 const { nextPosition, sessionProgress } = await import('../js/ui/views/cards.js');
-const { sessionVolumeModifier } = await import('../js/ui/views/review.js');
+const { sessionVolumeModifier } = await import('../js/engine/progression.js');
 
 beforeEach(() => { memory.clear(); store.reset(); });
 
@@ -297,9 +297,85 @@ test('an "even" side report is not stored as an imbalance', () => {
 });
 
 test('the session cards move next week in the right direction', () => {
-  assert.equal(sessionVolumeModifier({ effort: 3, stamina: 2 }).delta, -1);
-  assert.equal(sessionVolumeModifier({ effort: 0, stamina: 0 }).delta, 1);
-  assert.equal(sessionVolumeModifier({ effort: 2, stamina: 1 }).delta, 0);
+  assert.equal(sessionVolumeModifier({ effort: 3, stamina: 2 }).delta, -1, 'brutal and faded');
+  assert.equal(sessionVolumeModifier({ effort: 0, stamina: 0 }).delta, 1, 'easy and never faded');
+  assert.equal(sessionVolumeModifier({ effort: 2, stamina: 1 }).delta, 0, 'a normal hard session');
   assert.equal(sessionVolumeModifier({}).delta, 0, 'skipping the cards changes nothing');
   assert.ok(sessionVolumeModifier({ effort: 3, stamina: 2 }).reason.length > 20);
+});
+
+test('feeling weaker on a grinding session backs the volume off', () => {
+  // The point of the strength card: a run of "same weights felt heavier" is how
+  // you find out fatigue caught up before the deload was due.
+  assert.equal(sessionVolumeModifier({ effort: 2, stamina: 1, strength: 0 }).delta, -1);
+  assert.equal(sessionVolumeModifier({ effort: 1, stamina: 0, strength: 0 }).delta, 0,
+    'feeling weaker after an easy session is not a fatigue signal on its own');
+  assert.equal(sessionVolumeModifier({ effort: 1, stamina: 0, strength: 2 }).delta, 0,
+    'feeling strong does not by itself earn more work');
+});
+
+test('the session answers actually reach next week\'s plan', () => {
+  // This is the whole point of asking. A card that collects an answer nothing
+  // reads is worse than no card, because it claims a consequence it does not have.
+  const program = getProgram('ul4');
+  const meso = newMesocycle(program);
+  const week = (cards) => program.days.map((d) => ({
+    mesoId: meso.id, week: 0, dayId: d.id, date: Date.now(), session: cards, entries: [],
+  }));
+
+  const chest = (sessions) => plannedSetsByMuscle(weekPlan(meso, sessions, 1).days).chest;
+  const neutral = chest(week({ effort: 1, stamina: 0 }));
+  const wrecked = chest(week({ effort: 3, stamina: 2 }));
+  const fresh = chest(week({ effort: 0, stamina: 0 }));
+
+  assert.ok(wrecked < neutral, 'a brutal, faded week should not be followed by more work');
+  assert.ok(fresh > wrecked);
+});
+
+test('a weak point you disagree with stops being raised', () => {
+  store.setMode('advanced');
+  const lagging = () => store.weakPoints().lagging;
+
+  store.update((st) => ({
+    ...st,
+    sessions: [{
+      id: 's1', date: Date.now(), mesoId: 'm', week: 0, session: {},
+      entries: [
+        { exerciseId: 'bb-bench', sets: [set(140, 5)] },
+        { exerciseId: 'bb-row', sets: [set(70, 8)] },
+      ],
+    }],
+  }));
+  assert.ok(lagging().includes('upperBack'), 'the ratio should surface it first');
+
+  store.update((st) => ({
+    ...st,
+    sessions: [...st.sessions, {
+      id: 's2', date: Date.now() + 1, mesoId: 'm', week: 0, entries: [],
+      session: { weakPoint: { muscle: 'upperBack', verdict: 'disagree' } },
+    }],
+  }));
+  assert.ok(!lagging().includes('upperBack'), 'saying no should stop the nagging');
+  assert.ok(store.weakPoints().dismissed.includes('upperBack'));
+});
+
+test('agreeing with a weak point leaves it in place', () => {
+  store.setMode('advanced');
+  store.update((st) => ({
+    ...st,
+    sessions: [
+      {
+        id: 's1', date: Date.now(), mesoId: 'm', week: 0, session: {},
+        entries: [
+          { exerciseId: 'bb-bench', sets: [set(140, 5)] },
+          { exerciseId: 'bb-row', sets: [set(70, 8)] },
+        ],
+      },
+      {
+        id: 's2', date: Date.now() + 1, mesoId: 'm', week: 0, entries: [],
+        session: { weakPoint: { muscle: 'upperBack', verdict: 'agree' } },
+      },
+    ],
+  }));
+  assert.ok(store.weakPoints().lagging.includes('upperBack'));
 });
