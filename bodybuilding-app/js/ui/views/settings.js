@@ -7,6 +7,7 @@ import { confirmSheet, alertSheet } from '../sheet.js';
 import { EQUIPMENT_PROFILES } from '../../engine/equipment.js';
 import { canInstall, promptInstall, isStandalone, isIos } from '../install.js';
 import { term } from '../term.js';
+import { MODES, MODE_ORDER } from '../../data/modes.js';
 
 export function render(container) {
   clear(container);
@@ -52,28 +53,58 @@ export function render(container) {
     ));
   }
 
-  /* --- experience ------------------------------------------------------ */
+  /* --- training mode ---------------------------------------------------- */
+  const currentMode = store.mode();
+  wrap.append(h('div', { class: 'card' },
+    h('h3', {}, 'Training mode'),
+    h('p', { class: 'secondary small' },
+      'This changes the training, not just the wording: how close to failure you work, how ' +
+      'fast load climbs, what you get asked after a set, and what the app watches for. ' +
+      'A block already running keeps the mode it started in.'),
+    h('div', { class: 'stack', style: 'margin-top:14px;gap:10px' },
+      ...MODE_ORDER.map((id) => {
+        const mode = MODES[id];
+        const current = mode.id === currentMode.id;
+        return h('div', { class: `mode-card${current ? ' is-current' : ''}` },
+          h('h3', {}, mode.name, current && h('span', { class: 'badge badge-accent' }, 'Current')),
+          h('p', { class: 'tagline' }, mode.tagline),
+          h('p', { class: 'secondary small', style: 'margin:0' }, mode.summary),
+          h('ul', {}, ...mode.priorities.map((x) => h('li', {}, x))),
+          !current && h('button', {
+            style: 'margin-top:12px',
+            onClick: () => { store.setMode(mode.id); render(container); },
+          }, `Switch to ${mode.name}`),
+        );
+      }),
+    ),
+  ));
+
+  /* --- wording ---------------------------------------------------------- */
+  const plain = store.plainLanguage();
   wrap.append(h('div', { class: 'card' },
     h('h3', {}, 'How much should the app explain?'),
     h('p', { class: 'secondary small' },
-      'This changes the wording, not the training. The same plan runs underneath either way.'),
+      `Your mode (${currentMode.name}) defaults to ` +
+      `${currentMode.plainLanguage ? 'plain English' : 'the technical wording'}. You can override it.`),
     h('div', { class: 'choice-list', style: 'margin-top:12px' },
       ...[
-        { value: 'new', label: 'Explain things',
+        { value: true, label: 'Explain things',
           detail: 'Plain English, effort asked in words, warm-up guidance on every exercise.' },
-        { value: 'experienced', label: 'Just the numbers',
-          detail: 'RIR fields, compact prescriptions, the technical reasoning.' },
+        { value: false, label: 'Just the numbers',
+          detail: 'RIR, compact prescriptions, the technical reasoning.' },
       ].map((option) => h('button', {
         class: 'choice',
-        'aria-pressed': String((s.experience === 'new') === (option.value === 'new')),
-        style: (s.experience === 'new') === (option.value === 'new')
-          ? 'border-color:var(--accent);background:var(--accent-wash)' : '',
-        onClick: () => { store.setSetting('experience', option.value); render(container); },
+        style: plain === option.value ? 'border-color:var(--accent);background:var(--accent-wash)' : '',
+        onClick: () => { store.setSetting('plainLanguage', option.value); render(container); },
       },
         h('span', { class: 'choice-label' }, option.label),
         h('span', { class: 'choice-detail' }, option.detail),
       )),
     ),
+    s.plainLanguage != null && h('button', {
+      class: 'btn-ghost btn-sm', style: 'margin-top:10px',
+      onClick: () => { store.setSetting('plainLanguage', null); render(container); },
+    }, 'Follow my mode instead'),
   ));
 
   /* --- equipment ------------------------------------------------------- */

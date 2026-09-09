@@ -14,9 +14,16 @@
 
 import { store } from '../store.js';
 
-export function isBeginner() {
-  return store.state.settings.experience === 'new';
+/**
+ * Whether to use plain wording. Defaults from the training mode but is
+ * separately settable: an advanced lifter may still want the explanations, and
+ * someone in beginner mode may find them patronising. Named for what it does
+ * rather than who it is for.
+ */
+export function usePlainLanguage() {
+  return store.plainLanguage();
 }
+
 
 /** Words for a reps-in-reserve value, used on buttons and in prose. */
 export function effortWords(rir) {
@@ -49,7 +56,7 @@ export const EFFORT_CHOICES = [
  * The headline instruction for a set: what to actually do.
  * Beginners get a sentence; experienced lifters get the compact line.
  */
-export function targetLine(p, unit, beginner = isBeginner()) {
+export function targetLine(p, unit, beginner = usePlainLanguage()) {
   const load = p.weight == null ? null : `${trim(p.weight)}${unit}`;
   if (!beginner) {
     return p.weight == null
@@ -68,7 +75,7 @@ export function targetLine(p, unit, beginner = isBeginner()) {
  * Why that instruction. Composed from the decision the engine made rather than
  * translated from its wording, so nothing is lost in a find-and-replace.
  */
-export function reasonLine(p, unit, beginner = isBeginner()) {
+export function reasonLine(p, unit, beginner = usePlainLanguage()) {
   if (!beginner) return p.rationale;
   const prev = p.previous;
   const load = p.weight == null ? '' : `${trim(p.weight)}${unit}`;
@@ -104,6 +111,16 @@ export function reasonLine(p, unit, beginner = isBeginner()) {
         `needs to work well. The weight was simply too heavy, so it comes down to ${load}. ` +
         `This is normal and it is not a step backwards - getting the reps is the point.`;
 
+    case 'hold-form':
+      return `You got the reps, but you said the technique came apart. The weight is not ` +
+        `going up on a movement you are already fighting - that is how a niggle turns into ` +
+        `three months off. Same weight, and make this one look easy.`;
+
+    case 'consolidate':
+      return `You hit the top of the range last time, which is the signal to add weight. ` +
+        `Do it once more at ${load} first. Repeating a session you can already do well is ` +
+        `what makes the movement automatic, and it costs a week to save a month.`;
+
     case 'deload':
       return `Easy week. The weight drops to ${load}, the sets are roughly halved, and you ` +
         `should finish every set feeling like you had plenty left. The hard weeks are done; ` +
@@ -115,20 +132,22 @@ export function reasonLine(p, unit, beginner = isBeginner()) {
 }
 
 /** The short badge on an exercise card. */
-export function tagLabel(tag, beginner = isBeginner()) {
+export function tagLabel(tag, beginner = usePlainLanguage()) {
   const technical = {
     'load-up': 'Load up', 'rep-up': 'Add a rep', hold: 'Hold',
     'back-off': 'Back off', deload: 'Deload', establish: 'Set your baseline',
+    'hold-form': 'Form gate', consolidate: 'Consolidate',
   };
   const plain = {
     'load-up': 'Heavier today', 'rep-up': 'One more rep', hold: 'Same as last time',
     'back-off': 'Lighter today', deload: 'Easy week', establish: 'Find your weight',
+    'hold-form': 'Same weight — nail the form', consolidate: 'Same weight — prove it again',
   };
   return (beginner ? plain : technical)[tag] ?? tag;
 }
 
 /** Plain reading of where a muscle's weekly volume sits. */
-export function volumeStatusLine(row, beginner = isBeginner()) {
+export function volumeStatusLine(row, beginner = usePlainLanguage()) {
   if (!beginner) return `${row.status.label} — ${row.status.advice}`;
   switch (row.status.zone) {
     case 'none': return 'Not trained yet this week.';

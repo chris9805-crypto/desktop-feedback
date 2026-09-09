@@ -26,6 +26,7 @@
 import {
   e1rm, loadForTarget, roundToIncrement, confidenceFor, repsToFailure,
 } from './onerm.js';
+import { getMode, biasedRepRange, DEFAULT_MODE } from '../data/modes.js';
 
 /** How close to failure a movement can safely be taken. */
 const RIR_FLOOR = { low: 1, med: 0, high: 0 };
@@ -77,13 +78,18 @@ export function loadStep(exercise, weight, unit = 'kg') {
   return roundToIncrement(step, base) || base;
 }
 
-/** Planned effort for a week, respecting each movement's safe floor. */
-export function targetRirFor(program, weekIndex, exercise) {
+/**
+ * Planned effort for a week, respecting both the movement's safe floor and the
+ * lifter's own. A beginner is never sent within two reps of failure however
+ * stable the machine is; an advanced lifter on a machine can go all the way.
+ */
+export function targetRirFor(program, weekIndex, exercise, modeId = DEFAULT_MODE) {
   const accumulation = program?.accumulationWeeks ?? 4;
+  const mode = getMode(modeId);
   if (weekIndex >= accumulation) return 4; // deload
   const planned = program?.rirByWeek?.[weekIndex] ?? 2;
-  const floor = RIR_FLOOR[exercise?.stability ?? 'med'] ?? 0;
-  return Math.max(planned, floor);
+  const movementFloor = RIR_FLOOR[exercise?.stability ?? 'med'] ?? 0;
+  return Math.max(planned, movementFloor, mode.rirFloor ?? 0);
 }
 
 export function isDeloadWeek(program, weekIndex) {
@@ -104,15 +110,20 @@ export function isDeloadWeek(program, weekIndex) {
  * @returns {object} prescription
  */
 export function prescribe(ctx) {
-  const { exercise, slot, program, weekIndex, previous = null, seedE1rm = null, unit = 'kg' } = ctx;
-  const repRange = slot?.reps ?? exercise?.reps ?? [8, 12];
+  const {
+    exercise, slot, program, weekIndex, previous = null, seedE1rm = null,
+    unit = 'kg', mode: modeId = DEFAULT_MODE, history = [], formHistory = null,
+  } = ctx;
+  const mode = getMode(modeId);
+  const repRange = biasedRepRange(slot?.reps ?? exercise?.reps ?? [8, 12], mode);
   const [minReps, maxReps] = repRange;
   const deload = isDeloadWeek(program, weekIndex);
-  const targetRir = targetRirFor(program, weekIndex, exercise);
+  const targetRir = targetRirFor(program, weekIndex, exercise, modeId);
   const sets = deload ? Math.max(1, Math.ceil((slot?.sets ?? 3) / 2)) : (slot?.sets ?? 3);
 
   const base = {
-    exerciseId: exercise.id, sets, repRange, targetRir, deload,
+    exerciseId: exercise.id, sets, repRange, targetRir, deload, mode: mode.id,
+    tempo: mode.showTempo ? mode.tempo : null,
     restSec: slot?.restSec ?? defaultRest(exercise, repRange),
   };
 
@@ -172,14 +183,46 @@ export function prescribe(ctx) {
     };
   }
 
+  // Technique is the gate on progression, where the mode says so - and it gates
+  // reps as well as load. Asking for one more rep on a movement someone is
+  // already fighting is still asking for more. This sits after the back-off
+  // check above, because reducing the load is always allowed.
+  if (mode.holdOnPoorForm && formHistory?.lastFormPoor) {
+    return {
+      ...common,
+      weight: prevWeight,
+      targetReps: Math.min(Math.max(prevReps, minReps), maxReps),
+      tag: 'hold-form',
+      rationale: `You reported that technique broke down last time. Nothing goes up ` +
+        `until you can own this weight - adding to a movement you are already fighting ` +
+        `is how the next few months get lost to a niggle. Same weight, same reps, ` +
+        `make it look easy.`,
+    };
+  }
+
   // Topped out the rep window. There is nowhere left for reps to go, so the
   // load has to move - the only question is by how much. Note this is checked
   // against reps alone: the planned effort tightens week to week, and a lifter
   // who filled the window last week must not be told to "add a rep" simply
   // because this week's RIR target dropped underneath them.
   if (prevReps >= maxReps) {
+    // Beginners add load only after proving the current one twice. It is the
+    // cheapest guard against outrunning your own technique.
+    const needed = mode.consecutiveSuccessesForLoad ?? 1;
+    if (needed > 1 && (formHistory?.consecutiveTopOfRange ?? 1) < needed) {
+      return {
+        ...common,
+        weight: prevWeight,
+        targetReps: maxReps,
+        tag: 'consolidate',
+        rationale: `You hit the top of the range - do it once more at this weight before ` +
+          `it goes up. Repeating a session you can already do well is how the movement ` +
+          `becomes automatic, and it costs you a week to save a month.`,
+      };
+    }
     const generous = prevRir >= targetRir + 2;
-    const jump = generous ? Math.max(step, roundToIncrement(prevWeight * 0.05, inc)) : step;
+    const raw = generous ? Math.max(step, roundToIncrement(prevWeight * 0.05, inc)) : step;
+    const jump = Math.max(inc, roundToIncrement(raw * (mode.loadStepFactor ?? 1), inc));
     return {
       ...common,
       weight: roundToIncrement(prevWeight + jump, inc),

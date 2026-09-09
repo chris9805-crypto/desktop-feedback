@@ -17,20 +17,22 @@ import { getExercise } from '../../data/exercises.js';
 import { EQUIPMENT_PROFILES, adaptationReport } from '../../engine/equipment.js';
 import { programTimeProfile } from '../../engine/mesocycle.js';
 import { term } from '../term.js';
+import { MODES, MODE_ORDER } from '../../data/modes.js';
 
-const answers = { experience: null, days: null, equipment: null };
+const answers = { mode: null, days: null, equipment: null };
 let step = 0;
 
 const STEPS = [
   {
-    key: 'experience',
-    question: 'How long have you been lifting weights?',
-    help: 'This sets how much the app explains as you go, and how hard it pushes you early on.',
-    options: [
-      { value: 'new', label: 'I am new to this', detail: 'Never trained properly, or under six months in' },
-      { value: 'some', label: 'Six months to two years', detail: 'I know the lifts but I have not run a real program' },
-      { value: 'experienced', label: 'Two years or more', detail: 'I train seriously and know the terminology' },
-    ],
+    key: 'mode',
+    question: 'What should this block be about?',
+    help: 'This changes the training itself, not just the wording - how close to failure you ' +
+          'work, how fast load climbs, and what the app pays attention to. You can switch later.',
+    options: MODE_ORDER.map((id) => ({
+      value: id,
+      label: MODES[id].name,
+      detail: MODES[id].tagline,
+    })),
   },
   {
     key: 'days',
@@ -104,17 +106,17 @@ function questionCard(container) {
  * matter how many days they say they can train), then the closest available
  * day count wins.
  */
-export function recommendProgram({ experience, days, equipment }) {
+export function recommendProgram({ mode, days, equipment }) {
   const usable = PROGRAMS.filter((p) => adaptationReport(p, equipment ?? 'full').usable);
   const pool = usable.length ? usable : PROGRAMS;
 
-  if (experience === 'new') {
+  if (mode === 'beginner') {
     const novice = pool.find((p) => p.volumeProfile === 'novice');
     if (novice) {
       return {
         program: novice,
         reasons: [
-          'You said you are new, so this is a beginner block: six exercises a session, mostly machines and dumbbells.',
+          'You are in Form & foundation mode, so this is a beginner block: six exercises a session, mostly machines and dumbbells.',
           'Every set stops a few reps short of failing. You will spend this block learning to move well, which is what makes the next six months work.',
           'The volume is deliberately low. Beginners grow on far less work than experienced lifters need, and recovering easily is what gets you back three times a week.',
         ],
@@ -125,7 +127,7 @@ export function recommendProgram({ experience, days, equipment }) {
 
   const eligible = pool.filter((p) => {
     if (p.volumeProfile === 'novice') return false;
-    if (experience !== 'experienced' && p.daysPerWeek >= 6) return false;
+    if (mode !== 'advanced' && p.daysPerWeek >= 6) return false;
     return true;
   });
 
@@ -140,7 +142,7 @@ export function recommendProgram({ experience, days, equipment }) {
   } else {
     reasons.push(`It runs on ${program.daysPerWeek} days, the closest fit to the ${target} you said you have.`);
   }
-  if (experience !== 'experienced' && target >= 6) {
+  if (mode !== 'advanced' && target >= 6) {
     reasons.push('Six sessions a week only pays off once you have a couple of years of consistent training and your recovery is genuinely handled, so this steps you down to something you will actually finish.');
   }
   reasons.push(program.summary.split('. ')[0] + '.');
@@ -158,6 +160,12 @@ function recommendation(container) {
       h('h1', { style: 'margin:6px 0 4px' }, program.name),
       h('p', { class: 'muted small' }, program.subtitle),
       h('ul', { class: 'cues', style: 'margin:16px 0' }, ...reasons.map((r) => h('li', {}, r))),
+      answers.mode && h('div', { class: 'mode-card', style: 'margin-bottom:16px' },
+        h('h3', {}, MODES[answers.mode].name),
+        h('p', { class: 'tagline' }, MODES[answers.mode].tagline),
+        h('p', { class: 'secondary small', style: 'margin:0' }, MODES[answers.mode].summary),
+        h('ul', {}, ...MODES[answers.mode].priorities.map((x) => h('li', {}, x))),
+      ),
       h('div', { class: 'grid grid-3', style: 'margin:18px 0' },
         stat('Days a week', String(program.daysPerWeek)),
         stat('Per session', `${time.sessionMin}–${time.sessionMax} min`),
@@ -203,7 +211,7 @@ function finish(programId) {
     ...s,
     settings: {
       ...s.settings,
-      experience: answers.experience ?? s.settings.experience ?? 'some',
+      mode: answers.mode ?? s.settings.mode ?? 'intermediate',
       equipment: answers.equipment ?? s.settings.equipment ?? 'full',
       onboarded: true,
     },
@@ -226,5 +234,5 @@ function stat(label, value) {
 
 export function reset() {
   step = 0;
-  answers.experience = answers.days = answers.equipment = null;
+  answers.mode = answers.days = answers.equipment = null;
 }

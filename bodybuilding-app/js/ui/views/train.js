@@ -15,9 +15,12 @@ import { h, clear, fmtWeight, fmtClock, fmtDuration } from '../dom.js';
 import { confirmSheet, chooseSheet } from '../sheet.js';
 import { term, showTerm } from '../term.js';
 import {
-  isBeginner, targetLine, reasonLine, tagLabel, warmupAdvice,
+  usePlainLanguage, targetLine, reasonLine, tagLabel, warmupAdvice,
   EFFORT_CHOICES, effortShort,
 } from '../explain.js';
+import { nextPosition, sessionProgress, setCard, effortCard, exerciseCheckCard } from './cards.js';
+import { buildCards } from './review.js';
+import { getMode } from '../../data/modes.js';
 import { store } from '../../store.js';
 import { getExercise, EXERCISES } from '../../data/exercises.js';
 import { getProgram } from '../../data/programs.js';
@@ -82,6 +85,10 @@ export function render(container) {
   clear(root);
   const active = store.state.active;
   root.append(active ? activeSession(active) : sessionPicker());
+  // The rest bar is fixed to the bottom of the viewport, so the page needs to
+  // know to leave room for it - otherwise it sits on top of the button you are
+  // trying to press, which is exactly when it is showing.
+  document.body.classList.toggle('is-resting', rest.active());
   if (rest.active()) root.append(restBar());
 }
 
@@ -160,7 +167,119 @@ function dayCard(meso, weekIndex, day, isNext) {
 
 /* ------------------------------------------------------- active session */
 
+/**
+ * Which set the card flow is showing, and whether it is mid-question. Kept in
+ * module scope rather than in the store: it is where you are looking, not
+ * something worth persisting or re-deriving on every render.
+ */
+const flow = { pendingEffort: null, pendingCheck: null, listView: false };
+
 function activeSession(active) {
+  return flow.listView ? listSession(active) : cardSession(active);
+}
+
+/* --------------------------------------------------------- card flow */
+
+function cardSession(active) {
+  const progress = sessionProgress(active);
+  const wrap = h('div', { class: 'stack session-flow' });
+  const program = getProgram(active.programId);
+  const day = program?.days.find((d) => d.id === active.dayId);
+
+  wrap.append(h('div', { class: 'flow-head' },
+    h('div', { class: 'flow-bar' }, h('div', { class: 'flow-fill', style: `width:${progress.pct}%` })),
+    h('div', { class: 'flow-meta' },
+      h('span', {}, `${day?.name ?? 'Session'} · ${progress.done}/${progress.total} sets`),
+      h('button', {
+        class: 'btn-ghost btn-sm',
+        onClick: () => { flow.listView = true; render(); },
+      }, 'See the whole session'),
+    ),
+  ));
+
+  const opts = {
+    onChange: () => render(),
+    onJump: () => { flow.listView = true; render(); },
+    onLogged: (entry, position) => {
+      flow.pendingEffort = { exerciseId: entry.exerciseId, setIndex: position.setIndex };
+      if (store.state.settings.autoStartRest && !entry.sets[position.setIndex]?.warmup) {
+        rest.start(entry.prescription.restSec, `Rest — ${getExercise(entry.exerciseId).name}`);
+      }
+      render();
+    },
+    onAnswered: (entry) => {
+      flow.pendingEffort = null;
+      // Once every set of an exercise is in, the mode may want a word about it.
+      const finished = entry.sets.every((x) => x.done);
+      const mode = getMode(active.mode);
+      const wantsCheck = mode.setChecks.some((c) =>
+        c !== 'side' || getExercise(entry.exerciseId)?.unilateral);
+      if (finished && wantsCheck) flow.pendingCheck = entry.exerciseId;
+      render();
+    },
+    onNext: () => { flow.pendingCheck = null; render(); },
+  };
+
+  // A per-exercise check-in takes priority, then an unanswered effort question,
+  // then the next unlogged set.
+  if (flow.pendingCheck) {
+    const entry = active.entries.find((e) => e.exerciseId === flow.pendingCheck);
+    const card = entry && exerciseCheckCard(active, entry, opts);
+    if (card) { wrap.append(card); return wrap; }
+    flow.pendingCheck = null;
+  }
+
+  if (flow.pendingEffort) {
+    const entryIndex = active.entries.findIndex((e) => e.exerciseId === flow.pendingEffort.exerciseId);
+    const entry = active.entries[entryIndex];
+    const set = entry?.sets[flow.pendingEffort.setIndex];
+    if (set?.done) {
+      wrap.append(effortCard(active, { entryIndex, setIndex: flow.pendingEffort.setIndex }, opts));
+      return wrap;
+    }
+    flow.pendingEffort = null;
+  }
+
+  const position = nextPosition(active);
+  if (position) {
+    wrap.append(setCard(active, position, opts));
+    wrap.append(upNext(active, position));
+    return wrap;
+  }
+
+  // Everything is logged.
+  wrap.append(h('div', { class: 'setcard' },
+    h('h2', { class: 'setcard-question' }, 'That is every set logged'),
+    h('p', { class: 'setcard-hint' },
+      'A few quick questions about how it went, then it is saved. They take about ' +
+      'thirty seconds and they are what sets next week.'),
+    h('button', { class: 'btn-primary setcard-done', onClick: () => finishFlow(active) }, 'Finish up'),
+    h('button', {
+      class: 'btn-ghost setcard-skip',
+      onClick: () => { flow.listView = true; render(); },
+    }, 'Go back and change something'),
+  ));
+  return wrap;
+}
+
+/** What is coming, so the session has a shape rather than being a tunnel. */
+function upNext(active, position) {
+  const remaining = active.entries
+    .map((entry, index) => ({ entry, index }))
+    .filter(({ entry, index }) => index >= position.entryIndex && entry.sets.some((s) => !s.done));
+  if (remaining.length <= 1) return null;
+  return h('div', { class: 'upnext' },
+    h('h4', {}, 'Still to come'),
+    h('ol', {}, ...remaining.slice(1, 5).map(({ entry }) => {
+      const left = entry.sets.filter((s) => !s.done).length;
+      return h('li', {}, `${getExercise(entry.exerciseId)?.name} — ${left} sets`);
+    })),
+  );
+}
+
+/* --------------------------------------------------------- list view */
+
+function listSession(active) {
   const program = getProgram(active.programId);
   const day = program?.days.find((d) => d.id === active.dayId);
   const doneSets = active.entries.reduce((n, e) => n + e.sets.filter((s) => s.done).length, 0);
@@ -168,6 +287,12 @@ function activeSession(active) {
   const allLogged = active.entries.every((e) => e.sets.every((s) => s.done || s.reps == null));
 
   const wrap = h('div', { class: 'stack' });
+  wrap.append(h('div', { class: 'row', style: 'justify-content:flex-end' },
+    h('button', {
+      class: 'btn-sm',
+      onClick: () => { flow.listView = false; render(); },
+    }, '← Back to one set at a time'),
+  ));
 
   wrap.append(h('div', { class: 'card' },
     h('div', { class: 'spread session-head' },
@@ -217,7 +342,7 @@ function exerciseCard(entry, active) {
 
   const card = h('div', { class: `exercise${complete ? ' is-complete' : ''}` });
 
-  const beginner = isBeginner();
+  const beginner = usePlainLanguage();
 
   card.append(h('div', { class: 'exercise-head' },
     h('div', { class: 'title' },
@@ -319,6 +444,8 @@ function setRow(entry, set, index, prescription, exercise) {
   const unit = store.state.settings.unit;
   const row = h('div', { class: `set-row${set.done ? ' done' : ''}${set.warmup ? ' warmup' : ''}` });
 
+  // `input`, not `change`: `change` only fires on blur, so a value typed and
+  // immediately confirmed would never reach the store.
   const commit = (field) => (ev) => {
     const raw = ev.target.value;
     store.logSet(entry.exerciseId, index, { [field]: raw === '' ? null : Number(raw) });
@@ -329,17 +456,17 @@ function setRow(entry, set, index, prescription, exercise) {
     h('input', {
       type: 'number', inputmode: 'decimal', step: 'any', value: set.weight ?? '',
       placeholder: prescription.weight == null ? '—' : String(prescription.weight),
-      'aria-label': `Set ${index + 1} weight`, onChange: commit('weight'),
+      'aria-label': `Set ${index + 1} weight`, onInput: commit('weight'),
     }),
     h('input', {
       type: 'number', inputmode: 'numeric', value: set.reps ?? '',
       placeholder: String(prescription.targetReps),
-      'aria-label': `Set ${index + 1} reps`, onChange: commit('reps'),
+      'aria-label': `Set ${index + 1} reps`, onInput: commit('reps'),
     }),
     // In beginner mode this is a button that opens the effort question in
     // words. A number box labelled "RIR" is the single most likely place for a
     // new lifter to decide this app is not for them.
-    isBeginner()
+    usePlainLanguage()
       ? h('button', {
           class: 'rir-button', 'aria-label': `Set ${index + 1}: how many reps were left`,
           onClick: async () => {
@@ -355,7 +482,7 @@ function setRow(entry, set, index, prescription, exercise) {
       : h('input', {
           type: 'number', inputmode: 'numeric', min: '0', max: '10', value: set.rir ?? '',
           placeholder: String(prescription.targetRir),
-          'aria-label': `Set ${index + 1} reps in reserve`, onChange: commit('rir'),
+          'aria-label': `Set ${index + 1} reps in reserve`, onInput: commit('rir'),
         }),
     h('button', {
       class: 'check', title: set.done ? 'Logged - tap to undo' : 'Log this set',
@@ -388,7 +515,7 @@ function setRow(entry, set, index, prescription, exercise) {
             reps: live.reps ?? prescription.targetReps,
             // An experienced lifter who leaves the box empty means "as planned".
             // A beginner has not been asked yet, so leave it blank and ask.
-            rir: live.rir ?? (isBeginner() && !live.warmup ? null : prescription.targetRir),
+            rir: live.rir ?? (usePlainLanguage() && !live.warmup ? null : prescription.targetRir),
           });
           if (store.state.settings.autoStartRest && !live.warmup) {
             rest.start(prescription.restSec, `Rest — ${exercise.name}`);
@@ -433,10 +560,7 @@ function effortStrip(entry, set, index) {
 /* --------------------------------------------------------- finish + feedback */
 
 async function finishFlow(active) {
-  const program = getProgram(active.programId);
-  const day = program?.days.find((d) => d.id === active.dayId);
   const logged = active.entries.reduce((n, e) => n + e.sets.filter((s) => s.done).length, 0);
-  const beginner = isBeginner();
 
   if (!logged) {
     const ok = await confirmSheet({
@@ -444,84 +568,60 @@ async function finishFlow(active) {
       body: 'You have not ticked off any sets. End the session without saving it?',
       confirmLabel: 'End it', cancelLabel: 'Keep training', danger: true,
     });
-    if (ok) { store.discardSession(); rest.stop(); render(); }
+    if (ok) { store.discardSession(); rest.stop(); flow.pendingEffort = null; flow.pendingCheck = null; render(); }
     return;
   }
 
-  const muscles = feedbackTargets({ slots: day.slots });
-  const dialog = h('div', {
-    style: 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50;display:grid;place-items:center;padding:16px;overflow:auto',
-  });
-  const panel = h('div', { class: 'card', style: 'max-width:520px;width:100%' });
-
-  panel.append(
-    h('h2', {}, beginner ? 'How does your body feel?' : 'How did that land?'),
-    h('p', { class: 'secondary small' },
-      beginner
-        ? 'This decides how much work you get next week. If a muscle recovered easily it gets ' +
-          'a bit more; if it is still wrecked it gets less. There is no right answer and no ' +
-          'reward for being tough - just say what is true. You can skip it.'
-        : 'This is what sets next week\'s volume. Answer honestly - the app adds sets where you ' +
-          'recovered and takes them away where you did not. Skipping it just means a default step up.'),
-  );
-
-  const grid = h('div', { class: 'feedback-grid', style: 'margin:16px 0' });
-  for (const muscle of muscles) {
-    grid.append(h('div', {},
-      h('h4', { style: 'margin-bottom:8px' }, muscleName(muscle)),
-      beginner
-        ? scaleRow(muscle, 'soreness', 'Still aching from last time?',
-            ['Not at all', 'A little', 'Yes, quite', 'Yes, a lot'])
-        : scaleRow(muscle, 'soreness', 'Soreness', ['None', 'Mild', 'Sore', 'Still sore']),
-      beginner
-        ? scaleRow(muscle, 'pump', 'Did it feel worked?',
-            ['Barely', 'A bit', 'Definitely', 'Massively'])
-        : scaleRow(muscle, 'pump', 'Pump', ['None', 'Slight', 'Good', 'Huge']),
-      beginner
-        ? scaleRow(muscle, 'joint', 'Any joint pain?',
-            ['None', 'A twinge', 'Yes, it hurt', 'Sharp pain'])
-        : scaleRow(muscle, 'joint', 'Joints', ['Fine', 'Niggle', 'Painful', 'Sharp']),
-    ));
-  }
-  panel.append(grid);
-
-  panel.append(h('div', { class: 'row', style: 'justify-content:flex-end' },
-    h('button', { onClick: () => dialog.remove() }, 'Back'),
-    h('button', {
-      class: 'btn-primary',
-      onClick: () => {
-        const session = store.finishSession();
-        rest.stop();
-        dialog.remove();
-        render();
-        showSummary(session);
-      },
-    }, 'Save session'),
-  ));
-
-  dialog.append(panel);
-  dialog.addEventListener('click', (ev) => { if (ev.target === dialog) dialog.remove(); });
-  document.body.append(dialog);
+  runReview(active);
 }
 
-function scaleRow(muscle, field, label, options) {
-  const current = store.state.active?.feedback?.[muscle]?.[field];
-  const row = h('div', { class: 'feedback-row', style: 'margin-bottom:6px' },
-    h('span', { class: 'small secondary' }, label),
-  );
-  const scale = h('div', { class: 'scale' });
-  options.forEach((text, value) => {
-    scale.append(h('button', {
-      class: 'btn-sm', 'aria-pressed': String(current === value),
-      onClick: (ev) => {
-        store.setFeedback(muscle, { [field]: value });
-        for (const sib of scale.children) sib.setAttribute('aria-pressed', 'false');
-        ev.currentTarget.setAttribute('aria-pressed', 'true');
-      },
-    }, text));
-  });
-  row.append(scale);
-  return row;
+/**
+ * The post-session flashcards: one question a screen, tapped through.
+ *
+ * A single dense form asking nine things at once gets skipped, and skipped
+ * feedback is the same as no feedback - the app falls back to a default step
+ * up and stops being able to tell a good week from a bad one. One question at
+ * a time, each with its consequence stated, actually gets answered.
+ */
+function runReview(active) {
+  const cards = buildCards(active);
+  let index = 0;
+
+  const backdrop = h('div', { class: 'review-backdrop' });
+  const panel = h('div', { class: 'review-panel' });
+
+  const draw = () => {
+    clear(panel);
+    if (index >= cards.length) return save();
+
+    panel.append(h('div', { class: 'review-progress' },
+      ...cards.map((_, i) => h('span', { class: `dot${i === index ? ' is-current' : ''}${i < index ? ' is-done' : ''}` })),
+      h('span', { class: 'small muted', style: 'margin-left:auto' }, `${index + 1} of ${cards.length}`),
+    ));
+    panel.append(cards[index].render(() => { index += 1; draw(); }));
+    panel.append(h('div', { class: 'review-actions' },
+      index > 0 && h('button', { class: 'btn-ghost', onClick: () => { index -= 1; draw(); } }, '← Back'),
+      h('button', { class: 'btn-ghost', onClick: () => { index += 1; draw(); } },
+        index === cards.length - 1 ? 'Skip and save' : 'Skip this'),
+    ));
+    panel.scrollTop = 0;
+  };
+
+  const save = () => {
+    const session = store.finishSession();
+    rest.stop();
+    flow.pendingEffort = null;
+    flow.pendingCheck = null;
+    flow.listView = false;
+    backdrop.remove();
+    render();
+    showSummary(session);
+  };
+
+  backdrop.append(panel);
+  backdrop.addEventListener('click', (ev) => { if (ev.target === backdrop) backdrop.remove(); });
+  document.body.append(backdrop);
+  draw();
 }
 
 function showSummary(session) {

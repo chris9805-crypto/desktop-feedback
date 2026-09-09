@@ -15,6 +15,8 @@ import { newMesocycle, weekPlan, nextSession, slotKey } from './engine/mesocycle
 import { prescribe, bestSet } from './engine/progression.js';
 import { e1rm } from './engine/onerm.js';
 import { uid } from './util/id.js';
+import { getMode, DEFAULT_MODE } from './data/modes.js';
+import { analyse } from './engine/imbalance.js';
 
 const STORAGE_KEY = 'ironblock.state.v1';
 const SCHEMA_VERSION = 1;
@@ -30,9 +32,12 @@ function defaultState() {
       restBeep: true,
       theme: 'system',
       bodyweight: null,
-      // Beginner-facing defaults. `experience` drives the plain-language layer;
-      // `onboarded` stops the first-run walkthrough reappearing.
-      experience: null,
+      // `mode` is the training mode - it changes the programming, not just the
+      // wording. `plainLanguage` is the wording, defaulted from the mode but
+      // separately settable, so an advanced lifter can keep the explanations
+      // and a beginner can turn them off.
+      mode: null,
+      plainLanguage: null,
       equipment: 'full',
       onboarded: false,
     },
@@ -57,9 +62,24 @@ function readStored() {
 }
 
 function migrate(state) {
-  // Only one schema so far; the hook exists so a future change never silently
-  // discards someone's training history.
-  return { ...defaultState(), ...state, version: SCHEMA_VERSION };
+  const base = defaultState();
+  const merged = {
+    ...base,
+    ...state,
+    settings: { ...base.settings, ...(state.settings ?? {}) },
+    version: SCHEMA_VERSION,
+  };
+
+  // `experience` (new / some / experienced) predates training modes and only
+  // ever changed the wording. Carry those users onto the equivalent mode
+  // rather than dropping them back to the default.
+  const legacy = { new: 'beginner', some: 'intermediate', experienced: 'advanced' };
+  if (!merged.settings.mode && merged.settings.experience) {
+    merged.settings.mode = legacy[merged.settings.experience] ?? DEFAULT_MODE;
+    merged.settings.plainLanguage = merged.settings.experience === 'new';
+  }
+  delete merged.settings.experience;
+  return merged;
 }
 
 class Store {
@@ -125,6 +145,44 @@ class Store {
     });
   }
 
+  /** The active training mode, falling back to the sensible middle. */
+  mode() {
+    return getMode(this.state.settings.mode ?? DEFAULT_MODE);
+  }
+
+  /** Whether to use plain English. Defaults from the mode; separately settable. */
+  plainLanguage() {
+    const explicit = this.state.settings.plainLanguage;
+    return explicit == null ? this.mode().plainLanguage : explicit;
+  }
+
+  setMode(modeId) {
+    const mode = getMode(modeId);
+    return this.update((s) => ({
+      ...s,
+      settings: {
+        ...s.settings,
+        mode: mode.id,
+        // Only follow the mode's default wording if the user has not chosen.
+        plainLanguage: s.settings.plainLanguage == null ? null : s.settings.plainLanguage,
+      },
+    }));
+  }
+
+  /**
+   * Weak points from the whole log, cached per session count so the analysis
+   * does not re-run on every render of every screen.
+   */
+  weakPoints() {
+    if (!this.mode().showImbalances) return { findings: [], lagging: [] };
+    const key = `${this.state.sessions.length}:${this.state.sessions.at(-1)?.id ?? ''}`;
+    if (this._weakPointKey !== key) {
+      this._weakPointKey = key;
+      this._weakPoints = analyse(this.state.sessions);
+    }
+    return this._weakPoints;
+  }
+
   /* ---------------------------------------------------------- mesocycles */
 
   startMesocycle(programId, name, equipment) {
@@ -133,6 +191,7 @@ class Store {
     const meso = newMesocycle(program, {
       name,
       equipment: equipment ?? this.state.settings.equipment ?? 'full',
+      mode: this.state.settings.mode ?? DEFAULT_MODE,
     });
     this.update((s) => ({
       ...s,
@@ -177,6 +236,36 @@ class Store {
     return { ...found.entries.find((e) => e.exerciseId === exerciseId), date: found.date, week: found.week };
   }
 
+  /**
+   * The two things a mode may gate progression on, read back out of the log.
+   *
+   *   lastFormPoor            technique was reported as breaking down last time
+   *   consecutiveTopOfRange   how many sessions in a row filled the rep window
+   *
+   * Beginner mode needs the second to require two clean sessions before load
+   * moves; beginner and intermediate both use the first to refuse to add
+   * weight to a movement someone is already fighting.
+   */
+  formHistoryFor(exerciseId, repRange) {
+    const relevant = this.state.sessions
+      .filter((s) => s.entries?.some((e) => e.exerciseId === exerciseId))
+      .sort((a, b) => b.date - a.date)
+      .map((s) => s.entries.find((e) => e.exerciseId === exerciseId));
+    if (!relevant.length) return { lastFormPoor: false, consecutiveTopOfRange: 0 };
+
+    const top = repRange?.[1] ?? Infinity;
+    let streak = 0;
+    for (const entry of relevant) {
+      const best = (entry.sets ?? []).filter((x) => x.done && !x.warmup);
+      if (!best.length || !best.some((x) => Number(x.reps) >= top)) break;
+      streak += 1;
+    }
+    return {
+      lastFormPoor: (relevant[0].form ?? 0) >= 2,
+      consecutiveTopOfRange: streak,
+    };
+  }
+
   /** Best estimated 1RM ever recorded for a movement, for seeding a new block. */
   seedE1rmFor(exerciseId) {
     let best = 0;
@@ -194,13 +283,18 @@ class Store {
   buildSession(mesoId, weekIndex, dayId) {
     const meso = this.state.mesocycles.find((m) => m.id === mesoId);
     if (!meso) return null;
-    const plan = weekPlan(meso, this.mesoSessions(mesoId), weekIndex);
+    const plan = weekPlan(meso, this.mesoSessions(mesoId), weekIndex, {
+      lagging: this.weakPoints().lagging,
+    });
     const day = plan?.days.find((d) => d.id === dayId);
     if (!day) return null;
     const unit = this.state.settings.unit;
+    // The block carries the mode it was started in, so switching modes
+    // mid-block does not silently rewrite the training you are part-way through.
+    const mode = meso.mode ?? this.state.settings.mode ?? DEFAULT_MODE;
     return {
       mesoId, weekIndex, dayId,
-      plan, day,
+      plan, day, mode,
       entries: day.slots.map((slot) => {
         const exercise = getExercise(slot.exerciseId);
         const previous = this.lastEntryFor(slot.exerciseId, { mesoId, dayId });
@@ -208,7 +302,8 @@ class Store {
           exerciseId: slot.exerciseId,
           slot,
           prescription: prescribe({
-            exercise, slot, program: plan.program, weekIndex, previous,
+            exercise, slot, program: plan.program, weekIndex, previous, mode,
+            formHistory: this.formHistoryFor(slot.exerciseId, slot.reps ?? exercise.reps),
             seedE1rm: previous ? null : this.seedE1rmFor(slot.exerciseId),
             unit,
           }),
@@ -223,12 +318,16 @@ class Store {
     if (!built) return null;
     const active = {
       mesoId, week: weekIndex, dayId,
+      mode: built.mode,
       programId: this.state.mesocycles.find((m) => m.id === mesoId)?.programId,
       startedAt: Date.now(),
       entries: built.entries.map((e) => ({
         exerciseId: e.exerciseId,
         prescription: e.prescription,
         note: '',
+        form: null,        // 0 clean · 1 shaky · 2 broke down
+        connection: null,  // 0 nothing · 1 some · 2 felt it working
+        side: null,        // 'left' | 'right' | 'even' on unilateral work
         sets: Array.from({ length: e.prescription.sets }, () => ({
           weight: e.prescription.weight ?? null,
           reps: null,
@@ -238,6 +337,7 @@ class Store {
         })),
       })),
       feedback: {},
+      session: {},
     };
     this.update((s) => ({ ...s, active }));
     return active;
@@ -297,6 +397,23 @@ class Store {
     });
   }
 
+  /** Per-exercise ratings gathered during the session (form, connection, side). */
+  setEntryField(exerciseId, field, value) {
+    return this.updateActive((active) => {
+      const entry = active.entries.find((e) => e.exerciseId === exerciseId);
+      if (entry) entry[field] = value;
+      return active;
+    });
+  }
+
+  /** Session-level cards: effort, stamina, how strong it felt. */
+  setSessionCard(key, value) {
+    return this.updateActive((active) => {
+      active.session = { ...(active.session ?? {}), [key]: value };
+      return active;
+    });
+  }
+
   setNote(exerciseId, note) {
     return this.updateActive((active) => {
       const entry = active.entries.find((e) => e.exerciseId === exerciseId);
@@ -323,14 +440,22 @@ class Store {
       week: active.week,
       date: Date.now(),
       durationSec: Math.round((Date.now() - active.startedAt) / 1000),
+      mode: active.mode,
       entries: active.entries.map((e) => ({
         exerciseId: e.exerciseId,
         swappedFrom: e.swappedFrom ?? null,
         note: e.note,
+        form: e.form,
+        connection: e.connection,
         sets: e.sets.filter((s) => s.done),
         prescription: e.prescription,
       })).filter((e) => e.sets.length),
       feedback: active.feedback,
+      session: active.session ?? {},   // effort, stamina, strength cards
+      sideReports: Object.fromEntries(
+        active.entries.filter((e) => e.side === 'left' || e.side === 'right')
+          .map((e) => [e.exerciseId, e.side]),
+      ),
     };
     this.update((s) => {
       const mesocycles = s.mesocycles.map((m) => {

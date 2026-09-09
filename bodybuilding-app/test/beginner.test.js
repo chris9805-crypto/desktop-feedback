@@ -125,7 +125,7 @@ test('the jargon the app actually shows is all defined somewhere', () => {
 
 test('a complete beginner is never handed an advanced split', () => {
   for (const days of [3, 4, 5, 6]) {
-    const { program, reasons } = recommendProgram({ experience: 'new', days, equipment: 'full' });
+    const { program, reasons } = recommendProgram({ mode: 'beginner', days, equipment: 'full' });
     assert.equal(program.volumeProfile, 'novice',
       `${days} days a week should still start a beginner on the beginner program`);
     assert.ok(reasons.length >= 2, 'the recommendation has to explain itself');
@@ -133,27 +133,27 @@ test('a complete beginner is never handed an advanced split', () => {
 });
 
 test('six-day splits are reserved for people who said they are experienced', () => {
-  const keen = recommendProgram({ experience: 'some', days: 6, equipment: 'full' });
+  const keen = recommendProgram({ mode: 'intermediate', days: 6, equipment: 'full' });
   assert.ok(keen.program.daysPerWeek < 6, 'two years of training is the bar for six days a week');
   assert.ok(keen.reasons.some((r) => /six sessions/i.test(r)), 'and it should say why');
 
-  const veteran = recommendProgram({ experience: 'experienced', days: 6, equipment: 'full' });
+  const veteran = recommendProgram({ mode: 'advanced', days: 6, equipment: 'full' });
   assert.equal(veteran.program.daysPerWeek, 6);
 });
 
 test('the recommendation matches the days someone actually has', () => {
   for (const days of [3, 4, 5]) {
-    const { program } = recommendProgram({ experience: 'experienced', days, equipment: 'full' });
+    const { program } = recommendProgram({ mode: 'advanced', days, equipment: 'full' });
     assert.equal(program.daysPerWeek, days, `asked for ${days} days, got ${program.daysPerWeek}`);
   }
 });
 
 test('a recommendation is always something the person can actually do', () => {
   for (const equipment of Object.keys(EQUIPMENT_PROFILES)) {
-    for (const experience of ['new', 'some', 'experienced']) {
-      const { program } = recommendProgram({ experience, days: 4, equipment });
+    for (const mode of ['beginner', 'intermediate', 'advanced']) {
+      const { program } = recommendProgram({ mode, days: 4, equipment });
       assert.ok(adaptationReport(program, equipment).usable,
-        `${experience}/${equipment} was recommended a program with movements they cannot perform`);
+        `${mode}/${equipment} was recommended a program with movements they cannot perform`);
     }
   }
 });
@@ -238,6 +238,6 @@ test('a block keeps the equipment it started with', () => {
 
 test('a new install starts un-onboarded so the walkthrough runs', () => {
   assert.equal(store.state.settings.onboarded, false);
-  assert.equal(store.state.settings.experience, null);
+  assert.equal(store.state.settings.mode, null);
   assert.equal(store.state.settings.equipment, 'full');
 });

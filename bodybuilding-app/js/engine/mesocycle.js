@@ -19,6 +19,7 @@ import { setChangeFromFeedback, isDeloadWeek, defaultRest } from './progression.
 import { plannedSetsByMuscle } from './volume.js';
 import { uid } from '../util/id.js';
 import { adaptDays, DEFAULT_PROFILE } from './equipment.js';
+import { getMode, DEFAULT_MODE } from '../data/modes.js';
 
 export const MAX_ADDED_SETS_PER_SLOT = 2;
 /**
@@ -42,11 +43,14 @@ export function totalWeeks(program) {
   return (program?.accumulationWeeks ?? 4) + 1; // + deload
 }
 
-export function newMesocycle(program, { name, startedAt = Date.now(), id, equipment = DEFAULT_PROFILE } = {}) {
+export function newMesocycle(program, {
+  name, startedAt = Date.now(), id, equipment = DEFAULT_PROFILE, mode = DEFAULT_MODE,
+} = {}) {
   return {
     id: id ?? uid('meso'),
     programId: program.id,
     equipment,
+    mode,
     name: name ?? `${program.name} · ${new Date(startedAt).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}`,
     startedAt,
     currentWeek: 0,
@@ -94,11 +98,22 @@ function growableSlots(program, muscleId) {
  *
  * @returns {{extras: Object<string, number>, notes: Object<string, string>}}
  */
-export function computeExtras(program, sessions, mesoId, weekIndex) {
+/**
+ * Extra sets a lagging muscle earns on top of its normal weekly step, in
+ * advanced mode. Deliberately small: specialisation works by being sustained
+ * for a block, not by doubling a muscle's volume in week two - and every
+ * addition is still clamped to MRV like any other.
+ */
+export const WEAK_POINT_BONUS_SETS = 1;
+
+export function computeExtras(program, sessions, mesoId, weekIndex, { lagging = [] } = {}) {
   const extras = {};
   const notes = {};
   const accumulation = program.accumulationWeeks ?? 4;
   const lastWeek = Math.min(weekIndex, accumulation - 1);
+  // Only the top couple of weak points get boosted. Specialising in everything
+  // is just training everything, with worse recovery.
+  const priority = new Set(lagging.slice(0, 2));
 
   for (let w = 1; w <= lastWeek; w++) {
     const feedback = feedbackForWeek(sessions, mesoId, w - 1);
@@ -110,9 +125,19 @@ export function computeExtras(program, sessions, mesoId, weekIndex) {
       const change = fb
         ? setChangeFromFeedback(fb)
         : { delta: DEFAULT_WEEKLY_SET_DELTA, reason: 'No feedback logged - default weekly step up.' };
-      if (change.delta !== 0) notes[muscleId] = change.reason;
 
-      applyDelta(program, extras, muscleId, slots, change.delta);
+      // A weak point gets an extra set a week - but only while it is actually
+      // recovering. Piling volume onto a muscle that reported joint pain or
+      // lingering soreness makes it weaker, not stronger.
+      let delta = change.delta;
+      let reason = change.reason;
+      if (priority.has(muscleId) && delta > 0) {
+        delta += WEAK_POINT_BONUS_SETS;
+        reason = `${change.reason} Extra set on top: this is a weak point you are specialising in.`;
+      }
+      if (delta !== 0) notes[muscleId] = reason;
+
+      applyDelta(program, extras, muscleId, slots, delta);
     }
     // Clamp only once every muscle has had its say. Sets added for one muscle
     // land as indirect volume on others, so clamping per muscle as we go lets
@@ -216,13 +241,15 @@ export function resolveWeek(program, extras = {}) {
 }
 
 /** The full plan for one week of a live mesocycle. */
-export function weekPlan(meso, sessions, weekIndex) {
+export function weekPlan(meso, sessions, weekIndex, { lagging = [] } = {}) {
   const program = getProgram(meso.programId);
   if (!program) return null;
+  const mode = getMode(meso.mode ?? DEFAULT_MODE);
   const deload = isDeloadWeek(program, weekIndex);
+  const weakPoints = mode.showImbalances ? lagging : [];
   const { extras, notes } = deload
     ? { extras: {}, notes: {} }
-    : computeExtras(program, sessions, meso.id, weekIndex);
+    : computeExtras(program, sessions, meso.id, weekIndex, { lagging: weakPoints });
   const resolved = resolveWeek(program, extras);
   // Equipment substitution happens last, so volume progression and the MRV
   // clamp reason about the program as designed, and only the movement someone
@@ -235,6 +262,8 @@ export function weekPlan(meso, sessions, weekIndex) {
     targetRir: deload ? 4 : program.rirByWeek?.[weekIndex] ?? 2,
     program,
     notes,
+    mode: mode.id,
+    weakPoints,
     days: days.map((d) => ({
       ...d,
       done: Boolean(meso.completed?.[`${weekIndex}:${d.id}`]),
@@ -244,12 +273,12 @@ export function weekPlan(meso, sessions, weekIndex) {
 }
 
 /** Next unfinished day, rolling into the following week when one is complete. */
-export function nextSession(meso, sessions) {
+export function nextSession(meso, sessions, options = {}) {
   const program = getProgram(meso.programId);
   if (!program) return null;
   const weeks = totalWeeks(program);
   for (let w = meso.currentWeek ?? 0; w < weeks; w++) {
-    const plan = weekPlan(meso, sessions, w);
+    const plan = weekPlan(meso, sessions, w, options);
     const day = plan.days.find((d) => !d.done);
     if (day) return { weekIndex: w, plan, day };
   }

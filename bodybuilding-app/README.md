@@ -9,7 +9,7 @@ No account, no server, no subscription. Everything lives in your browser.
 
 ```bash
 npm start           # http://localhost:8080
-npm test            # 95 tests, no dependencies
+npm test            # 135 tests, no dependencies
 npm run bundle      # dist/ironblock.html — the whole app in one file
 npm run icons       # regenerate the home-screen icons
 ```
@@ -40,6 +40,100 @@ all — instead of being an advertised guess, so you know a peak-week Upper A is
 **Progressive.** Load, reps, weekly sets and weekly effort all move, each by its
 own rule, each driven by data you logged rather than a number written into a
 spreadsheet a year ago.
+
+---
+
+## Three modes
+
+The mode changes the **training**, not just the wording. It is picked on first
+run and switchable in Settings; a block already running keeps the mode it
+started in, so switching never rewrites training you are part-way through.
+
+### Form & foundation — beginner
+
+The constraint at this stage is technique, not recovery, so the app treats it
+that way:
+
+- **Never within 2 reps of failure**, on any exercise, in any week — including
+  the last hard week where the program itself calls for 0 RIR.
+- **Rep windows shift up by 2.** Lighter loads for more reps are far more
+  forgiving of imperfect technique and teach position better.
+- **Half-size load jumps**, and load only moves after you have hit the top of
+  the range **twice**. Repeating a session you can already do well is what makes
+  a movement automatic.
+- **Tempo prescribed** — three seconds down, pause, lift with control.
+- After each exercise it asks two things: *did the technique hold up* and *did
+  you feel the target muscle working*. Both gate progression: report that form
+  broke down and the weight does not go up, whatever the reps said.
+- No estimated 1RM shown. The number means little before technique settles.
+
+### Strength & structure — intermediate
+
+The main lifts get the heavy work and the attention. Effort is capped by the
+movement rather than by the mode — a heavy barbell lift still stops at 1 RIR,
+but taking a leg extension to failure is normal, useful training here.
+
+Form is the **gate** rather than the goal: one question after each exercise, and
+a set where technique came apart holds the load. Estimated 1RM on the main lifts
+is front and centre.
+
+### Weak points & limits — advanced
+
+At this level the average is not the problem — the weak links are. This mode
+reads the log for three kinds of imbalance and steers volume accordingly:
+
+- **Strength ratios.** Row against bench, overhead press against bench, squat
+  against deadlift, vertical pull against vertical press. A bench that has run
+  away from the row it should roughly match is a back problem that eventually
+  becomes a shoulder problem.
+- **Progress rate by muscle.** A muscle whose estimated max has gone nowhere for
+  a block while everything else moved, measured against the median.
+- **Side-to-side**, from what you report after unilateral sets. Near universal,
+  almost never measured.
+
+Every finding shows its evidence (*"85 vs 184 — a ratio of 0.46 where 0.85 is
+typical"*). The top two lagging muscles get an extra set a week in the next
+block — still clamped to MRV, and only while they are actually recovering.
+Sets on stable movements can go to genuine failure, and a rough-form report is
+treated as information rather than a veto: you are told, and you decide.
+
+## Logging without typing
+
+The old grid of number boxes assumed you wanted to type. Mostly you do not —
+you did roughly what the app told you to, and typing three numbers per set,
+twenty times a session, with chalk on your hands, is why training logs get
+abandoned in week three.
+
+So **the app proposes and you confirm**. One card per set, the predicted numbers
+already in place at a size you can read from arm's length, and a button that
+says `Done — 100kg × 8`. Adjusting is a tap on a stepper. Typing is still there
+for when reality diverged badly, but it is the exception rather than the
+interaction. The prediction is not a guess — it is the same progression engine
+that writes the plan, so confirming is genuinely the common case.
+
+The one thing it cannot predict is how hard the set felt, so that is asked
+straight after, in words, with five big targets. It is never assumed: a set
+confirmed with one tap carries no effort rating until you give one, because
+feeding the engine its own assumptions back is worse than a gap.
+
+`See the whole session` switches to the scrollable list at any point.
+
+### The flashcards afterwards
+
+Three or four questions, one screen each, about thirty seconds:
+
+| Card | What it asks | What it does |
+|---|---|---|
+| **Effort** | How hard was the session? | Whether next week's volume climbs or backs off |
+| **Stamina** | Did you fade as it went on? | Fading early means volume, not load, is too high |
+| **Strength** | Stronger or weaker than last time? | A run of "weaker" means fatigue caught up early |
+| **Look** | How does the muscle look right now? | The most honest available proxy for whether the dose landed |
+| **Weak point** | Advanced only — agree with what the log found? | Confirms or dismisses specialisation |
+
+One question at a time, each stating its consequence. A single dense form asking
+nine things gets skipped, and skipped feedback is the same as no feedback — the
+app falls back to a default step up and stops being able to tell a good week
+from a bad one.
 
 ---
 
@@ -213,9 +307,10 @@ no session runs past 105 minutes.
 
 ```
 js/
-  data/         exercises, programs, muscles + landmarks, glossary
+  data/         exercises, programs, muscles + landmarks, glossary, modes
   engine/
     equipment.js     substituting movements for the kit you have
+    imbalance.js     strength ratios, stalled muscles, side-to-side
     onerm.js         estimated 1RM and its inverse
     progression.js   the decision: what goes on the bar today
     volume.js        fractional set counting against landmarks
@@ -224,12 +319,16 @@ js/
     explain.js       plain-English wording for everything the engine decides
     sheet.js         bottom sheets (no alert/prompt/confirm anywhere)
     term.js          tappable jargon
-    views/           screens, including the first-run walkthrough and Learn
+    views/
+      cards.js       one-card-per-set logging
+      review.js      the post-session flashcards
+      ...            screens, the first-run walkthrough and Learn
   store.js      state + localStorage persistence
 sw.js           offline cache
 manifest.webmanifest, icons/   home-screen install
-test/           95 tests: engine, program design audit, store, beginner
-                layer, equipment adaptation, offline shell, bundle, docs
+test/           135 tests: engine, program design audit, store, modes,
+                weak-point detection, beginner layer, equipment adaptation,
+                offline shell, bundle, docs
 tools/          dev server, single-file bundler
 ```
 

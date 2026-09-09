@@ -15,7 +15,8 @@ import { e1rm, tonnage } from '../../engine/onerm.js';
 import { bestSet, strengthTrend } from '../../engine/progression.js';
 import { volumeChart, trendChart } from '../charts.js';
 import { term } from '../term.js';
-import { isBeginner, volumeStatusLine } from '../explain.js';
+import { usePlainLanguage, volumeStatusLine } from '../explain.js';
+import { getMode } from '../../data/modes.js';
 
 export function render(container) {
   clear(container);
@@ -38,12 +39,12 @@ export function render(container) {
         h('h2', { style: 'margin-top:4px' }, next ? `${next.plan.label} · ${next.day.name}` : 'Block complete'),
       ),
       next?.plan.deload && h('span', { class: 'badge badge-accent' },
-        isBeginner() ? 'Easy week' : 'Deload week'),
+        usePlainLanguage() ? 'Easy week' : 'Deload week'),
     ),
     next
       ? h('div', {},
           h('p', { class: 'secondary' },
-            isBeginner()
+            usePlainLanguage()
               ? `${next.day.focus} · ${next.day.slots.reduce((n, s) => n + s.sets, 0)} sets · ` +
                 `about ${estimateSessionMinutes(next.day)} minutes. Stop each set with roughly ` +
                 `${next.plan.targetRir} ${next.plan.targetRir === 1 ? 'rep' : 'reps'} still in you.`
@@ -80,7 +81,7 @@ export function render(container) {
         }, `${plan.label} · ${done}/${plan.days.length}`);
       }),
     ),
-    isBeginner()
+    usePlainLanguage()
       ? h('p', { class: 'small secondary', style: 'margin-top:12px;margin-bottom:0' },
           'Each week you push a little closer to your limit: ',
           program.rirByWeek.map((r, i) =>
@@ -104,7 +105,7 @@ export function render(container) {
       h('h3', {}, 'Weekly volume'),
       h('span', { class: 'small muted' }, `Hard sets logged so far in ${weekPlan(meso, sessions, currentWeek).label.toLowerCase()}`),
     ),
-    isBeginner()
+    usePlainLanguage()
       ? h('div', { class: 'zone-legend', style: 'margin-bottom:10px' },
           h('span', {}, 'The grey band is how much work each muscle wants in a week. Bars inside it are on track.'),
           h('span', {}, 'Easy sets are not counted — only ones you took reasonably close to your limit.'),
@@ -123,6 +124,33 @@ export function render(container) {
       : null,
   ));
 
+  /* --- weak points (advanced mode) -------------------------------------- */
+  const mode = store.mode();
+  if (mode.showImbalances) {
+    const { findings } = store.weakPoints();
+    wrap.append(h('div', { class: 'card' },
+      h('div', { class: 'card-head' },
+        h('h3', {}, 'Weak points'),
+        h('span', { class: 'small muted' }, 'From your logged strength ratios, progress and per-side reports'),
+      ),
+      findings.length
+        ? h('div', { class: 'stack', style: 'gap:10px' },
+            ...findings.slice(0, 4).map((f) => h('div', { class: 'finding' },
+              h('h4', {}, f.title),
+              h('p', {}, f.detail),
+              h('p', { class: 'evidence' }, f.evidence),
+            )),
+            h('p', { class: 'small muted', style: 'margin:4px 0 0' },
+              'The top two get an extra set a week in your next block, clamped to what you can ' +
+              'recover from like anything else.'),
+          )
+        : h('p', { class: 'secondary small', style: 'margin:0' },
+            'Nothing is standing out yet. Strength ratios need a few sessions on the main lifts ' +
+            'before they mean anything, and side-to-side reports need a handful of unilateral ' +
+            'sets. Keep logging and this fills in.'),
+    ));
+  }
+
   /* --- strength -------------------------------------------------------- */
   const anchors = anchorLifts(program);
   const trends = anchors.map((exerciseId) => {
@@ -133,12 +161,12 @@ export function render(container) {
     return { exerciseId, entries, trend: strengthTrend(entries) };
   }).filter((t) => t.trend.points.length > 0);
 
-  if (trends.length) {
+  if (trends.length && mode.showE1rm) {
     wrap.append(h('div', { class: 'card' },
       h('div', { class: 'card-head' },
-        h('h3', {}, isBeginner() ? 'How strong you are getting' : 'Estimated max on the main lifts'),
+        h('h3', {}, usePlainLanguage() ? 'How strong you are getting' : 'Estimated max on the main lifts'),
         h('span', { class: 'small muted' },
-          isBeginner()
+          usePlainLanguage()
             ? h('span', {}, 'Your ', term('e1rm', 'estimated best single'), ', worked out from your normal sets')
             : ''),
       ),

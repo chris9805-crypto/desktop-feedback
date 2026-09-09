@@ -615,3 +615,170 @@ tr:last-child td { border-bottom: 0; }
   .card { padding: 15px; }
   .page-head h1 { font-size: 23px; }
 }
+
+/* ==========================================================================
+   Card-based logging: one set at a time, numbers big enough to read at
+   arm's length, everything reachable with a thumb.
+   ========================================================================== */
+
+.session-flow { max-width: 560px; margin: 0 auto; }
+
+.flow-head { margin-bottom: 14px; }
+.flow-bar { height: 4px; border-radius: 999px; background: var(--surface-3); overflow: hidden; }
+.flow-fill { height: 100%; background: var(--accent); border-radius: 999px; transition: width .25s ease; }
+.flow-meta {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin-top: 7px; font-size: 13px; color: var(--text-secondary);
+}
+
+.setcard {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+}
+.setcard + .upnext { margin-top: 14px; }
+
+.setcard-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+.setcard-head > div:first-child { flex: 1; min-width: 0; }
+.setcard-exercise { font-size: 21px; font-weight: 650; letter-spacing: -0.02em; line-height: 1.2; }
+.setcard-meta { font-size: 13px; color: var(--text-muted); margin-top: 3px; }
+
+.setcard-numbers {
+  display: flex; align-items: flex-end; gap: 10px;
+  margin: 6px 0 14px;
+}
+.setcard-times { font-size: 20px; color: var(--text-muted); padding-bottom: 12px; }
+
+.stepper { flex: 1; min-width: 0; }
+.stepper-label {
+  display: block; font-size: 11px; font-weight: 650; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--text-muted); margin-bottom: 5px;
+}
+.stepper-controls { display: flex; align-items: stretch; gap: 6px; }
+.stepper-btn {
+  width: 46px; flex: none; justify-content: center;
+  font-size: 21px; font-weight: 500; line-height: 1;
+  background: var(--surface-2);
+}
+.stepper input {
+  flex: 1; min-width: 0;
+  text-align: center;
+  font-size: 26px; font-weight: 650; letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  padding: 8px 2px;
+}
+.stepper input::placeholder { font-size: 14px; font-weight: 500; letter-spacing: 0; }
+
+.setcard-hint { font-size: 13px; color: var(--text-secondary); margin: 0 0 14px; }
+.setcard-tempo {
+  font-size: 13px; margin: 0 0 14px; padding: 9px 12px;
+  border-radius: var(--radius-sm); background: var(--accent-wash);
+  border-left: 3px solid var(--accent); color: var(--text-secondary);
+}
+
+.setcard-done {
+  width: 100%; justify-content: center;
+  font-size: 17px; font-weight: 650;
+  padding: 15px;
+}
+.setcard-skip { width: 100%; justify-content: center; margin-top: 8px; font-size: 13.5px; }
+
+.setcard-secondary { display: flex; gap: 7px; margin-top: 10px; flex-wrap: wrap; }
+.setcard-secondary button { flex: 1; justify-content: center; font-size: 12.5px; }
+
+.setcard-cues, .setcard .warmup { margin: 14px 0 0; }
+.setcard-cues {
+  padding: 10px 13px; border-radius: var(--radius-sm); background: var(--surface-2); font-size: 13.5px;
+}
+.setcard-cues summary { cursor: pointer; font-weight: 600; color: var(--text-secondary); }
+.setcard-cues[open] summary { margin-bottom: 8px; }
+
+.setcard-logged {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  font-size: 13px; font-weight: 600; color: var(--good); margin-bottom: 14px;
+}
+.setcard-question { font-size: 20px; margin-bottom: 6px; letter-spacing: -0.02em; }
+
+/* ------------------------------------------------- big tappable answers */
+
+.bigchoice { display: flex; flex-direction: column; gap: 8px; margin: 14px 0; }
+.bigchoice-option {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  width: 100%; text-align: left; padding: 13px 15px;
+  background: var(--surface-2); border-color: var(--border);
+}
+.bigchoice-option:hover { border-color: var(--accent); background: var(--accent-wash); }
+.bigchoice-option[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-wash); }
+.bigchoice-label { font-size: 15.5px; font-weight: 640; }
+.bigchoice-detail { font-size: 13px; color: var(--text-secondary); font-weight: 400; line-height: 1.35; }
+
+.question + .question { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border); }
+.question h3 { margin-bottom: 4px; }
+
+.upnext {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 13px 16px; background: var(--surface-1);
+}
+.upnext ol { margin: 8px 0 0; padding-left: 18px; font-size: 13.5px; color: var(--text-secondary); }
+
+/* ------------------------------------------------------ review cards */
+
+.review-backdrop {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(0, 0, 0, .6);
+  display: flex; align-items: flex-end; justify-content: center;
+  padding: 0;
+}
+.review-panel {
+  background: var(--surface-1);
+  width: 100%; max-width: 540px;
+  border-radius: 18px 18px 0 0;
+  padding: 16px 20px calc(20px + var(--safe-area-bottom, env(safe-area-inset-bottom, 0px)));
+  max-height: 92vh; overflow-y: auto;
+}
+.review-progress { display: flex; align-items: center; gap: 6px; margin-bottom: 18px; }
+.review-progress .dot { width: 20px; height: 4px; border-radius: 999px; background: var(--surface-3); }
+.review-progress .dot.is-done { background: var(--accent); opacity: .45; }
+.review-progress .dot.is-current { background: var(--accent); }
+.review-actions { display: flex; justify-content: space-between; gap: 10px; margin-top: 16px; }
+
+@media (min-width: 620px) {
+  .review-backdrop { align-items: center; padding: 20px; }
+  .review-panel { border-radius: 18px; }
+}
+
+/* ------------------------------------------------------------- modes */
+
+.mode-card { border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; background: var(--surface-1); }
+.mode-card.is-current { border-color: var(--accent); background: var(--accent-wash); }
+.mode-card h3 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mode-card .tagline { font-size: 13.5px; color: var(--text-secondary); margin: 3px 0 10px; }
+.mode-card ul { margin: 10px 0 0; padding-left: 18px; font-size: 13.5px; color: var(--text-secondary); }
+.mode-card li { margin-bottom: 3px; }
+
+.finding {
+  border-left: 3px solid var(--warning);
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+.finding h4 { color: var(--text-primary); text-transform: none; letter-spacing: 0; font-size: 14.5px; }
+.finding p { font-size: 13.5px; color: var(--text-secondary); margin: 5px 0 0; }
+.finding .evidence { font-size: 12.5px; color: var(--text-muted); margin-top: 5px; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 480px) {
+  .stepper input { font-size: 22px; }
+  .stepper-btn { width: 42px; font-size: 19px; }
+  .setcard-exercise { font-size: 19px; }
+}
+
+/* The rest timer is fixed to the bottom; the page has to leave room for it or
+   it covers the primary action of whatever card is on screen. */
+body.is-resting main { padding-bottom: 104px; }
+
+@media (max-width: 760px) {
+  body.is-resting main {
+    padding-bottom: calc(var(--tabbar-height) + var(--safe-bottom) + 104px);
+  }
+}
