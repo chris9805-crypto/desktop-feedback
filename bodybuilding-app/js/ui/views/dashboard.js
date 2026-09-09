@@ -23,6 +23,7 @@ import { weekPlan, mesoProgress, totalWeeks, estimateSessionMinutes } from '../.
 import { setsByMuscle, volumeReport, volumeFlags } from '../../engine/volume.js';
 import { strengthTrend } from '../../engine/progression.js';
 import { levelTitle } from '../../engine/progress.js';
+import { VERDICT_COPY } from '../../engine/retention.js';
 import { volumeChart, trendChart } from '../charts.js';
 import { volumeStatusLine, usePlainLanguage } from '../explain.js';
 import { term } from '../term.js';
@@ -40,6 +41,7 @@ function active(meso) {
   const sessions = store.mesoSessions(meso.id);
   const next = store.nextUp();
   const progress = store.progress();
+  const phase = store.phase();
   const blockProgress = mesoProgress(meso, sessions);
   const wrap = h('div', { class: 'stack' });
 
@@ -78,6 +80,7 @@ function active(meso) {
           chip(`${sets} sets`),
           chip(`~${minutes} min`),
           chip(next.plan.deload ? 'Back off' : `${next.plan.targetRir} in reserve`),
+          phase.goal === 'hold' && chip('Match last week'),
         ),
       ),
       h('span', { class: 'next-go' }, 'Start'),
@@ -182,6 +185,43 @@ function active(meso) {
         ),
       ));
     }
+  }
+
+  /* --- retention --------------------------------------------------------- */
+  const retention = store.retention();
+  if (retention.pct != null && (phase.goal === 'hold' || retention.verdict === 'losing')) {
+    const copy = VERDICT_COPY[retention.verdict] ?? VERDICT_COPY.unknown;
+    wrap.append(h('div', { class: 'panel retention' },
+      h('div', { class: 'panel-head' },
+        h('h3', {}, 'Strength retention'),
+        h('span', { class: `badge badge-${retention.verdict === 'losing' ? 'critical' : retention.verdict === 'slipping' ? 'warning' : 'good'}` },
+          copy.label),
+      ),
+      h('div', { class: 'retention-figure' },
+        h('span', { class: 'retention-pct num' }, `${retention.pct}%`),
+        h('div', {},
+          h('div', { class: 'small strong' }, 'of your best, held'),
+          h('div', { class: 'tiny muted' },
+            `${retention.held} of ${retention.total} lifts within 3% of their peak`),
+        ),
+      ),
+      h('p', { class: 'secondary small', style: 'margin:10px 0 0' }, copy.line),
+      h('div', { class: 'retention-list' }, ...retention.lifts.slice(0, 5).map((lift) => h('div', {
+        class: `retention-row${lift.held ? ' is-held' : ''}`,
+      },
+        h('span', { class: 'retention-name' }, lift.name),
+        h('div', { class: 'retention-bar' },
+          h('div', {
+            class: 'retention-fill',
+            style: `width:${Math.min(100, lift.pct)}%`,
+          }),
+        ),
+        h('span', { class: 'retention-value num' }, `${lift.pct}%`),
+      ))),
+      h('p', { class: 'tiny muted', style: 'margin:12px 0 0' },
+        'This is strength retention, not muscle retention — no app can measure muscle. ' +
+        'Strength is the best signal a training log has, and a good one, but it is a proxy.'),
+    ));
   }
 
   /* --- strength ---------------------------------------------------------- */

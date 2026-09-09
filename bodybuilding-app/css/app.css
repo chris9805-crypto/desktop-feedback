@@ -1146,3 +1146,20 @@ details.expandable > div { padding: 0 16px 16px; }
   font-size: 13px; line-height: 1; color: var(--text-muted);
 }
 .reorder button:hover { color: var(--accent); background: var(--surface-2); }
+
+/* Strength retention — the measure that replaces "records" during a cut. */
+.retention-figure { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
+.retention-pct {
+  font-size: 40px; font-weight: 700; letter-spacing: -0.03em; line-height: 1;
+  color: var(--accent);
+}
+.retention-list { display: flex; flex-direction: column; gap: 7px; margin-top: 16px; }
+.retention-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.retention-name {
+  flex: none; width: 108px; color: var(--text-secondary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.retention-bar { flex: 1; height: 7px; border-radius: 999px; background: var(--surface-3); overflow: hidden; }
+.retention-fill { height: 100%; border-radius: 999px; background: var(--warning); }
+.retention-row.is-held .retention-fill { background: var(--good); }
+.retention-value { flex: none; width: 38px; text-align: right; color: var(--text-secondary); }

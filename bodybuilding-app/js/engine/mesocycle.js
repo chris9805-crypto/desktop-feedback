@@ -22,6 +22,7 @@ import { plannedSetsByMuscle } from './volume.js';
 import { uid } from '../util/id.js';
 import { adaptDays, DEFAULT_PROFILE } from './equipment.js';
 import { getMode, DEFAULT_MODE } from '../data/modes.js';
+import { getPhase, DEFAULT_PHASE } from '../data/phases.js';
 
 export const MAX_ADDED_SETS_PER_SLOT = 2;
 /**
@@ -46,13 +47,15 @@ export function totalWeeks(program) {
 }
 
 export function newMesocycle(program, {
-  name, startedAt = Date.now(), id, equipment = DEFAULT_PROFILE, mode = DEFAULT_MODE,
+  name, startedAt = Date.now(), id, equipment = DEFAULT_PROFILE,
+  mode = DEFAULT_MODE, phase = DEFAULT_PHASE,
 } = {}) {
   return {
     id: id ?? uid('meso'),
     programId: program.id,
     equipment,
     mode,
+    phase,
     name: name ?? `${program.name} · ${new Date(startedAt).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}`,
     startedAt,
     currentWeek: 0,
@@ -127,7 +130,8 @@ function growableSlots(program, muscleId) {
  */
 export const WEAK_POINT_BONUS_SETS = 1;
 
-export function computeExtras(program, sessions, mesoId, weekIndex, { lagging = [] } = {}) {
+export function computeExtras(program, sessions, mesoId, weekIndex, { lagging = [], phase: phaseId = DEFAULT_PHASE } = {}) {
+  const phase = getPhase(phaseId);
   const extras = {};
   const notes = {};
   const accumulation = program.accumulationWeeks ?? 4;
@@ -151,12 +155,19 @@ export function computeExtras(program, sessions, mesoId, weekIndex, { lagging = 
       const fb = feedback[muscleId];
       const change = fb
         ? setChangeFromFeedback(fb)
-        : { delta: DEFAULT_WEEKLY_SET_DELTA, reason: 'No feedback logged - default weekly step up.' };
+        : {
+          delta: phase.weeklySetDelta ?? DEFAULT_WEEKLY_SET_DELTA,
+          reason: phase.weeklySetDelta > 0
+            ? 'No feedback logged - default weekly step up.'
+            : `Volume holds steady while ${phase.name.toLowerCase()} - you cannot recover from more.`,
+        };
 
       // A weak point gets an extra set a week - but only while it is actually
       // recovering. Piling volume onto a muscle that reported joint pain or
       // lingering soreness makes it weaker, not stronger.
-      let delta = change.delta + session.delta;
+      // A phase that is not adding volume does not add it on good feedback
+      // either: feeling fresh in a deficit is not a mandate for more work.
+      let delta = Math.min(change.delta + session.delta, phase.weeklySetDelta ?? DEFAULT_WEEKLY_SET_DELTA);
       let reason = session.delta !== 0 ? `${change.reason} ${session.reason}` : change.reason;
       if (priority.has(muscleId) && delta > 0) {
         delta += WEAK_POINT_BONUS_SETS;
@@ -169,7 +180,7 @@ export function computeExtras(program, sessions, mesoId, weekIndex, { lagging = 
     // Clamp only once every muscle has had its say. Sets added for one muscle
     // land as indirect volume on others, so clamping per muscle as we go lets
     // a later addition push an already-clamped muscle back over its ceiling.
-    clampAllToMrv(program, extras, notes);
+    clampAllToMrv(program, extras, notes, phase);
   }
   return { extras, notes };
 }
@@ -216,13 +227,16 @@ function applyDelta(program, extras, muscleId, slots, delta) {
  * its ceilings. Removing a set for one muscle also removes indirect volume
  * from others, so a single pass is not enough to reach a fixed point.
  */
-function clampAllToMrv(program, extras, notes) {
+function clampAllToMrv(program, extras, notes, phase = getPhase(DEFAULT_PHASE)) {
   let guard = 0;
+  // Recoverable volume genuinely drops in a deficit, so the ceiling moves with
+  // the phase rather than staying at the well-fed number.
+  const ceiling = (lm) => Math.round(lm.mrv * (phase.mrvFactor ?? 1));
   while (guard++ < 200) {
     const planned = plannedSetsByMuscle(resolveWeek(program, extras).days);
     let worst = null;
     for (const [muscleId, lm] of Object.entries(MUSCLES)) {
-      const over = (planned[muscleId] ?? 0) - lm.mrv;
+      const over = (planned[muscleId] ?? 0) - ceiling(lm);
       if (over > 0 && (!worst || over > worst.over)) worst = { muscleId, over, lm };
     }
     if (!worst) return;
@@ -230,10 +244,11 @@ function clampAllToMrv(program, extras, notes) {
       // Nothing left that we are allowed to trim - the template's own base
       // volume is at the ceiling, which is a program design decision, not a
       // runaway. Record it and stop rather than spinning.
-      notes[worst.muscleId] = `Base program volume already sits at the ${worst.lm.mrv}-set ceiling.`;
+      notes[worst.muscleId] = `Base program volume already sits at the ${ceiling(worst.lm)}-set ceiling.`;
       return;
     }
-    notes[worst.muscleId] = `Held at ${worst.lm.mrv} sets - that is the recoverable ceiling for this muscle.`;
+    notes[worst.muscleId] = `Held at ${ceiling(worst.lm)} sets - that is the recoverable ceiling `
+      + `for this muscle${(phase.mrvFactor ?? 1) < 1 ? ` while ${phase.name.toLowerCase()}` : ''}.`;
   }
 }
 
@@ -272,11 +287,12 @@ export function weekPlan(meso, sessions, weekIndex, { lagging = [] } = {}) {
   const program = getProgram(meso.programId);
   if (!program) return null;
   const mode = getMode(meso.mode ?? DEFAULT_MODE);
+  const phase = getPhase(meso.phase ?? DEFAULT_PHASE);
   const deload = isDeloadWeek(program, weekIndex);
   const weakPoints = mode.showImbalances ? lagging : [];
   const { extras, notes } = deload
     ? { extras: {}, notes: {} }
-    : computeExtras(program, sessions, meso.id, weekIndex, { lagging: weakPoints });
+    : computeExtras(program, sessions, meso.id, weekIndex, { lagging: weakPoints, phase: phase.id });
   const resolved = resolveWeek(program, extras);
   // Equipment substitution happens last, so volume progression and the MRV
   // clamp reason about the program as designed, and only the movement someone
@@ -290,6 +306,7 @@ export function weekPlan(meso, sessions, weekIndex, { lagging = [] } = {}) {
     program,
     notes,
     mode: mode.id,
+    phase: phase.id,
     weakPoints,
     days: days.map((d) => ({
       ...d,

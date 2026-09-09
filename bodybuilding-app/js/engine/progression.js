@@ -27,6 +27,7 @@ import {
   e1rm, loadForTarget, roundToIncrement, confidenceFor, repsToFailure,
 } from './onerm.js';
 import { getMode, biasedRepRange, DEFAULT_MODE } from '../data/modes.js';
+import { getPhase, DEFAULT_PHASE } from '../data/phases.js';
 
 /** How close to failure a movement can safely be taken. */
 const RIR_FLOOR = { low: 1, med: 0, high: 0 };
@@ -83,13 +84,16 @@ export function loadStep(exercise, weight, unit = 'kg') {
  * lifter's own. A beginner is never sent within two reps of failure however
  * stable the machine is; an advanced lifter on a machine can go all the way.
  */
-export function targetRirFor(program, weekIndex, exercise, modeId = DEFAULT_MODE) {
+export function targetRirFor(program, weekIndex, exercise, modeId = DEFAULT_MODE, phaseId = DEFAULT_PHASE) {
   const accumulation = program?.accumulationWeeks ?? 4;
   const mode = getMode(modeId);
+  const phase = getPhase(phaseId);
   if (weekIndex >= accumulation) return 4; // deload
   const planned = program?.rirByWeek?.[weekIndex] ?? 2;
   const movementFloor = RIR_FLOOR[exercise?.stability ?? 'med'] ?? 0;
-  return Math.max(planned, movementFloor, mode.rirFloor ?? 0);
+  // In a deficit, sets stop a notch further from failure: grinding recovers
+  // worse and injures more for less return when you are underfed.
+  return Math.max(planned + (phase.rirFloorBonus ?? 0), movementFloor, mode.rirFloor ?? 0);
 }
 
 export function isDeloadWeek(program, weekIndex) {
@@ -112,17 +116,19 @@ export function isDeloadWeek(program, weekIndex) {
 export function prescribe(ctx) {
   const {
     exercise, slot, program, weekIndex, previous = null, seedE1rm = null,
-    unit = 'kg', mode: modeId = DEFAULT_MODE, history = [], formHistory = null,
+    unit = 'kg', mode: modeId = DEFAULT_MODE, phase: phaseId = DEFAULT_PHASE,
+    history = [], formHistory = null,
   } = ctx;
   const mode = getMode(modeId);
+  const phase = getPhase(phaseId);
   const repRange = biasedRepRange(slot?.reps ?? exercise?.reps ?? [8, 12], mode);
   const [minReps, maxReps] = repRange;
   const deload = isDeloadWeek(program, weekIndex);
-  const targetRir = targetRirFor(program, weekIndex, exercise, modeId);
+  const targetRir = targetRirFor(program, weekIndex, exercise, modeId, phaseId);
   const sets = deload ? Math.max(1, Math.ceil((slot?.sets ?? 3) / 2)) : (slot?.sets ?? 3);
 
   const base = {
-    exerciseId: exercise.id, sets, repRange, targetRir, deload, mode: mode.id,
+    exerciseId: exercise.id, sets, repRange, targetRir, deload, mode: mode.id, phase: phase.id,
     tempo: mode.showTempo ? mode.tempo : null,
     restSec: slot?.restSec ?? defaultRest(exercise, repRange),
   };
@@ -170,16 +176,37 @@ export function prescribe(ctx) {
     };
   }
 
-  // Load is too heavy: you could not reach the bottom of the window at planned effort.
+  // Load is too heavy: you could not reach the bottom of the window at planned
+  // effort.
+  //
+  // The phase decides how quickly this fires and how far it pulls back, because
+  // this branch is where loads can ratchet downward. Each drop lowers the next
+  // week's target, so a phase where off days are expected - a deficit, most
+  // obviously - needs a second miss before it moves and a much smaller step.
+  // Otherwise the diet gets blamed for what is really bookkeeping.
   if (prevReps < minReps && prevRir <= targetRir) {
+    const misses = formHistory?.consecutiveMisses ?? 1;
+    const needed = phase.missesBeforeBackOff ?? 1;
+    if (misses < needed) {
+      return {
+        ...common,
+        weight: prevWeight,
+        targetReps: minReps,
+        tag: 'hold-load',
+        rationale: `${prevReps} reps came up short of ${minReps}, but one off day is not ` +
+          `a verdict on the weight - especially in a deficit. Same load again. If it ` +
+          `happens twice in a row the app will back it off for you.`,
+      };
+    }
+    const factor = phase.backOffFactor ?? 0.94;
     return {
       ...common,
-      weight: Math.max(inc, roundToIncrement(prevWeight * 0.94, inc)),
+      weight: Math.max(inc, roundToIncrement(prevWeight * factor, inc)),
       targetReps: minReps,
       tag: 'back-off',
-      rationale: `${prevReps} reps last week fell short of the ${minReps}-rep floor at ` +
-        `${prevRir} RIR. Backing the load off ~6% to get you inside the window - the ` +
-        `range is where the growth is, not the number on the bar.`,
+      rationale: `${prevReps} reps fell short of the ${minReps}-rep floor at ${prevRir} RIR, ` +
+        `twice now. Backing the load off ${Math.round((1 - factor) * 100)}% to get you inside ` +
+        `the window - the range is where the growth is, not the number on the bar.`,
     };
   }
 
@@ -248,6 +275,23 @@ export function prescribe(ctx) {
       rationale: `You left ${prevRir} in reserve against a target of ${targetRir} - that set ` +
         `was not a stimulus. Jumping to ${fmt(weight)}${unit}, the load your own numbers say ` +
         `should put ${prevReps} reps at ${targetRir} RIR.`,
+    };
+  }
+
+  // Holding is the goal in this phase. This sits above the generic "you went
+  // harder than planned" branch because both produce the same numbers - same
+  // load, same reps - and only the wording differs. On a diet, being told you
+  // matched your target beats being told you overshot an effort cap.
+  if (phase.goal === 'hold') {
+    return {
+      ...common,
+      weight: prevWeight,
+      targetReps: Math.min(Math.max(prevReps, minReps), maxReps),
+      tag: 'held',
+      rationale: `${prevReps} reps at ${prevRir} RIR - match that again. In a deficit ` +
+        `holding your numbers is the win, not a stall: you are keeping the muscle you ` +
+        `built while getting leaner. Beat it if the day is there, but you are not ` +
+        `being asked to.`,
     };
   }
 

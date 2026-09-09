@@ -8,6 +8,7 @@ import { EQUIPMENT_PROFILES } from '../../engine/equipment.js';
 import { canInstall, promptInstall, isStandalone, isIos } from '../install.js';
 import { term } from '../term.js';
 import { MODES, MODE_ORDER } from '../../data/modes.js';
+import { PHASES, PHASE_ORDER } from '../../data/phases.js';
 
 export function render(container) {
   clear(container);
@@ -74,6 +75,32 @@ export function render(container) {
             style: 'margin-top:12px',
             onClick: () => { store.setMode(mode.id); render(container); },
           }, `Switch to ${mode.name}`),
+        );
+      }),
+    ),
+  ));
+
+  /* --- phase ------------------------------------------------------------ */
+  const currentPhase = store.phase();
+  wrap.append(h('div', { class: 'card' },
+    h('h3', {}, 'What are you eating for?'),
+    h('p', { class: 'secondary small' },
+      'This changes what counts as a good week. It applies to the block you are running ' +
+      'now as well as new ones — starting a diet mid-block is normal, and the app should ' +
+      'stop asking for progress you cannot make.'),
+    h('div', { class: 'stack', style: 'margin-top:14px;gap:10px' },
+      ...PHASE_ORDER.map((id) => {
+        const phase = PHASES[id];
+        const current = phase.id === currentPhase.id;
+        return h('div', { class: `mode-card${current ? ' is-current' : ''}` },
+          h('h3', {}, phase.name, current && h('span', { class: 'badge badge-accent' }, 'Current')),
+          h('p', { class: 'tagline' }, phase.tagline),
+          h('p', { class: 'secondary small', style: 'margin:0' }, phase.summary),
+          h('p', { class: 'tiny muted', style: 'margin:8px 0 0' }, phase.detail),
+          !current && h('button', {
+            style: 'margin-top:12px',
+            onClick: () => { store.setPhase(phase.id); render(container); },
+          }, `Switch to ${phase.name}`),
         );
       }),
     ),

@@ -18,6 +18,8 @@ import { uid } from './util/id.js';
 import { getMode, DEFAULT_MODE } from './data/modes.js';
 import { analyse } from './engine/imbalance.js';
 import { progressFor } from './engine/progress.js';
+import { getPhase, DEFAULT_PHASE } from './data/phases.js';
+import { overallRetention } from './engine/retention.js';
 import { newProfile, buildCard, decodeCard, safeName } from './engine/crew.js';
 
 const STORAGE_KEY = 'ironblock.state.v1';
@@ -39,6 +41,9 @@ function defaultState() {
       // separately settable, so an advanced lifter can keep the explanations
       // and a beginner can turn them off.
       mode: null,
+      // What you are eating for. Changes what counts as a good week, and is
+      // recorded per block so a diet does not retroactively rewrite one.
+      phase: null,
       plainLanguage: null,
       // Crew is opt-in: nothing is shared until you make a code yourself.
       profile: null,
@@ -225,6 +230,32 @@ class Store {
     }));
   }
 
+  /** What you are eating for, on the running block. */
+  phase() {
+    return getPhase(this.activeMeso()?.phase ?? this.state.settings.phase ?? DEFAULT_PHASE);
+  }
+
+  setPhase(phaseId) {
+    const phase = getPhase(phaseId);
+    return this.update((s) => ({
+      ...s,
+      settings: { ...s.settings, phase: phase.id },
+      // Unlike mode, the phase of a running block IS changed: starting a diet
+      // mid-block is normal, and leaving the app pushing for progress you can
+      // no longer make is the exact problem this setting exists to fix.
+      mesocycles: s.mesocycles.map((m) => (m.id === s.activeMesoId ? { ...m, phase: phase.id } : m)),
+    }));
+  }
+
+  /** How much of your peak strength you are holding. Cached like the rest. */
+  retention() {
+    if (this._retentionSessions !== this.state.sessions) {
+      this._retentionSessions = this.state.sessions;
+      this._retention = overallRetention(this.state.sessions);
+    }
+    return this._retention;
+  }
+
   /** The active training mode, falling back to the sensible middle. */
   mode() {
     return getMode(this.state.settings.mode ?? DEFAULT_MODE);
@@ -294,6 +325,7 @@ class Store {
       name,
       equipment: equipment ?? this.state.settings.equipment ?? 'full',
       mode: this.state.settings.mode ?? DEFAULT_MODE,
+      phase: this.state.settings.phase ?? DEFAULT_PHASE,
     });
     this.update((s) => ({
       ...s,
@@ -353,18 +385,33 @@ class Store {
       .filter((s) => s.entries?.some((e) => e.exerciseId === exerciseId))
       .sort((a, b) => b.date - a.date)
       .map((s) => s.entries.find((e) => e.exerciseId === exerciseId));
-    if (!relevant.length) return { lastFormPoor: false, consecutiveTopOfRange: 0 };
+    if (!relevant.length) {
+      return { lastFormPoor: false, consecutiveTopOfRange: 0, consecutiveMisses: 0 };
+    }
 
     const top = repRange?.[1] ?? Infinity;
+    const bottom = repRange?.[0] ?? 0;
     let streak = 0;
     for (const entry of relevant) {
       const best = (entry.sets ?? []).filter((x) => x.done && !x.warmup);
       if (!best.length || !best.some((x) => Number(x.reps) >= top)) break;
       streak += 1;
     }
+
+    // Sessions in a row where the first working set fell short of the window.
+    // A phase that expects off days uses this to require a second miss before
+    // dropping the load, which is what stops the downward ratchet.
+    let misses = 0;
+    for (const entry of relevant) {
+      const first = (entry.sets ?? []).find((x) => x.done && !x.warmup && Number(x.reps) > 0);
+      if (!first || Number(first.reps) >= bottom) break;
+      misses += 1;
+    }
+
     return {
       lastFormPoor: (relevant[0].form ?? 0) >= 2,
       consecutiveTopOfRange: streak,
+      consecutiveMisses: misses,
     };
   }
 
@@ -394,6 +441,7 @@ class Store {
     // The block carries the mode it was started in, so switching modes
     // mid-block does not silently rewrite the training you are part-way through.
     const mode = meso.mode ?? this.state.settings.mode ?? DEFAULT_MODE;
+    const phase = meso.phase ?? this.state.settings.phase ?? DEFAULT_PHASE;
     // A remembered order is a preference, not a constraint: anything it does not
     // mention keeps its place, so adding an exercise later does not lose it.
     const saved = this.savedOrderFor(mesoId, dayId);
@@ -407,7 +455,7 @@ class Store {
 
     return {
       mesoId, weekIndex, dayId,
-      plan, day, mode,
+      plan, day, mode, phase,
       reordered: Boolean(saved),
       entries: slots.map((slot) => {
         const exercise = getExercise(slot.exerciseId);
@@ -416,7 +464,7 @@ class Store {
           exerciseId: slot.exerciseId,
           slot,
           prescription: prescribe({
-            exercise, slot, program: plan.program, weekIndex, previous, mode,
+            exercise, slot, program: plan.program, weekIndex, previous, mode, phase,
             formHistory: this.formHistoryFor(slot.exerciseId, slot.reps ?? exercise.reps),
             seedE1rm: previous ? null : this.seedE1rmFor(slot.exerciseId),
             unit,
@@ -433,6 +481,7 @@ class Store {
     const active = {
       mesoId, week: weekIndex, dayId,
       mode: built.mode,
+      phase: built.phase,
       programId: this.state.mesocycles.find((m) => m.id === mesoId)?.programId,
       startedAt: Date.now(),
       entries: built.entries.map((e) => ({
@@ -653,6 +702,7 @@ class Store {
       date: Date.now(),
       durationSec: Math.round((Date.now() - active.startedAt) / 1000),
       mode: active.mode,
+      phase: active.phase,
       entries: active.entries.map((e) => ({
         exerciseId: e.exerciseId,
         swappedFrom: e.swappedFrom ?? null,

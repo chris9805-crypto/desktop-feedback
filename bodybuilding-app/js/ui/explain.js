@@ -111,6 +111,16 @@ export function reasonLine(p, unit, beginner = usePlainLanguage()) {
         `needs to work well. The weight was simply too heavy, so it comes down to ${load}. ` +
         `This is normal and it is not a step backwards - getting the reps is the point.`;
 
+    case 'held':
+      return `Do what you did last time: ${prev.reps} reps at ${load}. While you are ` +
+        `dieting, matching your numbers is the goal - it means you are keeping the muscle ` +
+        `you built while getting leaner. Beating it is a bonus, not the target.`;
+
+    case 'hold-load':
+      return `You came up a bit short last time, but one off day does not mean the weight ` +
+        `is wrong - especially when you are eating less. Same weight again. If it happens ` +
+        `twice in a row the app will take some off for you.`;
+
     case 'hold-form':
       return `You got the reps, but you said the technique came apart. The weight is not ` +
         `going up on a movement you are already fighting - that is how a niggle turns into ` +
@@ -137,11 +147,13 @@ export function tagLabel(tag, beginner = usePlainLanguage()) {
     'load-up': 'Load up', 'rep-up': 'Add a rep', hold: 'Hold',
     'back-off': 'Back off', deload: 'Deload', establish: 'Set your baseline',
     'hold-form': 'Form gate', consolidate: 'Consolidate',
+    held: 'Match it', 'hold-load': 'Hold the load',
   };
   const plain = {
     'load-up': 'Heavier today', 'rep-up': 'One more rep', hold: 'Same as last time',
     'back-off': 'Lighter today', deload: 'Easy week', establish: 'Find your weight',
     'hold-form': 'Same weight — nail the form', consolidate: 'Same weight — prove it again',
+    held: 'Same again — that is the win', 'hold-load': 'Same weight, go again',
   };
   return (beginner ? plain : technical)[tag] ?? tag;
 }

@@ -9,7 +9,7 @@ No account, no server, no subscription. Everything lives in your browser.
 
 ```bash
 npm start           # http://localhost:8080
-npm test            # 200 tests, no dependencies
+npm test            # 231 tests, no dependencies
 npm run bundle      # dist/ironblock.html — the whole app in one file
 npm run icons       # regenerate the home-screen icons
 ```
@@ -252,6 +252,58 @@ parts read as what it is, a diagram.
 Maps appear in the exercise library, beside the exercise on the set card (tap
 for the full picture and cues), and on each option in the swap sheet, so you can
 see what a substitute trains before choosing it.
+
+---
+
+## Cutting: when holding is the win
+
+Training mode is about how experienced you are. **Phase** is about what you are
+eating for — *Gaining*, *Maintaining* or *Cutting* — and it changes what counts
+as a good week. You can switch it mid-block, because starting a diet mid-block
+is normal.
+
+This exists because in a deficit the app's default behaviour is **wrong, not
+just unhelpful**:
+
+- **Loads ratcheted down.** Missing a rep target dropped the load 6%, and each
+  drop lowered the next week's target. Miss occasionally while genuinely
+  maintaining — which is what a deficit looks like — and the weights spiral on
+  their own. The diet gets blamed for bookkeeping.
+- **Volume climbed anyway**, which is the wrong direction when recovery is
+  impaired.
+- **Success was defined as progress**, so someone doing everything right was
+  told every week that they had failed.
+
+On **Cutting**:
+
+| | What changes |
+|---|---|
+| Goal | Matching last week is logged as a success (`Match it`), not a stall |
+| Load floor | Takes **two** consecutive misses to move, and then only ~3% |
+| Volume | Stops climbing, and good feedback does not add sets — feeling fresh in a deficit is not a mandate for more work |
+| Ceiling | MRV drops 20%, because recoverable volume genuinely does |
+| Effort | One notch further from failure — grinding underfed recovers worse and injures more |
+
+Progress still counts when it comes: genuinely filling the rep window still
+earns load. You are simply not being asked for it.
+
+### Strength retention
+
+Replaces "records" as the headline while cutting: **what percentage of your
+best you are still holding**, per lift and overall, with compounds weighted
+double. Within 3% of peak counts as held, because a couple of percent off during
+a diet is a successful diet.
+
+It reads your *best recent* effort rather than your last one — judging a diet on
+a single bad session would be wrong and would push people to abandon it — and
+peak comes from your whole log, since the thing you are keeping is the best you
+have ever been.
+
+**One honest limit, stated in the app as well as here: this is strength
+retention, not muscle retention.** No training log can measure tissue. You can
+hold strength while losing a little muscle, and the reverse. Strength is the
+best proxy available and a decent one, but it is a proxy, and it is labelled as
+one everywhere it appears.
 
 ---
 
@@ -540,11 +592,12 @@ no session runs past 105 minutes.
 ```
 js/
   data/         exercises, programs, muscles + landmarks, glossary, modes,
-                achievements, movement patterns
+                phases, achievements, movement patterns
   engine/
     equipment.js     substituting movements for the kit you have
     imbalance.js     strength ratios, stalled muscles, side-to-side
     progress.js      streaks, XP, levels, badges
+    retention.js     how much of your peak strength you are holding
     crew.js          share codes and standings, no server
     onerm.js         estimated 1RM and its inverse
     progression.js   the decision: what goes on the bar today
@@ -562,7 +615,7 @@ js/
   store.js      state + localStorage persistence
 sw.js           offline cache
 manifest.webmanifest, icons/   home-screen install
-test/           200 tests: engine, program design audit, store, modes,
+test/           231 tests: engine, program design audit, store, modes,
                 weak-point detection, beginner layer, equipment adaptation,
                 offline shell, bundle, docs
 tools/          dev server, single-file bundler
