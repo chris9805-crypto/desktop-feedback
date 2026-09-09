@@ -21,9 +21,11 @@ import { store } from '../../store.js';
 import { getExercise } from '../../data/exercises.js';
 import { muscleName, isPlural } from '../../data/muscles.js';
 import { getMode } from '../../data/modes.js';
+import { patternFor } from '../../data/patterns.js';
+import { muscleMap } from '../muscle-map.js';
 import { loadStep } from '../../engine/progression.js';
 import { showTerm } from '../term.js';
-import { chooseSheet, alertSheet } from '../sheet.js';
+import { chooseSheet, alertSheet, detailSheet } from '../sheet.js';
 import { EFFORT_CHOICES, effortShort, warmupAdvice, reasonLine, tagLabel } from '../explain.js';
 
 /* ------------------------------------------------------------- position */
@@ -75,7 +77,14 @@ export function setCard(active, position, opts) {
 
   /* --- which set, of what ------------------------------------------- */
   card.append(h('div', { class: 'setcard-head' },
-    h('div', {},
+    // The map is small here on purpose: enough to confirm at a glance that you
+    // are about to train what you think you are, not a diagram to study.
+    h('button', {
+      class: 'setcard-map', type: 'button',
+      'aria-label': `What ${exercise.name} trains`,
+      onClick: () => showExercise(exercise),
+    }, muscleMap(exercise.id, { height: 54 })),
+    h('div', { style: 'flex:1;min-width:0' },
       h('div', { class: 'setcard-exercise' }, exercise.name),
       h('div', { class: 'setcard-meta' },
         `Set ${position.setIndex + 1} of ${entry.sets.length} · `,
@@ -85,7 +94,7 @@ export function setCard(active, position, opts) {
     h('button', {
       class: 'btn-ghost btn-sm', title: 'Jump to another exercise',
       onClick: () => opts.onJump?.(),
-    }, 'Exercises'),
+    }, 'All'),
   ));
 
   /* --- the numbers, big --------------------------------------------- */
@@ -170,7 +179,12 @@ export function setCard(active, position, opts) {
           body: 'Machine taken, or something hurts? These train the same muscle.',
           options: exercise.subs.map((id) => {
             const alt = getExercise(id);
-            return { value: id, label: alt.name, detail: `${alt.equipment} · ${alt.reps[0]}-${alt.reps[1]} reps` };
+            return {
+              value: id,
+              label: alt.name,
+              detail: `${alt.equipment} · ${alt.reps[0]}-${alt.reps[1]} reps · ${alt.primary.map(muscleName).join(', ')}`,
+              visual: () => muscleMap(id, { height: 46 }),
+            };
           }),
         });
         if (picked) { store.swapExercise(entry.exerciseId, picked); opts.onChange(); }
@@ -198,6 +212,31 @@ export function setCard(active, position, opts) {
   }
 
   return card;
+}
+
+/** The full picture, cues and pattern - one tap from the set you are doing. */
+export function showExercise(exercise) {
+  const pattern = patternFor(exercise.id);
+  return detailSheet({
+    title: exercise.name,
+    build: (panel) => {
+      panel.append(muscleMap(exercise.id, { height: 150, legend: true }));
+      if (pattern) {
+        panel.append(h('div', { class: 'pattern' },
+          h('h4', {}, pattern.name),
+          h('div', { class: 'pattern-ends' },
+            h('div', {}, h('span', { class: 'pattern-tag' }, 'Start'), h('span', {}, pattern.bottom)),
+            h('div', {}, h('span', { class: 'pattern-tag' }, 'Finish'), h('span', {}, pattern.top)),
+          ),
+          h('p', { class: 'pattern-watch' }, pattern.watch),
+        ));
+      }
+      if (exercise.cues.length) {
+        panel.append(h('h4', { style: 'margin-top:16px' }, 'Cues'));
+        panel.append(h('ul', { class: 'cues' }, ...exercise.cues.map((c) => h('li', {}, c))));
+      }
+    },
+  });
 }
 
 /**

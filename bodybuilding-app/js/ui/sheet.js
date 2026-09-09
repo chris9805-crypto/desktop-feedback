@@ -75,6 +75,19 @@ export function promptSheet({ title, body, label, value = '', confirmLabel = 'Sa
   });
 }
 
+/** A sheet whose body is built by the caller - for pictures and long detail. */
+export function detailSheet({ title, build }) {
+  return open((panel, finish) => {
+    header(panel, title);
+    const body = h('div', { class: 'sheet-body' });
+    build(body);
+    panel.append(body);
+    panel.append(h('div', { class: 'sheet-actions' },
+      h('button', { class: 'btn-primary btn-lg', onClick: () => finish(true) }, 'Close'),
+    ));
+  });
+}
+
 /** A list of choices - what `prompt("enter a number")` was pretending to be. */
 export function chooseSheet({ title, body, options, selected }) {
   return open((panel, finish) => {
@@ -82,11 +95,15 @@ export function chooseSheet({ title, body, options, selected }) {
     const list = h('div', { class: 'sheet-list' });
     for (const option of options) {
       list.append(h('button', {
-        class: 'sheet-option', 'aria-pressed': String(option.value === selected),
+        class: `sheet-option${option.visual ? ' has-visual' : ''}`,
+        'aria-pressed': String(option.value === selected),
         onClick: () => finish(option.value),
       },
-        h('span', { class: 'sheet-option-label' }, option.label),
-        option.detail && h('span', { class: 'sheet-option-detail' }, option.detail),
+        option.visual && h('span', { class: 'sheet-option-visual' }, option.visual()),
+        h('span', { class: 'sheet-option-text' },
+          h('span', { class: 'sheet-option-label' }, option.label),
+          option.detail && h('span', { class: 'sheet-option-detail' }, option.detail),
+        ),
       ));
     }
     panel.append(list);

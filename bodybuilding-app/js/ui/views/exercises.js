@@ -3,6 +3,8 @@
 import { h, clear } from '../dom.js';
 import { EXERCISES, getExercise } from '../../data/exercises.js';
 import { MUSCLE_DISPLAY_ORDER, muscleName } from '../../data/muscles.js';
+import { patternFor } from '../../data/patterns.js';
+import { muscleMap } from '../muscle-map.js';
 
 const EQUIPMENT = ['barbell', 'dumbbell', 'machine', 'cable', 'bodyweight'];
 
@@ -68,6 +70,7 @@ function draw(list) {
 }
 
 function card(ex) {
+  const pattern = patternFor(ex.id);
   return h('div', { class: 'card' },
     h('div', { class: 'card-head' },
       h('div', {},
@@ -78,7 +81,18 @@ function card(ex) {
       ),
       h('span', { class: 'badge' }, `${ex.reps[0]}–${ex.reps[1]} reps`),
     ),
-    h('div', { class: 'row small', style: 'gap:6px;margin-bottom:10px' },
+    h('div', { class: 'exercise-visual' },
+      muscleMap(ex.id, { height: 132 }),
+      pattern && h('div', { class: 'pattern' },
+        h('h4', {}, pattern.name),
+        h('div', { class: 'pattern-ends' },
+          h('div', {}, h('span', { class: 'pattern-tag' }, 'Start'), h('span', {}, pattern.bottom)),
+          h('div', {}, h('span', { class: 'pattern-tag' }, 'Finish'), h('span', {}, pattern.top)),
+        ),
+        h('p', { class: 'pattern-watch' }, pattern.watch),
+      ),
+    ),
+    h('div', { class: 'row small', style: 'gap:6px;margin:12px 0 10px' },
       ...ex.primary.map((m) => h('span', { class: 'badge badge-accent' }, muscleName(m))),
       ...ex.secondary.map((m) => h('span', { class: 'badge' }, muscleName(m), h('span', { class: 'muted' }, ' ½'))),
     ),

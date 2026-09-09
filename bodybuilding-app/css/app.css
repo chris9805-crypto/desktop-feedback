@@ -1072,3 +1072,68 @@ details.expandable > div { padding: 0 16px 16px; }
   border-radius: 999px; background: var(--surface-2); border-color: var(--border);
   color: var(--text-secondary);
 }
+
+/* ==========================================================================
+   Muscle maps and movement patterns.
+
+   Flat anatomical diagrams generated from the exercise data - a shape that is
+   obviously a diagram, rather than a drawing of a body that is nearly right.
+   ========================================================================== */
+
+.musclemap { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.musclemap-svg { display: block; width: auto; max-width: 100%; }
+
+.mm-body { fill: var(--surface-3); }
+.mm-muscle { transition: fill .2s ease; }
+.mm-idle { fill: color-mix(in srgb, var(--text-muted) 22%, transparent); }
+/* Full set vs half set, the same distinction the volume engine counts. */
+.mm-primary { fill: var(--accent); }
+.mm-secondary { fill: color-mix(in srgb, var(--accent) 42%, transparent); }
+.mm-label {
+  fill: var(--text-muted); font-size: 9px; font-weight: 650;
+  letter-spacing: .08em; text-transform: uppercase;
+}
+
+.mm-legend { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.mm-key {
+  font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+  background: var(--surface-2); color: var(--text-secondary);
+}
+.mm-key.primary { background: var(--accent-wash); color: var(--accent); }
+
+.exercise-visual {
+  display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap;
+  padding: 14px; border-radius: 12px; background: var(--surface-2);
+}
+.pattern { flex: 1; min-width: 190px; }
+.pattern h4 { color: var(--text-primary); text-transform: none; letter-spacing: 0; font-size: 14px; }
+.pattern-ends { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+.pattern-ends > div { display: flex; gap: 8px; font-size: 13px; color: var(--text-secondary); }
+.pattern-tag {
+  flex: none; width: 46px;
+  font-size: 9.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--text-muted); padding-top: 2px;
+}
+.pattern-watch {
+  font-size: 12.5px; color: var(--text-secondary); margin: 0;
+  padding-left: 10px; border-left: 2px solid var(--warning);
+}
+
+.setcard-map {
+  flex: none; padding: 4px; border-radius: 10px;
+  background: var(--surface-2); border-color: var(--border);
+  line-height: 0;
+}
+.setcard-map .musclemap { gap: 0; }
+.setcard-map .mm-label { display: none; }
+
+.sheet-body { margin-bottom: 16px; }
+.sheet-option.has-visual { flex-direction: row; align-items: center; gap: 12px; }
+.sheet-option-visual { flex: none; line-height: 0; }
+.sheet-option-visual .mm-label { display: none; }
+.sheet-option-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+@media (max-width: 480px) {
+  .exercise-visual { gap: 12px; padding: 12px; }
+  .pattern { min-width: 100%; }
+}

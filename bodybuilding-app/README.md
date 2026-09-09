@@ -9,7 +9,7 @@ No account, no server, no subscription. Everything lives in your browser.
 
 ```bash
 npm start           # http://localhost:8080
-npm test            # 176 tests, no dependencies
+npm test            # 184 tests, no dependencies
 npm run bundle      # dist/ironblock.html — the whole app in one file
 npm run icons       # regenerate the home-screen icons
 ```
@@ -221,6 +221,37 @@ Live leaderboards against strangers, following people, and community discussion
 threads. All three need a server. The Crew screen says so rather than showing an
 empty "coming soon" feed, because a fake social feature is worse than an honest
 small one.
+
+---
+
+## Exercise visuals
+
+There are no photographs, and that is a deliberate limit rather than an
+oversight: there is no licensed source for them, and anything fetched from the
+web would break the offline promise and put a third party in the middle of your
+training log. Real form demonstration needs video of a real person, and this
+app cannot honestly provide that.
+
+What it does instead is generated from its own data, which makes it useful in a
+different way:
+
+- **A muscle map** on every exercise — a front and back diagram with the main
+  movers filled solid and the assisting muscles at half strength. That is
+  literally the same full-set / half-set distinction the volume engine counts,
+  so the picture and the numbers can never disagree, and a new exercise gets a
+  correct diagram with no artwork to commission.
+- **A movement pattern** — the start and finish positions and the one thing
+  that usually goes wrong. There are only about twenty things a body does under
+  load, so each pattern is described properly once rather than sixty-nine times
+  badly.
+
+The figure is drawn as separated blocks rather than a continuous silhouette. At
+this size an attempt at a real body reads as a bad drawing; clearly separated
+parts read as what it is, a diagram.
+
+Maps appear in the exercise library, beside the exercise on the set card (tap
+for the full picture and cues), and on each option in the swap sheet, so you can
+see what a substitute trains before choosing it.
 
 ---
 
@@ -494,7 +525,7 @@ no session runs past 105 minutes.
 ```
 js/
   data/         exercises, programs, muscles + landmarks, glossary, modes,
-                achievements
+                achievements, movement patterns
   engine/
     equipment.js     substituting movements for the kit you have
     imbalance.js     strength ratios, stalled muscles, side-to-side
@@ -506,6 +537,7 @@ js/
     mesocycle.js     block construction, volume progression, MRV clamping
   ui/
     explain.js       plain-English wording for everything the engine decides
+    muscle-map.js    body diagrams generated from the exercise data
     sheet.js         bottom sheets (no alert/prompt/confirm anywhere)
     term.js          tappable jargon
     views/
@@ -515,7 +547,7 @@ js/
   store.js      state + localStorage persistence
 sw.js           offline cache
 manifest.webmanifest, icons/   home-screen install
-test/           176 tests: engine, program design audit, store, modes,
+test/           184 tests: engine, program design audit, store, modes,
                 weak-point detection, beginner layer, equipment adaptation,
                 offline shell, bundle, docs
 tools/          dev server, single-file bundler
