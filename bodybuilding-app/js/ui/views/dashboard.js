@@ -14,6 +14,8 @@ import { setsByMuscle, volumeReport, volumeFlags } from '../../engine/volume.js'
 import { e1rm, tonnage } from '../../engine/onerm.js';
 import { bestSet, strengthTrend } from '../../engine/progression.js';
 import { volumeChart, trendChart } from '../charts.js';
+import { term } from '../term.js';
+import { isBeginner, volumeStatusLine } from '../explain.js';
 
 export function render(container) {
   clear(container);
@@ -35,13 +37,18 @@ export function render(container) {
         h('h4', {}, 'Next session'),
         h('h2', { style: 'margin-top:4px' }, next ? `${next.plan.label} · ${next.day.name}` : 'Block complete'),
       ),
-      next?.plan.deload && h('span', { class: 'badge badge-accent' }, 'Deload week'),
+      next?.plan.deload && h('span', { class: 'badge badge-accent' },
+        isBeginner() ? 'Easy week' : 'Deload week'),
     ),
     next
       ? h('div', {},
           h('p', { class: 'secondary' },
-            `${next.day.focus} · ${next.day.slots.reduce((n, s) => n + s.sets, 0)} sets · ` +
-            `about ${estimateSessionMinutes(next.day)} min · target ${next.plan.targetRir} RIR`),
+            isBeginner()
+              ? `${next.day.focus} · ${next.day.slots.reduce((n, s) => n + s.sets, 0)} sets · ` +
+                `about ${estimateSessionMinutes(next.day)} minutes. Stop each set with roughly ` +
+                `${next.plan.targetRir} ${next.plan.targetRir === 1 ? 'rep' : 'reps'} still in you.`
+              : `${next.day.focus} · ${next.day.slots.reduce((n, s) => n + s.sets, 0)} sets · ` +
+                `about ${estimateSessionMinutes(next.day)} min · target ${next.plan.targetRir} RIR`),
           h('div', { class: 'row' },
             h('a', { class: 'btn btn-primary btn-lg', href: '#/train' }, 'Open session'),
             h('span', { class: 'small muted' },
@@ -73,9 +80,16 @@ export function render(container) {
         }, `${plan.label} · ${done}/${plan.days.length}`);
       }),
     ),
-    h('p', { class: 'small secondary', style: 'margin-top:12px;margin-bottom:0' },
-      `Effort tightens as the block runs: ${program.rirByWeek.map((r, i) => `week ${i + 1} at ${r} RIR`).join(', ')}, ` +
-      'then a deload. Sets are added week to week wherever your feedback says you recovered.'),
+    isBeginner()
+      ? h('p', { class: 'small secondary', style: 'margin-top:12px;margin-bottom:0' },
+          'Each week you push a little closer to your limit: ',
+          program.rirByWeek.map((r, i) =>
+            `week ${i + 1} stopping with ${r === 0 ? 'nothing' : r} ${r === 0 ? 'left' : r === 1 ? 'rep left' : 'reps left'}`).join(', '),
+          '. Then an ', term('deload', 'easy week'),
+          ' where the muscle you built actually shows up. Sets go up week to week wherever you told us you recovered well.')
+      : h('p', { class: 'small secondary', style: 'margin-top:12px;margin-bottom:0' },
+          `Effort tightens as the block runs: ${program.rirByWeek.map((r, i) => `week ${i + 1} at ${r} RIR`).join(', ')}, ` +
+          'then a deload. Sets are added week to week wherever your feedback says you recovered.'),
   ));
 
   /* --- this week's volume ---------------------------------------------- */
@@ -90,16 +104,21 @@ export function render(container) {
       h('h3', {}, 'Weekly volume'),
       h('span', { class: 'small muted' }, `Hard sets logged so far in ${weekPlan(meso, sessions, currentWeek).label.toLowerCase()}`),
     ),
-    h('div', { class: 'zone-legend', style: 'margin-bottom:10px' },
-      h('span', {}, 'Shaded band = ', h('b', {}, 'MEV to MRV'), ', the range where a muscle grows'),
-      h('span', {}, 'Only sets within 4 reps of failure are counted'),
-    ),
+    isBeginner()
+      ? h('div', { class: 'zone-legend', style: 'margin-bottom:10px' },
+          h('span', {}, 'The grey band is how much work each muscle wants in a week. Bars inside it are on track.'),
+          h('span', {}, 'Easy sets are not counted — only ones you took reasonably close to your limit.'),
+        )
+      : h('div', { class: 'zone-legend', style: 'margin-bottom:10px' },
+          h('span', {}, 'Shaded band = ', term('mev', 'MEV'), ' to ', term('mrv', 'MRV'), ', the range where a muscle grows'),
+          h('span', {}, 'Only sets within 4 reps of failure are counted'),
+        ),
     weekSessions.length ? volumeChart(report) : h('p', { class: 'muted small' }, 'Log a session to see this week\'s volume.'),
     flags.length
       ? h('div', { class: 'stack', style: 'margin-top:14px;gap:8px' },
           ...flags.slice(0, 4).map((f) => h('div', {
             class: `notice${f.status.zone === 'over-mrv' ? ' is-critical' : ''}`,
-          }, h('b', {}, `${f.name}: ${f.status.label}`), ' — ', f.status.advice)),
+          }, h('b', {}, `${f.name}: `), volumeStatusLine(f))),
         )
       : null,
   ));
@@ -116,7 +135,13 @@ export function render(container) {
 
   if (trends.length) {
     wrap.append(h('div', { class: 'card' },
-      h('div', { class: 'card-head' }, h('h3', {}, 'Estimated max on the main lifts')),
+      h('div', { class: 'card-head' },
+        h('h3', {}, isBeginner() ? 'How strong you are getting' : 'Estimated max on the main lifts'),
+        h('span', { class: 'small muted' },
+          isBeginner()
+            ? h('span', {}, 'Your ', term('e1rm', 'estimated best single'), ', worked out from your normal sets')
+            : ''),
+      ),
       h('div', { class: 'grid grid-3' },
         ...trends.map(({ exerciseId, trend }) => {
           const latest = trend.points.at(-1).e1rm;
@@ -189,13 +214,17 @@ function welcome() {
     h('div', { class: 'card' },
       h('h1', {}, 'Train in blocks, not sessions'),
       h('p', { class: 'secondary', style: 'max-width:64ch' },
-        'IronBlock runs your training as mesocycles: four weeks where volume and effort climb ' +
-        'deliberately, then a deload that turns the accumulated fatigue into size and strength. ' +
-        'Every load it puts in front of you is calculated from what you actually lifted last ' +
-        'week and how hard it felt.'),
+        'IronBlock tells you exactly what to lift each session and works the weights out from ' +
+        'what you actually did last time. Training runs in five-week ',
+        term('mesocycle', 'blocks'),
+        ': four weeks that build up, then an ', term('deload', 'easy week'),
+        ' where the work turns into muscle.'),
+      h('p', { class: 'secondary', style: 'max-width:64ch' },
+        'You do not need to know any of the terminology. Answer three questions and it will ' +
+        'pick a program for you and explain everything as it goes.'),
       h('div', { class: 'row', style: 'margin-top:16px' },
-        h('a', { class: 'btn btn-primary btn-lg', href: '#/programs' }, 'Pick a program'),
-        h('a', { class: 'btn', href: '#/exercises' }, 'Browse the exercise library'),
+        h('a', { class: 'btn btn-primary btn-lg', href: '#/welcome' }, 'Find my program'),
+        h('a', { class: 'btn', href: '#/programs' }, 'Browse them all'),
       ),
     ),
     h('div', { class: 'grid grid-3' },

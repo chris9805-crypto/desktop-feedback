@@ -25,6 +25,53 @@ const slot = (exerciseId, sets, o = {}) => ({
 
 export const PROGRAMS = [
   {
+    id: 'novice3',
+    name: 'First Steps',
+    subtitle: '3 days · for your first six months of lifting',
+    daysPerWeek: 3,
+    level: 'Beginner',
+    focus: 'Learning the movements',
+    volumeProfile: 'novice',
+    accumulationWeeks: 4,
+    rirByWeek: [4, 3, 3, 2],
+    summary:
+      'Built for someone who has not trained seriously before. Six exercises a ' +
+      'session, mostly machines and dumbbells, and every set stops well short of ' +
+      'failure so you spend the first block learning to move well rather than ' +
+      'learning to suffer. The volume is deliberately low: when you are new, your ' +
+      'body responds to far less work than an experienced lifter needs, and ' +
+      'recovering easily is what lets you turn up three times a week without dread.',
+    bestFor: ['You are new to lifting, or coming back after years off',
+              'You would rather build the habit than chase the hardest program'],
+    days: [
+      { id: 'nov-a', name: 'Day A', focus: 'Squat and press', slots: [
+        slot('leg-press', 3, { role: 'anchor', reps: [10, 15], restSec: 150 }),
+        slot('machine-press', 3, { role: 'anchor', reps: [8, 12], restSec: 150 }),
+        slot('cable-row', 3, { role: 'anchor', reps: [10, 14], restSec: 150 }),
+        slot('lying-leg-curl', 2, { reps: [10, 15] }),
+        slot('lateral-raise', 2, { superset: 'A' }),
+        slot('cable-crunch', 2, { superset: 'A' }),
+      ]},
+      { id: 'nov-b', name: 'Day B', focus: 'Hinge and pull', slots: [
+        slot('db-rdl', 3, { role: 'anchor', reps: [8, 12], restSec: 150 }),
+        slot('lat-pulldown', 3, { role: 'anchor', reps: [10, 14], restSec: 150 }),
+        slot('db-shoulder-press', 3, { role: 'anchor', reps: [8, 12], restSec: 150 }),
+        slot('leg-extension', 2, { reps: [12, 15] }),
+        slot('cable-curl', 2, { superset: 'A' }),
+        slot('pushdown', 2, { superset: 'A' }),
+      ]},
+      { id: 'nov-c', name: 'Day C', focus: 'Putting it together', slots: [
+        slot('hack-squat', 3, { role: 'anchor', reps: [10, 15], restSec: 150 }),
+        slot('incline-db-press', 3, { role: 'anchor', reps: [8, 12], restSec: 150 }),
+        slot('chest-supported-row', 3, { role: 'anchor', reps: [10, 14], restSec: 150 }),
+        slot('seated-leg-curl', 2, { reps: [10, 15] }),
+        slot('rear-delt-fly', 2, { superset: 'A' }),
+        slot('standing-calf', 4, { superset: 'A' }),
+      ]},
+    ],
+  },
+
+  {
     id: 'ul4',
     name: 'Upper / Lower',
     subtitle: '4 days · hypertrophy with a strength anchor',

@@ -30,6 +30,11 @@ function defaultState() {
       restBeep: true,
       theme: 'system',
       bodyweight: null,
+      // Beginner-facing defaults. `experience` drives the plain-language layer;
+      // `onboarded` stops the first-run walkthrough reappearing.
+      experience: null,
+      equipment: 'full',
+      onboarded: false,
     },
     mesocycles: [],
     activeMesoId: null,
@@ -122,10 +127,13 @@ class Store {
 
   /* ---------------------------------------------------------- mesocycles */
 
-  startMesocycle(programId, name) {
+  startMesocycle(programId, name, equipment) {
     const program = getProgram(programId);
     if (!program) return null;
-    const meso = newMesocycle(program, { name });
+    const meso = newMesocycle(program, {
+      name,
+      equipment: equipment ?? this.state.settings.equipment ?? 'full',
+    });
     this.update((s) => ({
       ...s,
       mesocycles: [...s.mesocycles.map((m) => (m.status === 'active' ? { ...m, status: 'archived' } : m)), meso],

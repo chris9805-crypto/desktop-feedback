@@ -76,7 +76,9 @@ function emit(file) {
       line = `const ${ns[1]} = ${dep};`;
     } else {
       const named = imp.clause.match(/\{([\s\S]*)\}/);
-      line = named ? `const {${named[1]}} = ${dep};` : '';
+      // `import { listen as listenForInstall }` becomes `const { listen: listenForInstall }`
+      // - destructuring renames with a colon, not `as`.
+      line = named ? `const {${named[1].replace(/\b(\w+)\s+as\s+(\w+)/g, '$1: $2')}} = ${dep};` : '';
     }
     body = body.replace(imp.raw, line);
   }

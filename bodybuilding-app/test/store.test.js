@@ -249,3 +249,24 @@ test('a second block starts heavier than the first one did', () => {
   assert.equal(restart.previous.weight, 100);
   assert.equal(restart.previous.reps, 8);
 });
+
+test('a weight typed just before ticking the set is the one that gets logged', () => {
+  // The set rows close over their data when drawn, and typing in a field
+  // updates the store without a re-render. Anything reading the captured copy
+  // sees the value from before the edit - which silently dropped the weight on
+  // every first session, where there is no prescribed load to fall back to.
+  const meso = store.startMesocycle('ul4');
+  store.startSession(meso.id, 0, 'upper-a');
+  const stale = store.state.active.entries[0].sets[0];
+  assert.equal(stale.weight, null, 'first session has nothing prescribed yet');
+
+  store.logSet('bb-bench', 0, { weight: 62.5 });          // what typing does
+  assert.equal(stale.weight, null, 'the captured copy stays behind, by design');
+
+  const live = store.state.active.entries[0].sets[0];      // what the tick must read
+  assert.equal(live.weight, 62.5);
+
+  store.logSet('bb-bench', 0, { done: true, weight: live.weight, reps: 5, rir: 2 });
+  const session = store.finishSession();
+  assert.equal(session.entries[0].sets[0].weight, 62.5);
+});

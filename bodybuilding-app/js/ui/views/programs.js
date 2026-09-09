@@ -8,6 +8,7 @@ import { MUSCLES, MUSCLE_DISPLAY_ORDER, muscleName } from '../../data/muscles.js
 import { newMesocycle, weekPlan, programTimeProfile, totalWeeks, estimateSessionMinutes } from '../../engine/mesocycle.js';
 import { plannedSetsByMuscle } from '../../engine/volume.js';
 import { volumeChart } from '../charts.js';
+import { confirmSheet, promptSheet } from '../sheet.js';
 
 export function render(container) {
   clear(container);
@@ -67,10 +68,24 @@ function programCard(program, active) {
     h('div', { class: 'row', style: 'margin-top:16px' },
       h('button', {
         class: 'btn-primary',
-        onClick: () => {
-          const name = prompt('Name this block:', `${program.name} · ${new Date().toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}`);
+        onClick: async () => {
+          if (active) {
+            const ok = await confirmSheet({
+              title: 'Start a new block?',
+              body: `Your current block (${getProgram(active.programId).name}) gets archived where it is. ` +
+                    'Everything you have logged is kept.',
+              confirmLabel: 'Start the new one',
+            });
+            if (!ok) return;
+          }
+          const name = await promptSheet({
+            title: 'Name this block',
+            body: 'Just so you can tell it apart later. The default is fine.',
+            label: 'Block name',
+            value: `${program.name} · ${new Date().toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}`,
+            confirmLabel: 'Start training',
+          });
           if (name === null) return;
-          if (active && !confirm(`This archives your current block (${getProgram(active.programId).name}). Continue?`)) return;
           store.startMesocycle(program.id, name.trim() || undefined);
           location.hash = '#/train';
         },

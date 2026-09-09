@@ -14,6 +14,7 @@ import { setsByMuscle, volumeReport } from '../../engine/volume.js';
 import { e1rm, tonnage } from '../../engine/onerm.js';
 import { bestSet, strengthTrend } from '../../engine/progression.js';
 import { trendChart, volumeChart } from '../charts.js';
+import { confirmSheet } from '../sheet.js';
 
 let selectedExercise = '';
 
@@ -169,11 +170,13 @@ function sessionRow(session, unit) {
           : null,
         h('button', {
           class: 'btn-danger btn-sm', style: 'margin-top:12px',
-          onClick: () => {
-            if (confirm('Delete this session? The day it completed becomes available again.')) {
-              store.deleteSession(session.id);
-              location.reload();
-            }
+          onClick: async () => {
+            const ok = await confirmSheet({
+              title: 'Delete this session?',
+              body: 'The day it completed becomes available to train again. This cannot be undone.',
+              confirmLabel: 'Delete', danger: true,
+            });
+            if (ok) { store.deleteSession(session.id); location.reload(); }
           },
         }, 'Delete session'),
       );

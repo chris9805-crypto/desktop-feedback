@@ -9,8 +9,9 @@ No account, no server, no subscription. Everything lives in your browser.
 
 ```bash
 npm start           # http://localhost:8080
-npm test            # 72 tests, no dependencies
+npm test            # 95 tests, no dependencies
 npm run bundle      # dist/ironblock.html — the whole app in one file
+npm run icons       # regenerate the home-screen icons
 ```
 
 There is no build step. The app is ES modules loaded straight from source; the
@@ -39,6 +40,77 @@ all — instead of being an advertised guess, so you know a peak-week Upper A is
 **Progressive.** Load, reps, weekly sets and weekly effort all move, each by its
 own rule, each driven by data you logged rather than a number written into a
 spreadsheet a year ago.
+
+---
+
+## If you are new to this
+
+You do not need to know any of the words. Three questions on first run — how
+long you have been lifting, how many days you can train, what equipment you
+have — and it picks a program and explains why.
+
+**Nothing is called by its jargon name unless you ask for it.** Instead of
+`4 × 5 @ 100kg · 2 RIR` you get:
+
+> *4 sets of 5 reps at 100kg, and stop with about 2 reps still in you.*
+
+and underneath, in place of "topped out the window at 2 RIR":
+
+> *Last time you got 8 reps and still had 2 more reps in you. That is the signal
+> to add weight, so you are going up to 102.5kg and back down to 5 reps.*
+
+Other things that change in beginner mode:
+
+- **Effort is asked in words, not numbers.** After each set: *"How many more
+  could you have done?"* → `None left · 1 more · 2 more · 3 more · 4+ more`.
+  Nobody is handed an empty box labelled RIR.
+- **Warm-up guidance on every exercise**, with the weights worked out —
+  `8 reps at 40kg · 5 reps at 60kg · 3 reps at 80kg`. This is the thing every
+  program assumes you know and none of them tell you.
+- **Any underlined word is tappable** for a plain-English definition, anywhere
+  in the app. The full glossary lives under **Learn**, along with the handful of
+  things nobody tells beginners — that soreness is not the score, that you will
+  not grow without eating, that a missed session is not failure.
+- **A beginner program.** *First Steps*: three days, six exercises, mostly
+  machines and dumbbells, every set stopping well short of failure. Volume is
+  deliberately low — beginners grow on far less work than an intermediate needs,
+  and recovering easily is what gets you back three times a week.
+- **Recovery questions in plain language.** "Still aching from last time?"
+  rather than "Soreness 0–3".
+
+Switch to `Settings → Just the numbers` at any point and the technical
+vocabulary comes back. The training underneath is identical either way — it is
+the wording that changes, not the plan.
+
+## Using it on your phone
+
+It installs to the home screen and runs full-screen with its own icon:
+
+- **iPhone/iPad:** Share → Add to Home Screen
+- **Android:** menu (⋮) → Install app, or the button in Settings
+
+Once installed **it works with no signal**, which matters because gyms are
+famously basements. Everything is cached on first visit and your data never
+leaves the device, so there is nothing to sync and nothing to wait for.
+
+The phone layout is a five-item bottom bar within thumb reach, tap targets sized
+for someone out of breath, and safe-area insets so nothing hides under a notch
+or a home indicator. There are no `alert()` or `prompt()` dialogs anywhere —
+every confirmation is a bottom sheet you can reach one-handed.
+
+## Training without a full gym
+
+Pick what you actually have — full gym, machines and cables but no barbell, or
+just dumbbells at home — and exercises you cannot do are swapped for ones that
+train the same muscle. A back squat becomes a goblet squat; a cable pushdown
+becomes a dumbbell overhead extension.
+
+The swap happens *after* volume and progression are worked out, so the plan
+underneath is identical — only the movement you physically perform changes. Set
+counts, rep windows and MRV caps are unaffected. Every program is checked by the
+test suite to be fully performable on every equipment profile, and every
+substitute is checked to train the same primary muscle as the movement it
+replaces.
 
 ---
 
@@ -118,11 +190,12 @@ low-confidence rather than quoting it to the kilo.
 
 ## The programs
 
-Five templates, each a five-week block. Session and weekly times are computed
+Six templates, each a five-week block. Session and weekly times are computed
 from the plan itself, week one through peak week.
 
 | Program | Days | For | Time per week |
 |---|---|---|---|
+| **First Steps** | 3 | Your first six months — machines, dumbbells, nothing near failure | 2.5–3.4 h |
 | **Upper / Lower** | 4 | The default answer for most serious lifters | 4.5–6.0 h |
 | **Push / Pull / Legs** | 6 | Advanced, recovering well, eating enough | 6.2–7.8 h |
 | **Power / Hypertrophy** | 4 | Strength numbers you care about, plus size | 4.7–5.8 h |
@@ -140,15 +213,23 @@ no session runs past 105 minutes.
 
 ```
 js/
-  data/         exercises, programs, muscles + volume landmarks
+  data/         exercises, programs, muscles + landmarks, glossary
   engine/
+    equipment.js     substituting movements for the kit you have
     onerm.js         estimated 1RM and its inverse
     progression.js   the decision: what goes on the bar today
     volume.js        fractional set counting against landmarks
     mesocycle.js     block construction, volume progression, MRV clamping
-  ui/           views, charts, DOM helpers
+  ui/
+    explain.js       plain-English wording for everything the engine decides
+    sheet.js         bottom sheets (no alert/prompt/confirm anywhere)
+    term.js          tappable jargon
+    views/           screens, including the first-run walkthrough and Learn
   store.js      state + localStorage persistence
-test/           72 tests: engine, program design audit, store, bundle, docs
+sw.js           offline cache
+manifest.webmanifest, icons/   home-screen install
+test/           95 tests: engine, program design audit, store, beginner
+                layer, equipment adaptation, offline shell, bundle, docs
 tools/          dev server, single-file bundler
 ```
 

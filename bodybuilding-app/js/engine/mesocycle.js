@@ -18,6 +18,7 @@ import { MUSCLES } from '../data/muscles.js';
 import { setChangeFromFeedback, isDeloadWeek, defaultRest } from './progression.js';
 import { plannedSetsByMuscle } from './volume.js';
 import { uid } from '../util/id.js';
+import { adaptDays, DEFAULT_PROFILE } from './equipment.js';
 
 export const MAX_ADDED_SETS_PER_SLOT = 2;
 /**
@@ -41,10 +42,11 @@ export function totalWeeks(program) {
   return (program?.accumulationWeeks ?? 4) + 1; // + deload
 }
 
-export function newMesocycle(program, { name, startedAt = Date.now(), id } = {}) {
+export function newMesocycle(program, { name, startedAt = Date.now(), id, equipment = DEFAULT_PROFILE } = {}) {
   return {
     id: id ?? uid('meso'),
     programId: program.id,
+    equipment,
     name: name ?? `${program.name} · ${new Date(startedAt).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}`,
     startedAt,
     currentWeek: 0,
@@ -222,6 +224,10 @@ export function weekPlan(meso, sessions, weekIndex) {
     ? { extras: {}, notes: {} }
     : computeExtras(program, sessions, meso.id, weekIndex);
   const resolved = resolveWeek(program, extras);
+  // Equipment substitution happens last, so volume progression and the MRV
+  // clamp reason about the program as designed, and only the movement someone
+  // physically performs changes.
+  const days = adaptDays(resolved.days, meso.equipment ?? DEFAULT_PROFILE);
   return {
     weekIndex,
     deload,
@@ -229,7 +235,7 @@ export function weekPlan(meso, sessions, weekIndex) {
     targetRir: deload ? 4 : program.rirByWeek?.[weekIndex] ?? 2,
     program,
     notes,
-    days: resolved.days.map((d) => ({
+    days: days.map((d) => ({
       ...d,
       done: Boolean(meso.completed?.[`${weekIndex}:${d.id}`]),
       sessionId: meso.completed?.[`${weekIndex}:${d.id}`] ?? null,

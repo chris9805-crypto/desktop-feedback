@@ -73,7 +73,7 @@ export const EXERCISES = [
     primary: ['chest'], secondary: ['triceps', 'frontDelts'], reps: [8, 12], inc: 2.5,
     cues: ['Seat height so the handles line up with the lower chest',
            'Safe to take to 0 RIR - no bailout required'],
-    subs: ['db-bench', 'bb-bench'],
+    subs: ['db-bench', 'bb-bench', 'pushup'],
   }),
   ex('machine-incline', 'Incline machine press', {
     type: 'compound', equipment: 'machine', stability: 'high',
@@ -100,6 +100,47 @@ export const EXERCISES = [
     cues: ['Lean the torso forward ~30 degrees to bias the chest',
            'Stop when the upper arm is just past parallel'],
     subs: ['db-bench'],
+  }),
+
+  ex('goblet-squat', 'Goblet squat', {
+    type: 'compound', equipment: 'dumbbell',
+    primary: ['quads'], secondary: ['glutes', 'upperBack'], reps: [10, 15], inc: 2,
+    cues: ['Hold one dumbbell against your chest and let it counterbalance you',
+           'Elbows brush the inside of the knees at the bottom',
+           'The easiest squat pattern to learn well - most people get depth here first'],
+    subs: ['bulgarian-split-squat', 'leg-press', 'hack-squat'],
+  }),
+  ex('db-calf-raise', 'Dumbbell calf raise', {
+    equipment: 'dumbbell', primary: ['calves'], reps: [12, 20], inc: 2,
+    cues: ['Stand on a step so the heel can drop below the toes',
+           'Pause two seconds in the stretch at the bottom'],
+    subs: ['standing-calf', 'seated-calf'],
+  }),
+  ex('db-rear-delt-fly', 'Bent-over dumbbell fly', {
+    equipment: 'dumbbell', primary: ['rearDelts'], secondary: ['upperBack'], reps: [12, 20], inc: 1,
+    cues: ['Hinge until the torso is nearly parallel to the floor and stay there',
+           'Think about pulling the hands apart rather than lifting them'],
+    subs: ['rear-delt-fly', 'face-pull'],
+  }),
+  ex('db-overhead-ext', 'Dumbbell overhead extension', {
+    equipment: 'dumbbell', primary: ['triceps'], reps: [10, 15], inc: 2,
+    cues: ['One dumbbell in both hands, elbows pointing forward and staying there',
+           'Overhead is the only position that stretches the long head of the triceps'],
+    subs: ['overhead-ext', 'skullcrusher', 'pushdown'],
+  }),
+  ex('db-glute-bridge', 'Dumbbell glute bridge', {
+    equipment: 'dumbbell', primary: ['glutes'], secondary: ['hamstrings'], reps: [10, 15], inc: 2,
+    cues: ['Shoulders on the floor or a bench, dumbbell across the hips',
+           'Squeeze hard at the top for a full second'],
+    subs: ['hip-thrust', 'glute-kickback'],
+  }),
+  ex('pushup', 'Push-up', {
+    type: 'compound', equipment: 'bodyweight',
+    primary: ['chest'], secondary: ['triceps', 'frontDelts'], reps: [10, 20], inc: 2.5,
+    cues: ['Squeeze the glutes so the hips do not sag',
+           'Elevate the hands on a bench if you cannot control the descent yet',
+           'Add reps first; a backpack with books in it is a perfectly good weight vest'],
+    subs: ['db-bench', 'machine-press'],
   }),
 
   // ----------------------------------------------------------------- back
@@ -165,7 +206,10 @@ export const EXERCISES = [
   ex('trap-bar-dl', 'Trap bar deadlift', {
     type: 'compound', equipment: 'barbell', stability: 'low',
     primary: ['quads', 'glutes'], secondary: ['hamstrings', 'lowerBack', 'traps'], reps: [5, 8], inc: 5,
-    subs: ['deadlift'],
+    // Substitutes are searched in order, so the quad-dominant options come
+    // first: this is a squat pattern wearing a deadlift's name, and swapping it
+    // for an RDL would quietly move the work to the hamstrings.
+    subs: ['bulgarian-split-squat', 'goblet-squat', 'deadlift', 'leg-press'],
   }),
   ex('shrug', 'Dumbbell shrug', {
     equipment: 'dumbbell', primary: ['traps'], reps: [10, 15], inc: 2,
@@ -212,17 +256,17 @@ export const EXERCISES = [
     equipment: 'machine', stability: 'high',
     primary: ['rearDelts'], secondary: ['upperBack'], reps: [12, 20], inc: 2.5,
     cues: ['Think about pulling the hands apart, not back'],
-    subs: ['cable-rear-delt', 'face-pull'],
+    subs: ['cable-rear-delt', 'face-pull', 'db-rear-delt-fly'],
   }),
   ex('cable-rear-delt', 'Cable rear delt fly', {
     equipment: 'cable', stability: 'high', primary: ['rearDelts'], secondary: ['upperBack'],
-    reps: [12, 20], inc: 1.25, subs: ['rear-delt-fly'],
+    reps: [12, 20], inc: 1.25, subs: ['rear-delt-fly', 'db-rear-delt-fly'],
   }),
   ex('face-pull', 'Face pull', {
     equipment: 'cable', stability: 'high',
     primary: ['rearDelts'], secondary: ['upperBack', 'traps'], reps: [12, 20], inc: 2.5,
     cues: ['Pull to the eyebrows and externally rotate at the end'],
-    subs: ['rear-delt-fly'],
+    subs: ['rear-delt-fly', 'db-rear-delt-fly'],
   }),
 
   // --------------------------------------------------------------- arms
@@ -230,21 +274,23 @@ export const EXERCISES = [
     type: 'compound', equipment: 'barbell', stability: 'low',
     primary: ['triceps'], secondary: ['chest', 'frontDelts'], reps: [6, 10], inc: 2.5,
     cues: ['Grip just inside shoulder width - narrower wrecks wrists, not triceps'],
-    subs: ['dips', 'skullcrusher'],
+    // Triceps-first ordering. Dips are a fine swap by feel, but they are a chest
+    // movement that uses triceps - substituting into them would move the work.
+    subs: ['pushdown', 'db-overhead-ext', 'skullcrusher', 'dips'],
   }),
   ex('skullcrusher', 'EZ-bar skullcrusher', {
     equipment: 'barbell', primary: ['triceps'], reps: [10, 14], inc: 1.25,
     cues: ['Lower behind the head, not to the forehead - keeps the long head loaded'],
-    subs: ['overhead-ext', 'pushdown'],
+    subs: ['overhead-ext', 'pushdown', 'db-overhead-ext'],
   }),
   ex('overhead-ext', 'Overhead cable extension', {
     equipment: 'cable', stability: 'high', primary: ['triceps'], reps: [10, 15], inc: 1.25,
     cues: ['The long head only gets a real stretch overhead - do not skip this pattern'],
-    subs: ['skullcrusher'],
+    subs: ['skullcrusher', 'db-overhead-ext'],
   }),
   ex('pushdown', 'Cable pushdown', {
     equipment: 'cable', stability: 'high', primary: ['triceps'], reps: [12, 15], inc: 1.25,
-    subs: ['overhead-ext'],
+    subs: ['overhead-ext', 'db-overhead-ext'],
   }),
   ex('bb-curl', 'Barbell curl', {
     equipment: 'barbell', primary: ['biceps'], secondary: ['forearms'], reps: [8, 12], inc: 1.25,
@@ -284,7 +330,7 @@ export const EXERCISES = [
     cues: ['Brace against the belt line before you unrack, not after',
            'Break at the hips and knees together; knees travel over the toes',
            'Depth to at least parallel or the quad stimulus drops sharply'],
-    subs: ['hack-squat', 'front-squat', 'leg-press'],
+    subs: ['hack-squat', 'front-squat', 'leg-press', 'goblet-squat'],
   }),
   ex('front-squat', 'Front squat', {
     type: 'compound', equipment: 'barbell', stability: 'low',
@@ -295,13 +341,13 @@ export const EXERCISES = [
     type: 'compound', equipment: 'machine', stability: 'high',
     primary: ['quads'], secondary: ['glutes'], reps: [8, 12], inc: 5,
     cues: ['Fixed path means you can push far closer to failure than a back squat'],
-    subs: ['leg-press', 'back-squat'],
+    subs: ['leg-press', 'back-squat', 'goblet-squat'],
   }),
   ex('leg-press', 'Leg press', {
     type: 'compound', equipment: 'machine', stability: 'high',
     primary: ['quads'], secondary: ['glutes', 'hamstrings'], reps: [10, 15], inc: 5,
     cues: ['Do not let the lower back round off the pad at the bottom'],
-    subs: ['hack-squat'],
+    subs: ['hack-squat', 'goblet-squat'],
   }),
   ex('bulgarian-split-squat', 'Bulgarian split squat', {
     type: 'compound', equipment: 'dumbbell', unilateral: true,
@@ -345,34 +391,34 @@ export const EXERCISES = [
   ex('leg-extension', 'Leg extension', {
     equipment: 'machine', stability: 'high', primary: ['quads'], reps: [12, 15], inc: 2.5,
     cues: ['Pause at full extension for a count - the shortened position is where this earns its place'],
-    subs: ['hack-squat'],
+    subs: ['hack-squat', 'goblet-squat'],
   }),
   ex('hip-thrust', 'Barbell hip thrust', {
     type: 'compound', equipment: 'barbell', stability: 'high',
     primary: ['glutes'], secondary: ['hamstrings'], reps: [8, 12], inc: 5,
     cues: ['Chin tucked, ribs down; finish with a hard squeeze at lockout'],
-    subs: ['glute-kickback'],
+    subs: ['glute-kickback', 'db-glute-bridge'],
   }),
   ex('glute-kickback', 'Cable glute kickback', {
     equipment: 'cable', stability: 'high', unilateral: true,
-    primary: ['glutes'], reps: [12, 15], inc: 1.25, subs: ['hip-thrust'],
+    primary: ['glutes'], reps: [12, 15], inc: 1.25, subs: ['hip-thrust', 'db-glute-bridge'],
   }),
   ex('standing-calf', 'Standing calf raise', {
     equipment: 'machine', stability: 'high', primary: ['calves'], reps: [8, 12], inc: 2.5,
     cues: ['Two seconds in the stretched bottom position, no bouncing off the achilles'],
-    subs: ['seated-calf'],
+    subs: ['seated-calf', 'db-calf-raise'],
   }),
   ex('seated-calf', 'Seated calf raise', {
     equipment: 'machine', stability: 'high', primary: ['calves'], reps: [12, 20], inc: 2.5,
     cues: ['Bent knee biases the soleus - complements the standing version'],
-    subs: ['standing-calf'],
+    subs: ['standing-calf', 'db-calf-raise'],
   }),
 
   // ---------------------------------------------------------------- core
   ex('cable-crunch', 'Cable crunch', {
     equipment: 'cable', stability: 'high', primary: ['abs'], reps: [12, 15], inc: 2.5,
     cues: ['Flex the spine - hips stay put, this is not a hip hinge'],
-    subs: ['weighted-decline-crunch'],
+    subs: ['weighted-decline-crunch', 'hanging-leg-raise'],
   }),
   ex('weighted-decline-crunch', 'Weighted decline crunch', {
     equipment: 'bodyweight', primary: ['abs'], reps: [10, 15], inc: 2.5, subs: ['cable-crunch'],

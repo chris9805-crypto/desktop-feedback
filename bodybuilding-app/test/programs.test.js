@@ -51,16 +51,34 @@ test('no muscle is programmed past its recoverable volume in any week', () => {
 });
 
 test('every trained muscle clears minimum effective volume by the peak week', () => {
+  // Novice programs are held to maintenance volume instead. Someone in their
+  // first months of lifting grows on volumes that would do nothing for an
+  // intermediate, and burying a beginner in sets is how they stop turning up.
   for (const program of PROGRAMS) {
+    const novice = program.volumeProfile === 'novice';
     const rows = accumulationVolume(program);
     const peak = rows[rows.length - 1];
     for (const muscleId of MUSCLE_DISPLAY_ORDER) {
       const sets = peak[muscleId] ?? 0;
       if (sets === 0) continue; // deliberately untrained is a choice, not a bug
-      assert.ok(sets >= MUSCLES[muscleId].mev,
-        `${program.id}: ${muscleId} peaks at ${sets} sets, below MEV ${MUSCLES[muscleId].mev}`);
+      const floor = novice ? MUSCLES[muscleId].mv : MUSCLES[muscleId].mev;
+      assert.ok(sets >= floor,
+        `${program.id}: ${muscleId} peaks at ${sets} sets, below ${novice ? 'MV' : 'MEV'} ${floor}`);
     }
   }
+});
+
+test('the beginner program stays well inside what a beginner can recover from', () => {
+  const novice = PROGRAMS.find((p) => p.volumeProfile === 'novice');
+  assert.ok(novice, 'there should be a program for someone who has never trained');
+  const peak = accumulationVolume(novice).at(-1);
+  for (const [muscleId, sets] of Object.entries(peak)) {
+    assert.ok(sets <= MUSCLES[muscleId].mav,
+      `${muscleId} at ${sets} sets is past the productive range for a novice`);
+  }
+  // It must also never ask a beginner to train to failure.
+  assert.ok(Math.min(...novice.rirByWeek) >= 2,
+    'a beginner should always finish a set with reps left - technique first');
 });
 
 test('week one leaves room to progress into', () => {
@@ -161,7 +179,11 @@ test('the efficiency program is genuinely the cheapest week', () => {
   // Session length alone would not prove it - a full body day is long. Weekly
   // hours are what the claim is actually about.
   const profiles = Object.fromEntries(PROGRAMS.map((p) => [p.id, programTimeProfile(p)]));
-  const cheapest = Object.entries(profiles).sort((a, b) => a[1].weeklyStart - b[1].weeklyStart)[0][0];
+  // The novice program is cheaper still, but deliberately so - it is low volume
+  // because the lifter is new, not because it is an efficiency choice.
+  const cheapest = Object.entries(profiles)
+    .filter(([id]) => PROGRAMS.find((p) => p.id === id).volumeProfile !== 'novice')
+    .sort((a, b) => a[1].weeklyStart - b[1].weeklyStart)[0][0];
   assert.equal(cheapest, 'fb3');
   assert.ok(profiles.ppl6.weeklyStart > profiles.ul4.weeklyStart, 'six days should cost more than four');
 });
