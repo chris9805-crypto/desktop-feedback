@@ -12,7 +12,7 @@
  */
 
 import { h, clear, fmtWeight, fmtClock, fmtDuration } from '../dom.js';
-import { confirmSheet, chooseSheet } from '../sheet.js';
+import { confirmSheet, chooseSheet, alertSheet } from '../sheet.js';
 import { term, showTerm } from '../term.js';
 import {
   usePlainLanguage, targetLine, reasonLine, tagLabel, warmupAdvice,
@@ -289,12 +289,36 @@ function listSession(active) {
   const allLogged = active.entries.every((e) => e.sets.every((s) => s.done || s.reps == null));
 
   const wrap = h('div', { class: 'stack' });
-  wrap.append(h('div', { class: 'row', style: 'justify-content:flex-end' },
+  const saved = store.savedOrderFor(active.mesoId, active.dayId);
+  wrap.append(h('div', { class: 'row', style: 'justify-content:space-between' },
     h('button', {
       class: 'btn-sm',
       onClick: () => { flow.listView = false; render(); },
-    }, '← Back to one set at a time'),
+    }, '← One set at a time'),
+    h('div', { class: 'row', style: 'gap:6px' },
+      h('button', {
+        class: 'btn-sm',
+        title: 'Use this order for this day in future weeks',
+        onClick: async () => {
+          store.rememberOrder();
+          render();
+          await alertSheet({
+            title: 'Order saved',
+            body: `${day?.name ?? 'This day'} will run in this order for the rest of the block. `
+              + 'It only affects your own block, not the program itself.',
+          });
+        },
+      }, 'Keep this order'),
+      saved && h('button', {
+        class: 'btn-ghost btn-sm',
+        onClick: () => { store.forgetOrder(active.mesoId, active.dayId); render(); },
+      }, 'Reset'),
+    ),
   ));
+  if (saved) {
+    wrap.append(h('p', { class: 'tiny muted', style: 'margin:-6px 0 0' },
+      'Running in your saved order for this day.'));
+  }
 
   wrap.append(h('div', { class: 'card' },
     h('div', { class: 'spread session-head' },
@@ -347,6 +371,16 @@ function exerciseCard(entry, active) {
   const beginner = usePlainLanguage();
 
   card.append(h('div', { class: 'exercise-head' },
+    h('div', { class: 'reorder' },
+      h('button', {
+        class: 'btn-ghost btn-sm', 'aria-label': `Move ${exercise.name} earlier`,
+        onClick: () => { store.moveEntry(entry.exerciseId, -1); render(); },
+      }, '↑'),
+      h('button', {
+        class: 'btn-ghost btn-sm', 'aria-label': `Move ${exercise.name} later`,
+        onClick: () => { store.moveEntry(entry.exerciseId, 1); render(); },
+      }, '↓'),
+    ),
     h('div', { class: 'title' },
       h('h3', {},
         exercise.name,
@@ -450,7 +484,7 @@ function setRow(entry, set, index, prescription, exercise) {
   // immediately confirmed would never reach the store.
   const commit = (field) => (ev) => {
     const raw = ev.target.value;
-    store.logSet(entry.exerciseId, index, { [field]: raw === '' ? null : Number(raw) });
+    store.editSet(entry.exerciseId, index, { [field]: raw === '' ? null : Number(raw) });
   };
 
   row.append(

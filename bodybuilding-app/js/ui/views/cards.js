@@ -98,8 +98,14 @@ export function setCard(active, position, opts) {
   ));
 
   /* --- the numbers, big --------------------------------------------- */
-  let currentWeight = set.weight ?? p.weight;
-  let currentReps = set.reps ?? p.targetReps;
+  // What to propose, in order of how much it is worth trusting: what is already
+  // on this set, then whatever the lifter actually did earlier in this exercise
+  // today, then the plan. The middle one is what stops a first-ever lift asking
+  // for the same two numbers on every set.
+  const logged = entry.sets.filter((x) => x.done && x.weight != null);
+  const lastDone = logged[logged.length - 1] ?? null;
+  let currentWeight = set.weight ?? lastDone?.weight ?? p.weight;
+  let currentReps = set.reps ?? lastDone?.reps ?? p.targetReps;
   const step = loadStep(exercise, currentWeight ?? 20, unit);
 
   const done = h('button', { class: 'btn-primary setcard-done' });
@@ -118,7 +124,7 @@ export function setCard(active, position, opts) {
       placeholder: '—',
       step,
       min: 0,
-      onCommit: (v) => { currentWeight = v; quiet({ weight: v }); refreshDone(); },
+      onCommit: (v) => { currentWeight = v; store.editSet(entry.exerciseId, position.setIndex, { weight: v }); refreshDone(); },
     }),
     h('div', { class: 'setcard-times' }, '×'),
     stepper({
@@ -126,7 +132,7 @@ export function setCard(active, position, opts) {
       value: currentReps,
       step: 1,
       min: 1,
-      onCommit: (v) => { currentReps = v; quiet({ reps: v }); refreshDone(); },
+      onCommit: (v) => { currentReps = v; store.editSet(entry.exerciseId, position.setIndex, { reps: v }); refreshDone(); },
     }),
   ));
 
@@ -195,6 +201,16 @@ export function setCard(active, position, opts) {
       class: 'btn-sm',
       onClick: () => { store.addSet(entry.exerciseId); opts.onChange(); },
     }, '+ Extra set'),
+    // The rack being busy is the single most common reason to want a different
+    // order, and it needs to be one tap from the set you are looking at.
+    // Available part-way through too: somebody taking the bench between your
+    // sets is exactly the moment you need it, and the sets you have already
+    // logged stay logged.
+    !entry.sets.every((x) => x.done) && h('button', {
+      class: 'btn-sm',
+      title: 'Move this to the end and get on with something else',
+      onClick: () => { store.deferEntry(entry.exerciseId); opts.onChange(); },
+    }, 'Do later'),
   ));
 
   /* --- coaching, where the mode asks for it -------------------------- */

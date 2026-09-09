@@ -1137,3 +1137,12 @@ details.expandable > div { padding: 0 16px 16px; }
   .exercise-visual { gap: 12px; padding: 12px; }
   .pattern { min-width: 100%; }
 }
+
+/* Reordering an exercise mid-session: the rack being busy is not a
+   programming decision, so changing the order should cost one tap. */
+.reorder { display: flex; flex-direction: column; gap: 2px; flex: none; }
+.reorder button {
+  width: 30px; min-height: 26px; padding: 0; justify-content: center;
+  font-size: 13px; line-height: 1; color: var(--text-muted);
+}
+.reorder button:hover { color: var(--accent); background: var(--surface-2); }

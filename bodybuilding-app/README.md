@@ -9,7 +9,7 @@ No account, no server, no subscription. Everything lives in your browser.
 
 ```bash
 npm start           # http://localhost:8080
-npm test            # 184 tests, no dependencies
+npm test            # 200 tests, no dependencies
 npm run bundle      # dist/ironblock.html — the whole app in one file
 npm run icons       # regenerate the home-screen icons
 ```
@@ -323,6 +323,21 @@ for when reality diverged badly, but it is the exception rather than the
 interaction. The prediction is not a guess — it is the same progression engine
 that writes the plan, so confirming is genuinely the common case.
 
+**Straight sets are the default.** Log the first set of an exercise and the
+rest of it fills in with the same weight and reps — because that is what almost
+everybody does, and because a first-ever lift has nothing prescribed to fall
+back on, so without this it asked for the same two numbers on every set.
+Anything you change yourself is never overwritten, so putting five more kilos on
+the last set still works, and deviating from the plan on set one carries *your*
+number forward rather than the plan's.
+
+**The order is yours.** A busy squat rack is not a programming decision. `Do
+later` on any card sends that exercise to the back of what is left, keeping any
+sets you already logged; the list view has up/down arrows; and `Keep this order`
+remembers it for that day for the rest of the block. It changes nothing about
+the training — same sets, same prescriptions — and it applies to your block
+only, not the program.
+
 The one thing it cannot predict is how hard the set felt, so that is asked
 straight after, in words, with five big targets. It is never assumed: a set
 confirmed with one tap carries no effort rating until you give one, because
@@ -547,7 +562,7 @@ js/
   store.js      state + localStorage persistence
 sw.js           offline cache
 manifest.webmanifest, icons/   home-screen install
-test/           184 tests: engine, program design audit, store, modes,
+test/           200 tests: engine, program design audit, store, modes,
                 weak-point detection, beginner layer, equipment adaptation,
                 offline shell, bundle, docs
 tools/          dev server, single-file bundler

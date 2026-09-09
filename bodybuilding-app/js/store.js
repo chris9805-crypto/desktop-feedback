@@ -394,10 +394,22 @@ class Store {
     // The block carries the mode it was started in, so switching modes
     // mid-block does not silently rewrite the training you are part-way through.
     const mode = meso.mode ?? this.state.settings.mode ?? DEFAULT_MODE;
+    // A remembered order is a preference, not a constraint: anything it does not
+    // mention keeps its place, so adding an exercise later does not lose it.
+    const saved = this.savedOrderFor(mesoId, dayId);
+    const slots = saved
+      ? [...day.slots].sort((a, b) => {
+        const ai = saved.indexOf(a.substitutedFrom ?? a.exerciseId);
+        const bi = saved.indexOf(b.substitutedFrom ?? b.exerciseId);
+        return (ai < 0 ? Number.MAX_SAFE_INTEGER : ai) - (bi < 0 ? Number.MAX_SAFE_INTEGER : bi);
+      })
+      : day.slots;
+
     return {
       mesoId, weekIndex, dayId,
       plan, day, mode,
-      entries: day.slots.map((slot) => {
+      reordered: Boolean(saved),
+      entries: slots.map((slot) => {
         const exercise = getExercise(slot.exerciseId);
         const previous = this.lastEntryFor(slot.exerciseId, { mesoId, dayId });
         return {
@@ -454,16 +466,46 @@ class Store {
       const entry = active.entries.find((e) => e.exerciseId === exerciseId);
       if (!entry || !entry.sets[index]) return active;
       entry.sets[index] = { ...entry.sets[index], ...patch };
+
+      // Finishing a set carries its numbers down to the rest of the exercise.
+      // Straight sets are the overwhelmingly common case - nobody re-decides
+      // the weight between set two and set three - and making someone key the
+      // same two numbers four times is the fastest way to lose them. Anything
+      // they have already touched themselves is left alone, so putting five
+      // more kilos on the last set still works.
+      if (patch.done) {
+        const { weight, reps } = entry.sets[index];
+        for (let i = index + 1; i < entry.sets.length; i++) {
+          const later = entry.sets[i];
+          if (later.done || later.edited) continue;
+          entry.sets[i] = { ...later, weight, reps };
+        }
+      }
       return active;
     });
+  }
+
+  /**
+   * A value the lifter set themselves, rather than one the app proposed.
+   * Marked so carry-forward never overwrites a deliberate change.
+   */
+  editSet(exerciseId, index, patch) {
+    return this.logSet(exerciseId, index, { ...patch, edited: true });
   }
 
   addSet(exerciseId) {
     return this.updateActive((active) => {
       const entry = active.entries.find((e) => e.exerciseId === exerciseId);
       if (!entry) return active;
-      const last = entry.sets[entry.sets.length - 1];
-      entry.sets.push({ weight: last?.weight ?? null, reps: null, rir: null, done: false, warmup: false });
+      // Inherit from the last set actually performed, not merely the last row -
+      // an untouched trailing row has nothing useful on it. Reps come along
+      // too: an extra set is almost always another set of the same thing.
+      const source = [...entry.sets].reverse().find((x) => x.done) ?? entry.sets[entry.sets.length - 1];
+      entry.sets.push({
+        weight: source?.weight ?? null,
+        reps: source?.reps ?? null,
+        rir: null, done: false, warmup: false,
+      });
       return active;
     });
   }
@@ -497,6 +539,74 @@ class Store {
       entry.sets = entry.sets.map((s) => ({ ...s, weight: entry.prescription.weight ?? s.weight }));
       return active;
     });
+  }
+
+  /**
+   * Move an exercise within the session you are doing right now.
+   *
+   * The squat rack being occupied is not a programming decision, it is Tuesday.
+   * Order within a session barely affects the result as long as the heavy work
+   * still lands while you are fresh, so this is deliberately free to change -
+   * and the app does not argue about it.
+   */
+  moveEntry(exerciseId, delta) {
+    return this.updateActive((active) => {
+      const from = active.entries.findIndex((e) => e.exerciseId === exerciseId);
+      const to = from + delta;
+      if (from < 0 || to < 0 || to >= active.entries.length) return active;
+      const [entry] = active.entries.splice(from, 1);
+      active.entries.splice(to, 0, entry);
+      return active;
+    });
+  }
+
+  /** Send an exercise to the end of the queue - "the rack is busy, come back". */
+  deferEntry(exerciseId) {
+    return this.updateActive((active) => {
+      const from = active.entries.findIndex((e) => e.exerciseId === exerciseId);
+      if (from < 0) return active;
+      const [entry] = active.entries.splice(from, 1);
+      // After the last exercise that still has work left, not after finished
+      // ones - otherwise "later" means "after the stuff you already did".
+      let insertAt = active.entries.length;
+      while (insertAt > 0 && active.entries[insertAt - 1].sets.every((x) => x.done)) insertAt -= 1;
+      active.entries.splice(Math.max(insertAt, 0), 0, entry);
+      return active;
+    });
+  }
+
+  /**
+   * Keep the current order for this day in future weeks.
+   *
+   * Stored on the block rather than the program, so the template stays the
+   * template and one person's gym layout does not rewrite it for everyone.
+   */
+  rememberOrder() {
+    const active = this.state.active;
+    if (!active) return null;
+    const order = active.entries.map((e) => e.swappedFrom ?? e.exerciseId);
+    return this.update((s) => ({
+      ...s,
+      mesocycles: s.mesocycles.map((m) => (m.id === active.mesoId
+        ? { ...m, dayOrder: { ...(m.dayOrder ?? {}), [active.dayId]: order } }
+        : m)),
+    }));
+  }
+
+  savedOrderFor(mesoId, dayId) {
+    return this.state.mesocycles.find((m) => m.id === mesoId)?.dayOrder?.[dayId] ?? null;
+  }
+
+  forgetOrder(mesoId, dayId) {
+    return this.update((s) => ({
+      ...s,
+      mesocycles: s.mesocycles.map((m) => {
+        if (m.id !== mesoId) return m;
+        const dayOrder = { ...(m.dayOrder ?? {}) };
+        delete dayOrder[dayId];
+        return { ...m, dayOrder };
+      }),
+    }));
   }
 
   /** Per-exercise ratings gathered during the session (form, connection, side). */
