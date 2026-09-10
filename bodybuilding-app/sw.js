@@ -36,6 +36,7 @@ const SHELL = [
   './js/engine/imbalance.js',
   './js/engine/progress.js',
   './js/engine/retention.js',
+  './js/engine/bodyweight.js',
   './js/engine/crew.js',
   './js/ui/dom.js',
   './js/ui/charts.js',

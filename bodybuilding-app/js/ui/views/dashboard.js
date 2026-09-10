@@ -24,6 +24,7 @@ import { setsByMuscle, volumeReport, volumeFlags } from '../../engine/volume.js'
 import { strengthTrend } from '../../engine/progression.js';
 import { levelTitle } from '../../engine/progress.js';
 import { VERDICT_COPY } from '../../engine/retention.js';
+import { promptSheet } from '../sheet.js';
 import { volumeChart, trendChart } from '../charts.js';
 import { volumeStatusLine, usePlainLanguage } from '../explain.js';
 import { term } from '../term.js';
@@ -31,12 +32,12 @@ import { term } from '../term.js';
 export function render(container) {
   clear(container);
   const meso = store.activeMeso();
-  container.append(meso ? active(meso) : welcome());
+  container.append(meso ? active(meso, container) : welcome());
 }
 
 /* ------------------------------------------------------------- the top */
 
-function active(meso) {
+function active(meso, container) {
   const program = getProgram(meso.programId);
   const sessions = store.mesoSessions(meso.id);
   const next = store.nextUp();
@@ -206,6 +207,14 @@ function active(meso) {
         ),
       ),
       h('p', { class: 'secondary small', style: 'margin:10px 0 0' }, copy.line),
+      // The line that makes a cut legible: same bar, less of you lifting it.
+      retention.relative && retention.relative.improved && h('div', { class: 'relative-note' },
+        h('b', {}, `+${retention.relative.changePct.toFixed(1)}% strength per kilo`),
+        ` — you are moving the same weight at `,
+        fmtWeight(Math.round(retention.relative.bodyweightNow * 10) / 10, store.state.settings.unit),
+        `, down from `,
+        fmtWeight(Math.round(retention.relative.bodyweightThen * 10) / 10, store.state.settings.unit),
+        `. That is a real gain the headline number cannot show.`),
       h('div', { class: 'retention-list' }, ...retention.lifts.slice(0, 5).map((lift) => h('div', {
         class: `retention-row${lift.held ? ' is-held' : ''}`,
       },
@@ -222,6 +231,11 @@ function active(meso) {
         'This is strength retention, not muscle retention — no app can measure muscle. ' +
         'Strength is the best signal a training log has, and a good one, but it is a proxy.'),
     ));
+  }
+
+  /* --- weigh-ins (optional, and only where they help) --------------------- */
+  if (phase.goal === 'hold' || store.hasWeighIns()) {
+    wrap.append(weighInPanel(container));
   }
 
   /* --- strength ---------------------------------------------------------- */
@@ -265,6 +279,76 @@ function active(meso) {
 
   return wrap;
 }
+
+/**
+ * Bodyweight, shown as a trend and nothing else.
+ *
+ * No goal weight, no projection, no calorie estimate: the app cannot know any
+ * of that. The only judgement offered is on rate, because rate is the part
+ * that decides whether a cut costs you muscle.
+ */
+function weighInPanel(container) {
+  const bw = store.bodyweight();
+  const unit = store.state.settings.unit;
+  const phase = store.phase();
+
+  const log = async () => {
+    const value = await promptSheet({
+      title: 'Log your weight',
+      body: 'First thing in the morning is the most comparable. Missing days is fine — '
+        + 'the app reads the trend, not any single number.',
+      label: `Weight (${unit})`,
+      value: bw.latest != null ? String(bw.latest) : '',
+      confirmLabel: 'Save',
+    });
+    if (value == null || value === '') return;
+    try { store.addWeighIn(Number(value)); render(container); } catch { /* ignore junk */ }
+  };
+
+  if (!store.hasWeighIns()) {
+    return h('div', { class: 'panel' },
+      h('div', { class: 'panel-head' }, h('h3', {}, 'Bodyweight'), h('span', { class: 'badge' }, 'Optional')),
+      h('p', { class: 'secondary small', style: 'margin:10px 0 0' },
+        'Logging it lets the app show strength per kilo — holding your lifts while the scale '
+        + 'drops is a real gain, and without a bodyweight it just looks like a flat line.'),
+      h('button', { class: 'btn-primary', style: 'margin-top:12px', onClick: log }, 'Log a weight'),
+    );
+  }
+
+  const points = bw.series.slice(-14).map((p) => ({
+    value: Math.round(p.value * 10) / 10,
+    label: relativeDay(p.date),
+    detail: `${Math.round(p.raw * 10) / 10}${unit} on the day`,
+  }));
+
+  return h('details', { class: 'panel expandable' },
+    h('summary', {},
+      h('h3', {}, 'Bodyweight'),
+      h('span', { class: `badge badge-${bw.advice.level === 'good' ? 'good' : bw.advice.level === 'warning' ? 'warning' : ''}` },
+        bw.advice.label),
+    ),
+    h('div', {},
+      h('div', { class: 'bw-figure' },
+        h('span', { class: 'bw-value num' }, fmtWeight(Math.round(bw.current * 10) / 10, unit)),
+        h('div', {},
+          h('div', { class: 'small strong' }, `${SMOOTH_LABEL} average`),
+          bw.confident && h('div', { class: 'tiny muted' },
+            `${bw.perWeek >= 0 ? '+' : ''}${bw.perWeek.toFixed(2)}${unit} a week `
+            + `(${bw.pctPerWeek >= 0 ? '+' : ''}${bw.pctPerWeek.toFixed(2)}%)`),
+        ),
+      ),
+      h('p', { class: 'secondary small', style: 'margin:8px 0 12px' }, bw.advice.line),
+      points.length >= 2 ? trendChart(points, { unit, height: 160 }) : null,
+      h('div', { class: 'row', style: 'margin-top:12px' },
+        h('button', { class: 'btn-primary btn-sm', onClick: log }, 'Log today'),
+        h('span', { class: 'tiny muted' },
+          `${bw.series.length} readings · trend only, no target weight`),
+      ),
+    ),
+  );
+}
+
+const SMOOTH_LABEL = '7-day';
 
 /* ------------------------------------------------------------- pieces */
 

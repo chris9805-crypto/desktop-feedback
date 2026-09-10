@@ -9,7 +9,7 @@ No account, no server, no subscription. Everything lives in your browser.
 
 ```bash
 npm start           # http://localhost:8080
-npm test            # 231 tests, no dependencies
+npm test            # 251 tests, no dependencies
 npm run bundle      # dist/ironblock.html — the whole app in one file
 npm run icons       # regenerate the home-screen icons
 ```
@@ -298,6 +298,33 @@ It reads your *best recent* effort rather than your last one — judging a diet 
 a single bad session would be wrong and would push people to abandon it — and
 peak comes from your whole log, since the thing you are keeping is the best you
 have ever been.
+
+### Bodyweight — optional, and the denominator
+
+Logging your weight is what turns a flat line into the win it actually is:
+holding a 100kg bench while the scale drops means you are moving the same bar
+with less of you doing it. The app shows that as **strength per kilo** —
+*"+4.1% strength per kilo, moving the same weight at 85kg, down from 88.5kg"* —
+which the headline percentage on its own reads as no change at all.
+
+Everything works without it. The headline retention figure needs no bodyweight;
+the relative number simply is not offered.
+
+Because this is the part of a fitness app most capable of doing harm, it is
+deliberately restrained:
+
+- **The trend is the number, never today's reading.** Day-to-day bodyweight is
+  mostly water and glycogen; a single figure is noise wearing the costume of a
+  fact. It shows a 7-day average, and a rate fitted by least squares over three
+  weeks rather than first-versus-last, which two noisy endpoints can fake.
+- **No goal weight, no finish date, no "behind schedule", no calorie estimates.**
+  The app cannot know any of that, and guessing would be both wrong and unkind.
+- **The only judgement it offers is on rate**, because rate is the part that
+  decides whether a cut costs you muscle: past roughly 1% of bodyweight a week,
+  the share of the loss coming from muscle climbs sharply, and that is worth
+  saying to someone using an app built to prevent exactly that.
+- Weighing daily is not required; irregular readings are handled, and a rate is
+  not quoted at all until there is enough history to mean something.
 
 **One honest limit, stated in the app as well as here: this is strength
 retention, not muscle retention.** No training log can measure tissue. You can
@@ -598,6 +625,7 @@ js/
     imbalance.js     strength ratios, stalled muscles, side-to-side
     progress.js      streaks, XP, levels, badges
     retention.js     how much of your peak strength you are holding
+    bodyweight.js    the trend, and the only judgement it makes (rate)
     crew.js          share codes and standings, no server
     onerm.js         estimated 1RM and its inverse
     progression.js   the decision: what goes on the bar today
@@ -615,7 +643,7 @@ js/
   store.js      state + localStorage persistence
 sw.js           offline cache
 manifest.webmanifest, icons/   home-screen install
-test/           231 tests: engine, program design audit, store, modes,
+test/           251 tests: engine, program design audit, store, modes,
                 weak-point detection, beginner layer, equipment adaptation,
                 offline shell, bundle, docs
 tools/          dev server, single-file bundler

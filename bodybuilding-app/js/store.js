@@ -20,6 +20,7 @@ import { analyse } from './engine/imbalance.js';
 import { progressFor } from './engine/progress.js';
 import { getPhase, DEFAULT_PHASE } from './data/phases.js';
 import { overallRetention } from './engine/retention.js';
+import { trend as bodyweightTrend, rateAdvice, changeOver } from './engine/bodyweight.js';
 import { newProfile, buildCard, decodeCard, safeName } from './engine/crew.js';
 
 const STORAGE_KEY = 'ironblock.state.v1';
@@ -54,6 +55,8 @@ function defaultState() {
     mesocycles: [],
     activeMesoId: null,
     sessions: [],
+    // Optional. Stays empty until you log one; nothing in the app requires it.
+    weighIns: [],
     active: null,
   };
 }
@@ -150,6 +153,7 @@ class Store {
           bodyweight: s.settings.bodyweight == null ? null : round(s.settings.bodyweight * factor, 1),
         },
         sessions: s.sessions.map((sess) => ({ ...sess, entries: convertEntries(sess.entries) })),
+        weighIns: (s.weighIns ?? []).map((w) => ({ ...w, weight: round(w.weight * factor, 2) })),
         active: s.active ? { ...s.active, entries: convertEntries(s.active.entries) } : null,
       };
     });
@@ -247,11 +251,59 @@ class Store {
     }));
   }
 
+  /* --------------------------------------------------------- bodyweight */
+
+  /**
+   * Log a weigh-in. One per day: a second reading on the same day replaces the
+   * first rather than stacking, because two numbers from one morning is not
+   * more information, it is the same information twice.
+   */
+  addWeighIn(weight, when = Date.now()) {
+    const value = Number(weight);
+    if (!Number.isFinite(value) || value <= 0) throw new Error('That is not a weight.');
+    const day = new Date(when).toDateString();
+    return this.update((s) => ({
+      ...s,
+      weighIns: [
+        ...(s.weighIns ?? []).filter((w) => new Date(w.date).toDateString() !== day),
+        { id: uid('wi'), date: when, weight: Math.round(value * 100) / 100 },
+      ].sort((a, b) => a.date - b.date),
+    }));
+  }
+
+  removeWeighIn(id) {
+    return this.update((s) => ({ ...s, weighIns: (s.weighIns ?? []).filter((w) => w.id !== id) }));
+  }
+
+  hasWeighIns() {
+    return (this.state.weighIns ?? []).length > 0;
+  }
+
+  /** The trend, the rate judgement, and the recent change. Cached. */
+  bodyweight() {
+    if (this._bwSource !== this.state.weighIns) {
+      this._bwSource = this.state.weighIns;
+      const result = bodyweightTrend(this.state.weighIns ?? []);
+      this._bw = {
+        ...result,
+        advice: rateAdvice(result, this.phase().id),
+        change30: changeOver(this.state.weighIns ?? [], 30),
+      };
+    }
+    return this._bw;
+  }
+
   /** How much of your peak strength you are holding. Cached like the rest. */
   retention() {
-    if (this._retentionSessions !== this.state.sessions) {
+    const key = `${this.state.sessions.length}:${(this.state.weighIns ?? []).length}`;
+    if (this._retentionKey !== key || this._retentionSessions !== this.state.sessions) {
+      this._retentionKey = key;
       this._retentionSessions = this.state.sessions;
-      this._retention = overallRetention(this.state.sessions);
+      this._retention = overallRetention(this.state.sessions, {
+        // Strength per kilo is the number that makes a cut look like the win it
+        // is: holding the bar while the scale drops IS getting stronger.
+        weighIns: this.state.weighIns ?? [],
+      });
     }
     return this._retention;
   }
