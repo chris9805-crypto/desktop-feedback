@@ -20,6 +20,7 @@ const SHELL = [
   './js/app.js',
   './js/store.js',
   './js/util/id.js',
+  './js/util/route.js',
   './js/data/exercises.js',
   './js/data/programs.js',
   './js/data/muscles.js',

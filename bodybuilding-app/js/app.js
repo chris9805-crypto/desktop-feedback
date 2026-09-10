@@ -12,6 +12,7 @@ import * as learn from './ui/views/learn.js';
 import * as onboarding from './ui/views/onboarding.js';
 import * as crew from './ui/views/crew.js';
 import { listen as listenForInstall } from './ui/install.js';
+import { splitHash } from './util/route.js';
 
 /**
  * `tab` marks the five routes that get a slot in the phone's bottom bar.
@@ -55,9 +56,10 @@ function icon(name) {
   return svg;
 }
 
+/** The current screen, ignoring any intent the URL is carrying with it. */
 function currentPath() {
-  const raw = location.hash.replace(/^#/, '') || '/';
-  return ROUTES.some((r) => r.path === raw) ? raw : '/';
+  const { path } = splitHash(location.hash);
+  return ROUTES.some((r) => r.path === path) ? path : '/';
 }
 
 function shell() {

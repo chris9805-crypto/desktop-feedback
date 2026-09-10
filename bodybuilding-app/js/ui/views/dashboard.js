@@ -25,6 +25,7 @@ import { strengthTrend } from '../../engine/progression.js';
 import { levelTitle } from '../../engine/progress.js';
 import { VERDICT_COPY } from '../../engine/retention.js';
 import { promptSheet } from '../sheet.js';
+import { routeTo } from '../../util/route.js';
 import { volumeChart, trendChart } from '../charts.js';
 import { volumeStatusLine, usePlainLanguage } from '../explain.js';
 import { term } from '../term.js';
@@ -86,10 +87,18 @@ function active(meso, container) {
       ),
       h('span', { class: 'next-go' }, 'Start'),
     ));
+    // Tapping an exercise starts the session and goes straight to it. Useful
+    // when the first machine is taken and you would rather begin elsewhere -
+    // the order is yours anyway, so the shortcut should be too.
     wrap.append(h('div', { class: 'exercise-strip' },
-      ...next.day.slots.slice(0, 6).map((s) =>
-        h('span', {}, getExercise(s.exerciseId)?.name ?? s.exerciseId)),
-      next.day.slots.length > 6 && h('span', { class: 'muted' }, `+${next.day.slots.length - 6}`),
+      ...next.day.slots.slice(0, 6).map((s) => h('a', {
+        href: routeTo('/train', { week: next.weekIndex, day: next.day.id, at: s.exerciseId }),
+        title: `Start here — ${getExercise(s.exerciseId)?.name ?? s.exerciseId}`,
+      }, getExercise(s.exerciseId)?.name ?? s.exerciseId)),
+      next.day.slots.length > 6 && h('a', {
+        class: 'muted',
+        href: routeTo('/train', { week: next.weekIndex, day: next.day.id }),
+      }, `+${next.day.slots.length - 6} more`),
     ));
   } else {
     wrap.append(h('a', { class: 'next-card', href: '#/programs' },
@@ -111,9 +120,19 @@ function active(meso, container) {
       h('span', { class: 'muted small' }, meso.name),
     ),
     h('div', { class: 'daydots' },
-      ...plan.days.map((day) => h('span', {
+      // Each day is a link into the thing it represents: an unfinished day
+      // opens Train ready to run it, a finished one opens its entry in History.
+      // Looking at a grid of days and not being able to tap one is the kind of
+      // small dead end that makes an app feel like a printout.
+      ...plan.days.map((day) => h('a', {
         class: `daydot${day.done ? ' is-done' : ''}${day.id === next?.day.id ? ' is-next' : ''}`,
-        title: day.name,
+        href: day.done
+          ? routeTo('/history', { session: day.sessionId })
+          : routeTo('/train', { week: weekIndex, day: day.id }),
+        title: day.done
+          ? `${day.name} — logged, tap to review`
+          : `${day.name} — tap to train this one`,
+        'aria-label': day.done ? `Review ${day.name}` : `Train ${day.name}`,
       }, dayInitials(day.name))),
     ),
   ));

@@ -21,6 +21,7 @@ import {
 import { nextPosition, sessionProgress, setCard, effortCard, exerciseCheckCard } from './cards.js';
 import { buildCards } from './review.js';
 import { getMode } from '../../data/modes.js';
+import { routeParams, clearRouteParams } from '../../util/route.js';
 import { sessionXp, followedPlan, newlyEarned } from '../../engine/progress.js';
 import { ACHIEVEMENT_BY_ID } from '../../data/achievements.js';
 import { store } from '../../store.js';
@@ -84,6 +85,9 @@ let root = null;
 export function render(container) {
   if (container) root = container;
   if (!root) return;
+  // An intent arriving from another screen ("open Lower A", "start at the leg
+  // press") is acted on once, before anything is drawn.
+  if (container) consumeIntent();
   clear(root);
   const active = store.state.active;
   root.append(active ? activeSession(active) : sessionPicker());
@@ -92,6 +96,69 @@ export function render(container) {
   // trying to press, which is exactly when it is showing.
   document.body.classList.toggle('is-resting', rest.active());
   if (rest.active()) root.append(restBar());
+}
+
+/**
+ * Act on a day or exercise chosen elsewhere.
+ *
+ * Deliberately careful about one case: if a session is already in progress,
+ * a tap on another day must not silently throw it away. That would be the
+ * worst possible outcome of a convenience feature.
+ */
+function consumeIntent() {
+  const params = routeParams();
+  const dayId = params.get('day');
+  if (!dayId) return;
+
+  const week = Number(params.get('week'));
+  const at = params.get('at');
+  clearRouteParams();
+
+  const meso = store.activeMeso();
+  if (!meso || !Number.isFinite(week)) return;
+
+  const active = store.state.active;
+  if (active) {
+    // Already training. Jumping within the same session is fine; switching
+    // days is not something to do behind someone's back.
+    if (active.dayId === dayId && active.week === week) {
+      if (at) jumpTo(at);
+      return;
+    }
+    confirmSheet({
+      title: 'You are part-way through a session',
+      body: 'Switching to another day will discard what you have logged in this one.',
+      confirmLabel: 'Switch anyway', cancelLabel: 'Stay here', danger: true,
+    }).then((ok) => {
+      if (!ok) return;
+      store.discardSession();
+      startFromIntent(meso.id, week, dayId, at);
+    });
+    return;
+  }
+
+  startFromIntent(meso.id, week, dayId, at);
+}
+
+function startFromIntent(mesoId, week, dayId, at) {
+  if (!store.startSession(mesoId, week, dayId)) return;
+  flow.listView = false;
+  flow.pendingEffort = null;
+  flow.pendingCheck = null;
+  if (at) jumpTo(at);
+  render();
+}
+
+/**
+ * Begin at a particular exercise by moving it to the front of the queue,
+ * reusing the reordering that already exists rather than inventing a second
+ * notion of "where you are".
+ */
+function jumpTo(exerciseId) {
+  const active = store.state.active;
+  const index = active?.entries.findIndex((e) => e.exerciseId === exerciseId);
+  if (index == null || index <= 0) return;
+  store.moveEntry(exerciseId, -index);
 }
 
 /* --------------------------------------------------------- pick a session */

@@ -15,6 +15,7 @@ import { e1rm, tonnage } from '../../engine/onerm.js';
 import { bestSet, strengthTrend } from '../../engine/progression.js';
 import { trendChart, volumeChart } from '../charts.js';
 import { confirmSheet } from '../sheet.js';
+import { routeParams, clearRouteParams } from '../../util/route.js';
 
 let selectedExercise = '';
 
@@ -22,6 +23,10 @@ export function render(container) {
   clear(container);
   const sessions = [...store.state.sessions].sort((a, b) => b.date - a.date);
   const unit = store.state.settings.unit;
+  // Arriving from a finished day on the Today screen: that session is what you
+  // came to look at, so open it rather than making you find it in the list.
+  const focusId = takeFocusedSession();
+  let focusRow = null;
 
   const wrap = h('div', { class: 'stack' });
   wrap.append(h('div', { class: 'page-head' },
@@ -100,10 +105,29 @@ export function render(container) {
   /* --- session log ------------------------------------------------------ */
   wrap.append(h('div', { class: 'card' },
     h('div', { class: 'card-head' }, h('h3', {}, 'Session log')),
-    h('div', { class: 'stack', style: 'gap:8px' }, ...sessions.map((s) => sessionRow(s, unit))),
+    h('div', { class: 'stack', style: 'gap:8px' }, ...sessions.map((s) => {
+      const row = sessionRow(s, unit, s.id === focusId);
+      if (s.id === focusId) focusRow = row;
+      return row;
+    })),
   ));
 
   container.append(wrap);
+
+  if (focusRow) {
+    // After layout, or it scrolls to where the row was before the charts drew.
+    requestAnimationFrame(() => focusRow.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+  }
+}
+
+/**
+ * Reads the session the caller asked for and drops it from the URL, so a
+ * refresh or a later visit shows the plain History screen.
+ */
+function takeFocusedSession() {
+  const id = routeParams().get('session');
+  if (id) clearRouteParams();
+  return id;
 }
 
 function drawTrend(box, unit) {
@@ -131,7 +155,7 @@ function drawTrend(box, unit) {
   );
 }
 
-function sessionRow(session, unit) {
+function sessionRow(session, unit, focused = false) {
   const program = getProgram(session.programId);
   const day = program?.days.find((d) => d.id === session.dayId);
   const sets = session.entries.reduce((n, e) => n + e.sets.length, 0);
@@ -140,47 +164,52 @@ function sessionRow(session, unit) {
   const body = h('div', { style: 'margin-top:10px' });
   let built = false;
 
-  const details = h('details', {
-    class: 'day-card',
-    onToggle: (ev) => {
-      if (!ev.currentTarget.open || built) return;
-      built = true;
-      body.append(
-        h('div', { class: 'table-scroll' }, h('table', {},
-          h('thead', {}, h('tr', {},
-            h('th', {}, 'Exercise'), h('th', {}, 'Sets'), h('th', {}, 'Best set'), h('th', {}, 'Est. 1RM'),
-          )),
-          h('tbody', {}, ...session.entries.map((e) => {
-            const best = bestSet(e.sets);
-            const est = best ? e1rm(best.weight, best.reps, best.rir ?? 0) : 0;
-            return h('tr', {},
-              h('td', {}, getExercise(e.exerciseId)?.name ?? e.exerciseId,
-                e.swappedFrom && h('span', { class: 'muted tiny' }, ' · swapped in')),
-              h('td', {}, String(e.sets.length)),
-              h('td', {}, best ? `${fmtWeight(best.weight, unit)} × ${best.reps} @ ${best.rir ?? '—'} RIR` : '—'),
-              h('td', {}, est ? fmtWeight(Math.round(est), unit) : '—'),
-            );
-          })),
+  const build = () => {
+    if (built) return;
+    built = true;
+    // Filtered because this is the native append, which turns a null child into
+    // the text "null" rather than dropping it the way the h() helper does.
+    body.append(...[
+      h('div', { class: 'table-scroll' }, h('table', {},
+        h('thead', {}, h('tr', {},
+          h('th', {}, 'Exercise'), h('th', {}, 'Sets'), h('th', {}, 'Best set'), h('th', {}, 'Est. 1RM'),
         )),
-        Object.keys(session.feedback ?? {}).length
-          ? h('div', { class: 'small secondary', style: 'margin-top:10px' },
-              h('b', {}, 'Recovery reported: '),
-              Object.entries(session.feedback).map(([m, f]) =>
-                `${muscleName(m)} (soreness ${f.soreness ?? '—'}, pump ${f.pump ?? '—'}, joints ${f.joint ?? '—'})`).join(' · '))
-          : null,
-        h('button', {
-          class: 'btn-danger btn-sm', style: 'margin-top:12px',
-          onClick: async () => {
-            const ok = await confirmSheet({
-              title: 'Delete this session?',
-              body: 'The day it completed becomes available to train again. This cannot be undone.',
-              confirmLabel: 'Delete', danger: true,
-            });
-            if (ok) { store.deleteSession(session.id); location.reload(); }
-          },
-        }, 'Delete session'),
-      );
-    },
+        h('tbody', {}, ...session.entries.map((e) => {
+          const best = bestSet(e.sets);
+          const est = best ? e1rm(best.weight, best.reps, best.rir ?? 0) : 0;
+          return h('tr', {},
+            h('td', {}, getExercise(e.exerciseId)?.name ?? e.exerciseId,
+              e.swappedFrom && h('span', { class: 'muted tiny' }, ' · swapped in')),
+            h('td', {}, String(e.sets.length)),
+            h('td', {}, best ? `${fmtWeight(best.weight, unit)} × ${best.reps} @ ${best.rir ?? '—'} RIR` : '—'),
+            h('td', {}, est ? fmtWeight(Math.round(est), unit) : '—'),
+          );
+        })),
+      )),
+      Object.keys(session.feedback ?? {}).length
+        ? h('div', { class: 'small secondary', style: 'margin-top:10px' },
+            h('b', {}, 'Recovery reported: '),
+            Object.entries(session.feedback).map(([m, f]) =>
+              `${muscleName(m)} (soreness ${f.soreness ?? '—'}, pump ${f.pump ?? '—'}, joints ${f.joint ?? '—'})`).join(' · '))
+        : null,
+      h('button', {
+        class: 'btn-danger btn-sm', style: 'margin-top:12px',
+        onClick: async () => {
+          const ok = await confirmSheet({
+            title: 'Delete this session?',
+            body: 'The day it completed becomes available to train again. This cannot be undone.',
+            confirmLabel: 'Delete', danger: true,
+          });
+          if (ok) { store.deleteSession(session.id); location.reload(); }
+        },
+      }, 'Delete session'),
+    ].filter(Boolean));
+  };
+
+  const details = h('details', {
+    class: `day-card${focused ? ' is-focused' : ''}`,
+    open: focused,
+    onToggle: (ev) => { if (ev.currentTarget.open) build(); },
   },
     h('summary', { style: 'cursor:pointer' },
       h('span', { class: 'strong' }, day?.name ?? session.dayId),
@@ -190,6 +219,7 @@ function sessionRow(session, unit) {
     ),
     body,
   );
+  if (focused) build();
   return details;
 }
 

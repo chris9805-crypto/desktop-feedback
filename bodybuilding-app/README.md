@@ -422,6 +422,14 @@ straight after, in words, with five big targets. It is never assumed: a set
 confirmed with one tap carries no effort rating until you give one, because
 feeding the engine its own assumptions back is worse than a gap.
 
+**The home screen is the remote control.** The week is a row of dots and the
+next session is a row of exercise chips — tapping any of them does the obvious
+thing rather than just sitting there. A day you have not done opens Train ready
+to run *that* day; a day you have finished opens its entry in Progress, already
+expanded; an exercise chip starts the session at that exercise, for when the
+first machine is taken. If you were part-way through something else it asks
+before discarding it.
+
 `See the whole session` switches to the scrollable list at any point.
 
 ### The flashcards afterwards
@@ -618,6 +626,9 @@ no session runs past 105 minutes.
 
 ```
 js/
+  util/
+    route.js         hash routing with a query, so one screen can hand
+                     another an intent ("open Train on Lower B")
   data/         exercises, programs, muscles + landmarks, glossary, modes,
                 phases, achievements, movement patterns
   engine/
@@ -643,9 +654,9 @@ js/
   store.js      state + localStorage persistence
 sw.js           offline cache
 manifest.webmanifest, icons/   home-screen install
-test/           251 tests: engine, program design audit, store, modes,
+test/           261 tests: engine, program design audit, store, modes,
                 weak-point detection, beginner layer, equipment adaptation,
-                offline shell, bundle, docs
+                offline shell, routing, bundle, docs
 tools/          dev server, single-file bundler
 ```
 

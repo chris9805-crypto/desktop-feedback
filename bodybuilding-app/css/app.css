@@ -359,6 +359,8 @@ tr:last-child td { border-bottom: 0; }
 
 .day-card { border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; background: var(--surface-1); }
 .day-card.is-done { opacity: .62; }
+/* Opened from a day dot on Today - say which row you were sent to. */
+.day-card.is-focused { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .day-card h3 { margin-bottom: 2px; }
 .day-card ol { margin: 10px 0 0; padding-left: 18px; font-size: 13.5px; color: var(--text-secondary); }
 .day-card ol li { margin-bottom: 2px; }
@@ -861,11 +863,18 @@ body.is-resting main { padding-bottom: 104px; }
   scrollbar-width: none;
 }
 .exercise-strip::-webkit-scrollbar { display: none; }
-.exercise-strip span {
+.exercise-strip span, .exercise-strip a {
   flex: none; font-size: 12px; padding: 5px 10px;
   border-radius: 999px; border: 1px solid var(--border);
   background: var(--surface-1); color: var(--text-secondary); white-space: nowrap;
 }
+/* The chips are shortcuts into the session, so they have to look pressable. */
+.exercise-strip a {
+  text-decoration: none; -webkit-tap-highlight-color: transparent;
+  transition: transform .12s ease, border-color .12s ease, color .12s ease;
+}
+.exercise-strip a:hover { border-color: var(--accent); color: var(--text); }
+.exercise-strip a:active { transform: scale(.95); border-color: var(--accent); color: var(--accent); }
 
 /* ---------------------------------------------------------- panels */
 
@@ -899,8 +908,13 @@ details.expandable > div { padding: 0 16px 16px; }
   font-size: 11.5px; font-weight: 700; letter-spacing: .02em;
   background: var(--surface-2); color: var(--text-muted);
   border: 1px solid var(--border);
+  text-decoration: none; -webkit-tap-highlight-color: transparent;
+  transition: transform .12s ease, border-color .12s ease;
 }
+.daydot:hover { border-color: var(--accent); }
+.daydot:active { transform: scale(.92); }
 .daydot.is-done { background: var(--good); border-color: var(--good); color: #fff; }
+.daydot.is-done:hover { border-color: var(--good); filter: brightness(1.08); }
 .daydot.is-next { border-color: var(--accent); color: var(--accent); }
 
 .recent-list { display: flex; flex-direction: column; gap: 2px; margin-top: 10px; }
