@@ -31,6 +31,7 @@ import { muscleName } from '../../data/muscles.js';
 import { weekPlan, feedbackTargets, estimateSessionMinutes } from '../../engine/mesocycle.js';
 import { e1rm, tonnage } from '../../engine/onerm.js';
 import { bestSet } from '../../engine/progression.js';
+import { sessionRecords } from '../../engine/records.js';
 
 /* ------------------------------------------------------------- rest timer */
 
@@ -711,7 +712,10 @@ function runReview(active) {
   };
 
   const save = () => {
-    const before = store.progress();
+    // Both snapshots have to be taken before the session is filed: afterwards
+    // the record book contains the session it is being asked to judge, and
+    // every set in it ties its own record.
+    const before = { ...store.progress(), book: store.records() };
     const session = store.finishSession();
     rest.stop();
     flow.pendingEffort = null;
@@ -743,15 +747,7 @@ function showSummary(session, before) {
   const program = getProgram(session.programId);
   const deload = program ? session.week >= (program.accumulationWeeks ?? 4) : false;
 
-  const prs = session.entries.map((e) => {
-    const best = bestSet(e.sets);
-    if (!best) return null;
-    const now = e1rm(best.weight, best.reps, best.rir ?? 0);
-    const previous = e.prescription?.e1rmBefore ?? 0;
-    return previous && now > previous * 1.005
-      ? { name: getExercise(e.exerciseId)?.name, now: Math.round(now) }
-      : null;
-  }).filter(Boolean);
+  const prs = sessionRecords(session, before.book, { unit });
 
   const xp = sessionXp(session, { isPr: prs.length > 0, deload, onPlan: followedPlan(session) });
   const badges = newlyEarned(before, after).map((id) => ACHIEVEMENT_BY_ID[id]).filter(Boolean);
@@ -789,12 +785,21 @@ function showSummary(session, before) {
   }
 
   if (prs.length) {
+    // A week back from a layoff can break a record on every lift, and a list of
+    // nine reads as a receipt rather than a moment. The loudest few, then a
+    // count - History has the rest.
+    const shown = prs.slice(0, 4);
     panel.append(h('div', { class: 'unlocked' },
-      h('h4', {}, 'New best'),
-      ...prs.map((p) => h('div', { class: 'pr-row' },
-        h('span', {}, p.name),
-        h('span', { class: 'num' }, fmtWeight(p.now, unit)),
+      h('h4', {}, prs.length === 1 ? 'Record broken' : 'Records broken'),
+      ...shown.map((p) => h('div', { class: `pr-row is-${p.type}` },
+        h('span', { class: 'pr-name' },
+          h('b', {}, p.name),
+          h('span', { class: 'muted tiny' }, p.detail),
+        ),
+        h('span', { class: 'pr-kind' }, p.label),
       )),
+      prs.length > shown.length && h('div', { class: 'small muted', style: 'margin-top:8px' },
+        `and ${prs.length - shown.length} more`),
     ));
   }
 

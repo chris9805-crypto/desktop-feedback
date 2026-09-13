@@ -9,6 +9,9 @@ import { canInstall, promptInstall, isStandalone, isIos } from '../install.js';
 import { term } from '../term.js';
 import { MODES, MODE_ORDER } from '../../data/modes.js';
 import { PHASES, PHASE_ORDER } from '../../data/phases.js';
+import { downloadBackup, copyBackup, importButton } from '../backup.js';
+import { backupLine } from '../../engine/backup.js';
+import { BARS, DEFAULT_BAR, DEFAULT_PLATES } from '../../engine/plates.js';
 
 export function render(container) {
   clear(container);
@@ -216,46 +219,116 @@ export function render(container) {
     ));
   }
 
-  /* --- data ------------------------------------------------------------ */
-  const importBox = h('textarea', { rows: 4, placeholder: 'Paste an export here…', style: 'font-family:var(--mono);font-size:12px' });
+  /* --- what is in the rack --------------------------------------------- */
+  const rack = store.rack();
   wrap.append(h('div', { class: 'card' },
-    h('h3', {}, 'Your data'),
-    h('p', { class: 'secondary small' },
-      `${store.state.sessions.length} sessions stored locally. Export before clearing site data, ` +
-      'changing browser, or anything else that would take it with it.'),
-    h('div', { class: 'row' },
-      h('button', {
-        onClick: (ev) => {
-          navigator.clipboard?.writeText(store.exportJson())
-            .then(() => { ev.target.textContent = 'Copied to clipboard'; setTimeout(() => { ev.target.textContent = 'Copy export to clipboard'; }, 2000); })
-            .catch(() => { importBox.value = store.exportJson(); });
-        },
-      }, 'Copy export to clipboard'),
-      h('button', {
-        onClick: () => { importBox.value = store.exportJson(); importBox.select?.(); },
-      }, 'Show export'),
+    h('div', { class: 'card-head' },
+      h('h3', {}, 'Your bar and plates'),
+      h('span', { class: 'small muted' }, 'for the per-side maths on barbell lifts'),
     ),
-    h('div', { class: 'field', style: 'margin-top:14px' },
-      h('label', {}, 'Import'),
-      importBox,
-      h('button', {
-        style: 'margin-top:8px',
-        onClick: async () => {
-          const ok = await confirmSheet({
-            title: 'Replace everything?',
-            body: 'Importing overwrites the blocks and sessions currently on this device.',
-            confirmLabel: 'Import', danger: true,
-          });
-          if (!ok) return;
-          try {
-            store.importJson(importBox.value);
-            await alertSheet({ title: 'Imported', body: 'Your training history is back.' });
+    h('div', { class: 'field' },
+      h('label', {}, 'Bar'),
+      h('select', {
+        onChange: (ev) => { store.setRack({ bar: Number(ev.target.value) }); render(container); },
+      }, ...BARS[s.unit].map((b) => h('option', {
+        value: String(b.weight), selected: b.weight === rack.bar,
+      }, b.label))),
+    ),
+    h('div', { class: 'field' },
+      h('label', {}, 'Plates in the rack'),
+      h('div', { class: 'platepicker' }, ...DEFAULT_PLATES[s.unit].map((plate) => {
+        const on = rack.plates.includes(plate);
+        return h('button', {
+          class: 'platechip', 'aria-pressed': String(on),
+          onClick: () => {
+            const next = on ? rack.plates.filter((x) => x !== plate) : [...rack.plates, plate].sort((a, b) => b - a);
+            // An empty rack would make every lift unloadable; keep the last one.
+            store.setRack({ plates: next.length ? next : rack.plates });
             render(container);
-          } catch (err) {
-            await alertSheet({ title: 'That did not work', body: `Could not read that as an export: ${err.message}` });
+          },
+        }, `${plate}${s.unit}`);
+      })),
+      h('p', { class: 'tiny muted', style: 'margin-top:8px' },
+        'Turn off anything your gym does not have and the suggested loadout stops using it.'),
+    ),
+    toggle('showPlates', 'Show what goes on the bar while logging',
+      'A line under the weight on barbell lifts: what to hang on each side.', container),
+  ));
+
+  /* --- data ------------------------------------------------------------ */
+  const status = store.backupStatus();
+  const importBox = h('textarea', {
+    rows: 4, placeholder: 'Or paste an export here\u2026',
+    style: 'font-family:var(--mono);font-size:12px',
+  });
+  wrap.append(h('div', { class: `card${status.needed ? ' is-warning' : ''}` },
+    h('h3', {}, 'Back up your training'),
+    h('p', { class: 'secondary small' },
+      backupLine(status) + ' There is no account behind this app, so a backup is a file you keep '
+      + '\u2014 clearing site data, losing the phone, or a browser tidying up unused storage '
+      + 'takes the log with it.'),
+    (status.total > 0 || !status.neverBackedUp) && h('p', { class: 'tiny muted' },
+      status.neverBackedUp
+        ? 'Never backed up.'
+        : `Last backup ${status.daysSince === 0 ? 'today' : `${status.daysSince} day${status.daysSince === 1 ? '' : 's'} ago`}.`),
+    h('div', { class: 'row', style: 'margin-top:10px' },
+      h('button', {
+        class: 'btn-primary',
+        onClick: async (ev) => {
+          const ok = await downloadBackup();
+          if (!ok) {
+            importBox.value = store.exportJson();
+            await alertSheet({
+              title: 'Could not save a file',
+              body: 'This browser would not hand over a download, so the export is in the box below instead \u2014 '
+                + 'copy it somewhere you trust.',
+            });
           }
+          render(container);
         },
-      }, 'Import and replace'),
+      }, 'Save a backup file'),
+      importButton('Restore from a file', { onDone: () => render(container) }),
+    ),
+    h('details', { class: 'expandable', style: 'margin-top:14px; border:1px solid var(--border)' },
+      h('summary', {}, h('h3', {}, 'Copy and paste instead')),
+      h('div', {},
+        h('div', { class: 'row' },
+          h('button', {
+            onClick: async (ev) => {
+              const ok = await copyBackup();
+              ev.target.textContent = ok ? 'Copied' : 'Clipboard blocked \u2014 use Show export';
+              setTimeout(() => { ev.target.textContent = 'Copy export to clipboard'; }, 2500);
+              if (ok) render(container);
+            },
+          }, 'Copy export to clipboard'),
+          h('button', {
+            onClick: () => { importBox.value = store.exportJson(); importBox.select?.(); },
+          }, 'Show export'),
+        ),
+        h('div', { class: 'field', style: 'margin-top:14px' },
+          h('label', {}, 'Paste a backup to restore'),
+          importBox,
+          h('button', {
+            style: 'margin-top:8px',
+            onClick: async () => {
+              const ok = await confirmSheet({
+                title: 'Replace everything?',
+                body: 'Importing overwrites the blocks and sessions currently on this device.',
+                confirmLabel: 'Import', danger: true,
+              });
+              if (!ok) return;
+              try {
+                store.importJson(importBox.value);
+                store.noteBackup();
+                await alertSheet({ title: 'Imported', body: 'Your training history is back.' });
+                render(container);
+              } catch (err) {
+                await alertSheet({ title: 'That did not work', body: `Could not read that as an export: ${err.message}` });
+              }
+            },
+          }, 'Import and replace'),
+        ),
+      ),
     ),
     h('hr', { style: 'border:0;border-top:1px solid var(--border);margin:18px 0' }),
     h('button', {

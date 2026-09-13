@@ -22,6 +22,9 @@ import { getPhase, DEFAULT_PHASE } from './data/phases.js';
 import { overallRetention } from './engine/retention.js';
 import { trend as bodyweightTrend, rateAdvice, changeOver } from './engine/bodyweight.js';
 import { newProfile, buildCard, decodeCard, safeName } from './engine/crew.js';
+import { recordBook, checkSet, applySet } from './engine/records.js';
+import { backupStatus, backupFilename } from './engine/backup.js';
+import { DEFAULT_BAR, DEFAULT_PLATES } from './engine/plates.js';
 
 const STORAGE_KEY = 'ironblock.state.v1';
 const SCHEMA_VERSION = 1;
@@ -51,6 +54,16 @@ function defaultState() {
       crew: [],
       equipment: 'full',
       onboarded: false,
+      // What is in the rack, for working out what goes on the bar. Null means
+      // "whatever is normal for this unit", so changing unit does not strand
+      // someone with a kilo plate set measured in pounds.
+      bar: null,
+      plates: null,
+      showPlates: true,
+      // When the log was last handed to a file. There is no server to do this
+      // for them, so the app has to keep track of whether anyone has.
+      lastBackupAt: null,
+      backupSnoozedAt: null,
     },
     mesocycles: [],
     activeMesoId: null,
@@ -151,6 +164,11 @@ class Store {
           ...s.settings,
           unit,
           bodyweight: s.settings.bodyweight == null ? null : round(s.settings.bodyweight * factor, 1),
+          // A rack customised in kilos does not describe a rack labelled in
+          // pounds, and converting 2.5kg into 5.51lb would invent a plate that
+          // does not exist. Back to the defaults for the new unit.
+          bar: null,
+          plates: null,
         },
         sessions: s.sessions.map((sess) => ({ ...sess, entries: convertEntries(sess.entries) })),
         weighIns: (s.weighIns ?? []).map((w) => ({ ...w, weight: round(w.weight * factor, 2) })),
@@ -183,6 +201,84 @@ class Store {
       sets: recent.reduce((n, s) =>
         n + (s.entries ?? []).reduce((k, e) => k + e.sets.filter((x) => !x.warmup).length, 0), 0),
     };
+  }
+
+  /* ------------------------------------------------------------- records */
+
+  /**
+   * The record book from finished sessions. Cached on the sessions array like
+   * progress() is - it walks the whole log, and the set card asks on every
+   * render.
+   */
+  records() {
+    if (this._recordSessions !== this.state.sessions) {
+      this._recordSessions = this.state.sessions;
+      this._records = recordBook(this.state.sessions);
+    }
+    return this._records;
+  }
+
+  /**
+   * What a set in the session currently being logged just broke.
+   *
+   * Sets already done today on the same lift count towards the mark, so hitting
+   * 100x8 and then 100x9 credits the second one rather than both - the first
+   * was a record when it happened and stopped being the best a rep later.
+   */
+  recordCheck(exerciseId, setIndex) {
+    const active = this.state.active;
+    const entry = active?.entries.find((e) => e.exerciseId === exerciseId);
+    const set = entry?.sets[setIndex];
+    if (!set) return [];
+
+    let record = this.records().get(exerciseId);
+    if (!record) return [];
+    for (let i = 0; i < setIndex; i += 1) {
+      if (entry.sets[i]?.done) record = applySet(record, entry.sets[i], Date.now());
+    }
+    return checkSet(record, set, { unit: this.state.settings.unit });
+  }
+
+  /* -------------------------------------------------------------- backup */
+
+  backupStatus() {
+    return backupStatus({
+      sessions: this.state.sessions,
+      lastBackupAt: this.state.settings.lastBackupAt ?? null,
+      snoozedAt: this.state.settings.backupSnoozedAt ?? null,
+    });
+  }
+
+  /** Called once an export has actually left the app, not when one is offered. */
+  noteBackup(when = Date.now()) {
+    return this.update((s) => ({
+      ...s,
+      settings: { ...s.settings, lastBackupAt: when, backupSnoozedAt: null },
+    }));
+  }
+
+  snoozeBackup(when = Date.now()) {
+    return this.update((s) => ({ ...s, settings: { ...s.settings, backupSnoozedAt: when } }));
+  }
+
+  backupFilename() {
+    return backupFilename();
+  }
+
+  /* -------------------------------------------------------------- plates */
+
+  /** The bar and plates to do the arithmetic with, defaulted per unit. */
+  rack() {
+    const { unit, bar, plates } = this.state.settings;
+    return {
+      unit,
+      bar: bar ?? DEFAULT_BAR[unit],
+      plates: plates ?? DEFAULT_PLATES[unit],
+    };
+  }
+
+  setRack(patch) {
+    return this.update((s) => ({ ...s, settings: { ...s.settings, ...patch } }));
   }
 
   /* ---------------------------------------------------------------- crew */

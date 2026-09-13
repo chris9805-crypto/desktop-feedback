@@ -164,6 +164,42 @@ Different, and specifically:
 
 ---
 
+## Records
+
+"You got stronger" is why people keep a log, and there is more than one way it
+happens. Three are tracked per lift:
+
+- **Heaviest ever** — the most weight moved for a rep
+- **Rep record** — the most reps at a given weight *or heavier*
+- **Strongest set yet** — the best estimated max, which folds load, reps and
+  effort together
+
+They are shown the second they happen, on the card that appears when you confirm
+the set, rather than saved for a summary screen — that is when it happened, and
+a separate congratulations screen is one more thing between you and the rest
+timer. The session summary repeats them afterwards, loudest first.
+
+Two rules keep the word meaning something. **Nothing is a record the first time
+you do a lift**, because everything would be. And beating a mark on both load
+and reps retires it, so records never pile up as a list of things you have
+already beaten — 8 at 100kg means 5 at 95kg stops being anybody's best anything.
+
+---
+
+## What goes on the bar
+
+The app prescribes 102.5kg and every lifter then does the same arithmetic with a
+barbell in front of them. On barbell lifts a line under the weight says what to
+hang on each side — `25 · 15 · 1.25` — and updates as you change the weight. Tap
+it for the diagram, the bar, and the plate count.
+
+If the rack cannot make the number it says so rather than rounding quietly: a
+1.25kg gap is the difference between a record and not. Settings holds the bar
+and which plates your gym actually has; turn off the ones it does not and the
+suggestions stop using them.
+
+---
+
 ## Streaks, levels and badges
 
 Gamification in a training app is easy to get actively wrong, and the wrong
@@ -639,12 +675,16 @@ js/
     bodyweight.js    the trend, and the only judgement it makes (rate)
     crew.js          share codes and standings, no server
     onerm.js         estimated 1RM and its inverse
+    records.js       heaviest, rep and estimated-max records per lift
+    plates.js        what to hang on each side, for the rack you have
+    backup.js        how much is unsaved, and how loudly to say so
     progression.js   the decision: what goes on the bar today
     volume.js        fractional set counting against landmarks
     mesocycle.js     block construction, volume progression, MRV clamping
   ui/
     explain.js       plain-English wording for everything the engine decides
     muscle-map.js    body diagrams generated from the exercise data
+    backup.js        handing the log over as a file, and reading one back
     sheet.js         bottom sheets (no alert/prompt/confirm anywhere)
     term.js          tappable jargon
     views/
@@ -654,9 +694,10 @@ js/
   store.js      state + localStorage persistence
 sw.js           offline cache
 manifest.webmanifest, icons/   home-screen install
-test/           261 tests: engine, program design audit, store, modes,
+test/           299 tests: engine, program design audit, store, modes,
                 weak-point detection, beginner layer, equipment adaptation,
-                offline shell, routing, bundle, docs
+                offline shell, routing, records, plate maths, backup
+                prompting, bundle, docs
 tools/          dev server, single-file bundler
 ```
 
@@ -668,12 +709,23 @@ progresses monotonically instead of wandering.
 
 ## Your data
 
-Stored in this browser only. Settings → **Copy export to clipboard** gives you
-the whole log as JSON; import replaces it. Export before you clear site data or
-change browser, because nothing else has a copy.
+Stored in this browser only. There is no account, so there is no copy anywhere
+else — which is the point, and also the one real cost of it.
 
-If storage is unavailable (private mode, blocked site data) the app says so and
-keeps working in memory for the session.
+Settings → **Save a backup file** hands you a dated `.json` the phone will keep;
+**Restore from a file** reads one back, telling you what is in it *before* it
+overwrites anything. Clipboard and paste still work, behind a disclosure, for
+when a browser refuses the download.
+
+The app also asks. Once about five sessions have piled up unsaved — or one has
+sat there three weeks — Today carries a small card saying how much is currently
+in one place only. Dismissing it quiets it for a week; it stops entirely the
+moment a backup happens, and counts only what was logged *since* the last one.
+
+Two things worth knowing: adding the app to your home screen is what protects
+the storage on iOS (a browser tab is not storage anyone promised to keep), and
+if storage is unavailable at all (private mode, blocked site data) the app says
+so and keeps working in memory for the session.
 
 ---
 

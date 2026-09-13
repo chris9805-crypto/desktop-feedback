@@ -26,6 +26,8 @@ import { levelTitle } from '../../engine/progress.js';
 import { VERDICT_COPY } from '../../engine/retention.js';
 import { promptSheet } from '../sheet.js';
 import { routeTo } from '../../util/route.js';
+import { downloadBackup } from '../backup.js';
+import { backupLine } from '../../engine/backup.js';
 import { volumeChart, trendChart } from '../charts.js';
 import { volumeStatusLine, usePlainLanguage } from '../explain.js';
 import { term } from '../term.js';
@@ -136,6 +138,10 @@ function active(meso, container) {
       }, dayInitials(day.name))),
     ),
   ));
+
+  /* --- the log only exists here ----------------------------------------- */
+  const backup = store.backupStatus();
+  if (backup.needed) wrap.append(backupNag(backup, container));
 
   /* --- what just changed ------------------------------------------------ */
   const recent = [...store.state.sessions].sort((a, b) => b.date - a.date).slice(0, 3);
@@ -306,6 +312,41 @@ function active(meso, container) {
  * of that. The only judgement offered is on rate, because rate is the part
  * that decides whether a cut costs you muscle.
  */
+/**
+ * The one nag in the app.
+ *
+ * It earns its place because the failure it prevents is total and silent: no
+ * account means no server-side copy, and the first time most people learn that
+ * is when a phone dies. It counts what is at stake rather than scolding, gets
+ * out of the way for a week when dismissed, and stops asking the moment a
+ * backup happens.
+ */
+function backupNag(status, container) {
+  const panel = h('div', { class: `panel backup-nag is-${status.level}` },
+    h('div', { class: 'panel-head' },
+      h('h3', {}, status.level === 'urgent' ? 'Back this up' : 'Worth backing up'),
+      h('span', { class: 'badge badge-warning' }, `${status.sessionsSince} unsaved`),
+    ),
+    h('p', { class: 'small secondary', style: 'margin:8px 0 0' },
+      `${backupLine(status)} It lives in this browser only \u2014 one file and it is safe anywhere.`),
+    h('div', { class: 'row', style: 'margin-top:12px' },
+      h('button', {
+        class: 'btn-primary btn-sm',
+        onClick: async () => {
+          const ok = await downloadBackup();
+          if (!ok) { location.hash = '#/settings'; return; }
+          render(container);
+        },
+      }, 'Save the file'),
+      h('button', {
+        class: 'btn-ghost btn-sm',
+        onClick: () => { store.snoozeBackup(); render(container); },
+      }, 'Not now'),
+    ),
+  );
+  return panel;
+}
+
 function weighInPanel(container) {
   const bw = store.bodyweight();
   const unit = store.state.settings.unit;

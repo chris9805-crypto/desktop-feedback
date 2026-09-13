@@ -27,6 +27,8 @@ import { loadStep } from '../../engine/progression.js';
 import { showTerm } from '../term.js';
 import { chooseSheet, alertSheet, detailSheet } from '../sheet.js';
 import { EFFORT_CHOICES, effortShort, warmupAdvice, reasonLine, tagLabel } from '../explain.js';
+import { loadout, shorthand, plateCount, plateColour } from '../../engine/plates.js';
+import { svg } from '../dom.js';
 
 /* ------------------------------------------------------------- position */
 
@@ -108,6 +110,9 @@ export function setCard(active, position, opts) {
   let currentReps = set.reps ?? lastDone?.reps ?? p.targetReps;
   const step = loadStep(exercise, currentWeight ?? 20, unit);
 
+  // Built further down, once the card knows whether this lift uses a bar. The
+  // stepper callback closes over it, so it has to exist as a name up here.
+  let plateLine = null;
   const done = h('button', { class: 'btn-primary setcard-done' });
   const refreshDone = () => {
     const missing = currentWeight == null;
@@ -124,7 +129,12 @@ export function setCard(active, position, opts) {
       placeholder: '—',
       step,
       min: 0,
-      onCommit: (v) => { currentWeight = v; store.editSet(entry.exerciseId, position.setIndex, { weight: v }); refreshDone(); },
+      onCommit: (v) => {
+        currentWeight = v;
+        store.editSet(entry.exerciseId, position.setIndex, { weight: v });
+        refreshDone();
+        plateLine?.update(v);
+      },
     }),
     h('div', { class: 'setcard-times' }, '×'),
     stepper({
@@ -154,6 +164,15 @@ export function setCard(active, position, opts) {
 
   if (p.tempo) {
     card.append(h('p', { class: 'setcard-tempo' }, p.tempo.note));
+  }
+
+  /* --- what goes on the bar ------------------------------------------ */
+  // Only for things with a bar: nobody loads plates onto a cable stack, and a
+  // line that says "bar only" next to a lateral raise is noise.
+  plateLine = barbellLine(exercise, unit);
+  if (plateLine) {
+    card.append(plateLine.node);
+    plateLine.update(currentWeight);
   }
 
   /* --- confirm ------------------------------------------------------- */
@@ -316,6 +335,22 @@ export function effortCard(active, position, opts) {
   const unit = store.state.settings.unit;
 
   const card = h('div', { class: 'setcard is-effort' });
+
+  // Records are shown here rather than on a screen of their own: this card
+  // appears the instant the set is confirmed, which is when it happened. A
+  // separate congratulations screen would be one more thing to dismiss between
+  // you and the rest timer.
+  const broke = store.recordCheck(entry.exerciseId, position.setIndex)[0];
+  if (broke) {
+    card.append(h('div', { class: `record-flag is-${broke.type}` },
+      h('span', { class: 'record-icon' }, broke.type === 'reps' ? '↺' : '★'),
+      h('span', { class: 'record-text' },
+        h('b', {}, broke.label),
+        h('span', { class: 'record-detail' }, broke.detail),
+      ),
+    ));
+  }
+
   card.append(
     h('div', { class: 'setcard-logged' },
       `Logged · ${fmtWeight(set.weight, unit)} × ${set.reps}`,
@@ -440,4 +475,107 @@ export function question({ title, hint, options, selected, onPick }) {
   }
   block.append(row);
   return block;
+}
+
+/* ------------------------------------------------------ what is on the bar */
+
+/**
+ * The plate maths, for lifts that have a bar.
+ *
+ * A line rather than a calculator screen: the answer is four numbers and you
+ * read it once on the way to the rack. The detail - the diagram, the bar, the
+ * warning when the target is not loadable - is behind a tap for the times it
+ * matters.
+ *
+ * Returns null for anything without a bar, and an `update` so the line can
+ * follow the weight stepper without the card re-rendering under the keyboard.
+ */
+function barbellLine(exercise, unit) {
+  if (exercise?.equipment !== 'barbell') return null;
+  if (store.state.settings.showPlates === false) return null;
+
+  const label = h('span', { class: 'plateline-value' });
+  const warn = h('span', { class: 'plateline-warn' });
+  const node = h('button', {
+    class: 'plateline', type: 'button',
+    onClick: () => showPlates(exercise, current, unit),
+  },
+    h('span', { class: 'plateline-label' }, 'Per side'),
+    label,
+    warn,
+  );
+
+  let current = null;
+  const update = (weight) => {
+    current = weight;
+    const rack = store.rack();
+    const result = Number.isFinite(weight) ? loadout(weight, rack) : null;
+    if (!result) { node.hidden = true; return; }
+    node.hidden = false;
+    label.textContent = shorthand(result);
+    // Saying nothing when the bar cannot make the number would leave someone
+    // lifting 100 while the log says 101.25.
+    warn.textContent = result.tooLight
+      ? `bar is ${fmtWeight(result.bar, unit)}`
+      : result.exact ? '' : `closest is ${fmtWeight(result.achieved, unit)}`;
+  };
+
+  return { node, update };
+}
+
+/** The diagram, the bar, and the arithmetic spelled out. */
+function showPlates(exercise, weight, unit) {
+  const rack = store.rack();
+  const result = loadout(weight, rack);
+  if (!result) return;
+
+  detailSheet({
+    title: `${fmtWeight(weight, unit)} on the bar`,
+    build: (body) => {
+      body.append(plateDiagram(result, unit));
+      body.append(h('p', { class: 'small secondary' },
+        result.tooLight
+          ? `That is less than the ${fmtWeight(result.bar, unit)} bar on its own.`
+          : `${fmtWeight(result.bar, unit)} bar plus ${plateCount(result)} plate`
+            + `${plateCount(result) === 1 ? '' : 's'} each side.`
+            + (result.exact ? '' : ` Nothing in the rack makes ${fmtWeight(weight, unit)} exactly —`
+              + ` this is ${fmtWeight(result.achieved, unit)}.`),
+      ));
+      body.append(h('p', { class: 'tiny muted' },
+        'Assumes a normally stocked rack. Change the bar or the plates in Settings.'));
+    },
+  });
+}
+
+/** One side of the bar, plates biggest-first, sized by weight. */
+function plateDiagram(result, unit) {
+  const plates = result.perSide.flatMap(({ weight, count }) =>
+    Array.from({ length: count }, () => weight));
+  const heaviest = Math.max(1, ...plates);
+  const MID = 56;
+  const width = 34 + Math.max(plates.length, 2) * 22 + 12;
+  const el = svg('svg', {
+    class: 'platediagram', viewBox: `0 0 ${width} 132`, height: 132,
+    role: 'img', 'aria-label': `Per side: ${shorthand(result)}`,
+  });
+
+  // The sleeve runs the full width, the collar marks where loading starts, and
+  // the plates stack outwards from it, sized against the heaviest on the bar.
+  el.appendChild(svg('rect', { x: 0, y: MID - 6, width, height: 12, rx: 4, fill: 'var(--border-strong)' }));
+  el.appendChild(svg('rect', { x: 26, y: MID - 13, width: 5, height: 26, rx: 2, fill: 'var(--text-muted)' }));
+  plates.forEach((plate, i) => {
+    const height = 24 + (plate / heaviest) * 74;
+    const x = 34 + i * 22;
+    el.appendChild(svg('rect', {
+      x, y: MID - height / 2, width: 16, height, rx: 3,
+      fill: plateColour(plate, unit), stroke: 'var(--border-strong)', 'stroke-width': 1,
+    }));
+    el.appendChild(svg('text', {
+      x: x + 8, y: 124, 'text-anchor': 'middle', class: 'platediagram-label',
+    }, String(plate)));
+  });
+  if (!plates.length) {
+    el.appendChild(svg('text', { x: width / 2, y: 124, 'text-anchor': 'middle', class: 'platediagram-label' }, 'bar only'));
+  }
+  return h('div', { class: 'platediagram-wrap' }, el);
 }
