@@ -200,6 +200,36 @@ suggestions stop using them.
 
 ---
 
+## Building your own
+
+Six templates cover six shapes. People arrive already running something else —
+a split a coach wrote, the routine a training partner uses, a program they are
+four weeks into — and "your split is not in the list" is where an app stops
+being usable.
+
+So the shape is editable, and **only** the shape. Days, the lifts on them, the
+order, the sets each starts at, the rep window, and how many weeks before the
+deload. What goes on the bar, how many sets week three gets, when to back off
+and how hard each set should be stay the engine's job, because those are the
+parts people get wrong.
+
+A custom program is the *same object* as a built-in one. It goes through the
+identical mesocycle engine — volume progression, the MRV clamp, autoregulated
+load, the deload — with no branch anywhere saying "unless it is a custom one".
+
+- **Start from a template** with *Use as a starting point*, which copies it and
+  leaves the original alone.
+- **A search box, not a wall.** Anything already on the day shows as taken
+  rather than disappearing — "why is bench greyed out" beats "where is bench".
+- **It shows you what you built.** As you edit, a chart puts each muscle's
+  weekly sets at the hardest week against the range it actually grows in, and
+  names the ones falling short. Building a program blind is how people end up
+  with thirty sets of chest and four of legs.
+- **Errors stop you, warnings do not.** An empty day cannot run, so it blocks
+  saving. Seven days a week is your business — it says its piece once.
+
+---
+
 ## Streaks, levels and badges
 
 Gamification in a training app is easy to get actively wrong, and the wrong
@@ -681,6 +711,7 @@ js/
     progression.js   the decision: what goes on the bar today
     volume.js        fractional set counting against landmarks
     mesocycle.js     block construction, volume progression, MRV clamping
+    program-builder.js  editing a program without breaking the engine
   ui/
     explain.js       plain-English wording for everything the engine decides
     muscle-map.js    body diagrams generated from the exercise data
@@ -688,16 +719,17 @@ js/
     sheet.js         bottom sheets (no alert/prompt/confirm anywhere)
     term.js          tappable jargon
     views/
+      builder.js     the program editor
       cards.js       one-card-per-set logging
       review.js      the post-session flashcards
       ...            screens, the first-run walkthrough and Learn
   store.js      state + localStorage persistence
 sw.js           offline cache
 manifest.webmanifest, icons/   home-screen install
-test/           299 tests: engine, program design audit, store, modes,
+test/           322 tests: engine, program design audit, store, modes,
                 weak-point detection, beginner layer, equipment adaptation,
                 offline shell, routing, records, plate maths, backup
-                prompting, bundle, docs
+                prompting, the program editor, bundle, docs
 tools/          dev server, single-file bundler
 ```
 

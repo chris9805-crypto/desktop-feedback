@@ -9,7 +9,7 @@
  * that unit converts the entire history at once, so the log is never a mix.
  */
 
-import { getProgram } from './data/programs.js';
+import { getProgram, registerPrograms } from './data/programs.js';
 import { getExercise } from './data/exercises.js';
 import { newMesocycle, weekPlan, nextSession, slotKey } from './engine/mesocycle.js';
 import { prescribe, bestSet } from './engine/progression.js';
@@ -25,6 +25,7 @@ import { newProfile, buildCard, decodeCard, safeName } from './engine/crew.js';
 import { recordBook, checkSet, applySet } from './engine/records.js';
 import { backupStatus, backupFilename } from './engine/backup.js';
 import { DEFAULT_BAR, DEFAULT_PLATES } from './engine/plates.js';
+import { normalise as normaliseProgram, isRunnable } from './engine/program-builder.js';
 
 const STORAGE_KEY = 'ironblock.state.v1';
 const SCHEMA_VERSION = 1;
@@ -65,6 +66,9 @@ function defaultState() {
       lastBackupAt: null,
       backupSnoozedAt: null,
     },
+    // Programs the lifter built. The same shape as the built-in templates, and
+    // run by the same engine - the only difference is who wrote the shape.
+    programs: [],
     mesocycles: [],
     activeMesoId: null,
     sessions: [],
@@ -111,6 +115,7 @@ function migrate(state) {
 class Store {
   constructor() {
     this.state = readStored() ?? defaultState();
+    registerPrograms(this.state.programs);
     this.listeners = new Set();
     this.persistFailed = false;
   }
@@ -126,7 +131,11 @@ class Store {
 
   update(mutator) {
     const next = mutator(this.state);
+    const programsChanged = next && next.programs !== this.state.programs;
     if (next) this.state = next;
+    // Custom programs have to be visible to getProgram() before anything reads
+    // the new state, or a screen renders a block whose program "does not exist".
+    if (programsChanged) registerPrograms(this.state.programs);
     this.persist();
     this.emit();
     return this.state;
@@ -465,6 +474,46 @@ class Store {
   }
 
   /* ---------------------------------------------------------- mesocycles */
+
+  /* ------------------------------------------------------ your programs */
+
+  customPrograms() {
+    return this.state.programs ?? [];
+  }
+
+  /**
+   * Save a program you built. Refuses one the engine could not run, because a
+   * half-finished program in the library is a block that dies on its first day.
+   */
+  saveProgram(program) {
+    const clean = normaliseProgram(program);
+    if (!isRunnable(clean)) return null;
+    this.update((s) => {
+      const existing = (s.programs ?? []).some((p) => p.id === clean.id);
+      return {
+        ...s,
+        programs: existing
+          ? s.programs.map((p) => (p.id === clean.id ? clean : p))
+          : [...(s.programs ?? []), clean],
+      };
+    });
+    return clean;
+  }
+
+  /**
+   * Blocks already run on a program keep their history, so the program cannot
+   * simply vanish - the sessions would render as "unknown day". Deleting is
+   * refused while a block is using it.
+   */
+  programInUse(programId) {
+    return (this.state.mesocycles ?? []).some((m) => m.programId === programId);
+  }
+
+  deleteProgram(programId) {
+    if (this.programInUse(programId)) return false;
+    this.update((s) => ({ ...s, programs: (s.programs ?? []).filter((p) => p.id !== programId) }));
+    return true;
+  }
 
   startMesocycle(programId, name, equipment) {
     const program = getProgram(programId);

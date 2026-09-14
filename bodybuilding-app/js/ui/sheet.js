@@ -10,6 +10,20 @@
 
 import { h } from './dom.js';
 
+/**
+ * The shared machinery. Exported so a screen with a sheet of its own - a
+ * searchable exercise picker, say - gets the same focus handling, escape key
+ * and animation rather than reinventing a worse one.
+ */
+export function openSheet(build) {
+  return open(build);
+}
+
+/** Exported for the same reason: a custom sheet still wants the same heading. */
+export function sheetHeader(panel, title, body) {
+  return header(panel, title, body);
+}
+
 function open(build) {
   return new Promise((resolve) => {
     let settled = false;

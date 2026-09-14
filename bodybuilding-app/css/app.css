@@ -1263,3 +1263,110 @@ details.expandable > div { padding: 0 16px 16px; }
 .backup-nag { border-color: color-mix(in srgb, var(--warning) 50%, var(--border)); }
 .backup-nag.is-urgent { border-color: color-mix(in srgb, var(--critical) 55%, var(--border)); }
 .card.is-warning { border-color: color-mix(in srgb, var(--warning) 50%, var(--border)); }
+
+/* ==========================================================================
+   The program editor.
+
+   A form dense enough to hold a whole week without scrolling forever, and
+   still thumb-sized: every control on a row is a tap target, nothing is a
+   drag, and the day you are editing is the only one expanded.
+   ========================================================================== */
+
+.builder { padding-bottom: 12px; }
+
+.builder-name {
+  font-size: 24px; font-weight: 650; letter-spacing: -0.02em;
+  padding: 8px 10px; background: transparent; border-color: transparent;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+}
+.builder-name:focus { border-bottom-color: var(--accent); }
+.builder-summary { margin-top: 8px; }
+
+.addday {
+  width: 100%; justify-content: center;
+  border-style: dashed; background: transparent; color: var(--text-secondary);
+}
+.addday:hover { border-color: var(--accent); color: var(--accent); }
+
+.daycard { padding: 0; overflow: hidden; }
+.daycard.is-open { border-color: var(--border-strong); padding: 0 16px 16px; }
+
+.daybar {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; padding: 15px 16px; text-align: left;
+  background: transparent; border: 0; border-radius: 0;
+}
+.daycard.is-open .daybar { padding: 15px 0 8px; }
+.daybar-name { font-size: 16px; font-weight: 640; }
+.daybar-meta { font-size: 12.5px; color: var(--text-muted); margin-left: auto; }
+.daybar-caret { font-size: 15px; color: var(--text-muted); }
+
+.slotlist { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+
+.slot {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.slot-map {
+  flex: none; padding: 2px; line-height: 0;
+  background: var(--surface-1); border-color: var(--border); border-radius: 8px;
+}
+.slot-map .mm-label { display: none; }
+.slot-body { flex: 1; min-width: 0; }
+.slot-name {
+  font-size: 14px; font-weight: 600; line-height: 1.25;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.slot-meta { display: flex; gap: 5px; margin-top: 4px; flex-wrap: wrap; }
+.slot-tag {
+  padding: 2px 8px; min-height: 0;
+  border-radius: 999px; font-size: 11px; font-weight: 600;
+  background: var(--surface-3); color: var(--text-secondary); border-color: transparent;
+}
+.slot-tag:hover { color: var(--accent); }
+
+.slot-sets { display: flex; align-items: center; gap: 2px; flex: none; }
+.slot-step {
+  width: 30px; min-height: 30px; padding: 0; justify-content: center;
+  font-size: 16px; line-height: 1; background: var(--surface-1);
+}
+.slot-count {
+  width: 26px; text-align: center; font-size: 15px; font-weight: 660;
+}
+
+.picker-list { max-height: 46vh; overflow-y: auto; margin-bottom: 14px; }
+.picker-group {
+  position: sticky; top: 0; z-index: 1;
+  margin: 12px 0 4px; padding: 4px 0;
+  background: var(--surface-1);
+}
+.picker-group:first-child { margin-top: 0; }
+.picker-row {
+  display: flex; align-items: baseline; gap: 10px;
+  width: 100%; text-align: left; padding: 10px 12px; margin-bottom: 4px;
+  background: var(--surface-2); border-color: transparent;
+}
+.picker-row:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-wash); }
+.picker-name { flex: 1; font-weight: 600; font-size: 14px; }
+.picker-meta { font-size: 11.5px; color: var(--text-muted); white-space: nowrap; }
+
+.builder-actions {
+  display: flex; gap: 8px;
+  position: sticky; bottom: 0;
+  padding: 12px 0 calc(12px + var(--safe-bottom));
+  background: linear-gradient(to bottom, transparent, var(--surface-0) 30%);
+}
+.builder-actions button { flex: 1; justify-content: center; }
+.builder-head .row { margin-top: 8px; }
+
+@media (max-width: 760px) {
+  .builder-actions { bottom: calc(var(--tabbar-height) + var(--safe-bottom)); }
+}
+
+@media (max-width: 400px) {
+  .slot { gap: 7px; padding: 8px; }
+  .slot-map { display: none; }
+}

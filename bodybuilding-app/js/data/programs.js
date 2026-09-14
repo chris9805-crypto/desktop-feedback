@@ -363,6 +363,25 @@ export const PROGRAMS = [
 
 export const PROGRAM_BY_ID = Object.fromEntries(PROGRAMS.map((p) => [p.id, p]));
 
+/**
+ * Programs the lifter built themselves.
+ *
+ * Held here rather than passed around because a custom program *is* a program:
+ * every screen and every engine that already calls getProgram() should find it
+ * without knowing it was not shipped with the app. The store re-registers this
+ * list whenever it changes, which is the only write.
+ */
+let ownPrograms = [];
+
+export function registerPrograms(list) {
+  ownPrograms = Array.isArray(list) ? list : [];
+}
+
+/** Built-in first, then yours - the library reads oldest-known to newest. */
+export function allPrograms() {
+  return [...PROGRAMS, ...ownPrograms];
+}
+
 export function getProgram(id) {
-  return PROGRAM_BY_ID[id];
+  return PROGRAM_BY_ID[id] ?? ownPrograms.find((p) => p.id === id);
 }

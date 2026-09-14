@@ -283,8 +283,10 @@ export function resolveWeek(program, extras = {}) {
 }
 
 /** The full plan for one week of a live mesocycle. */
-export function weekPlan(meso, sessions, weekIndex, { lagging = [] } = {}) {
-  const program = getProgram(meso.programId);
+export function weekPlan(meso, sessions, weekIndex, { lagging = [], program: given = null } = {}) {
+  // `given` is for a program that is not in the library yet - the editor
+  // previewing a draft it has not saved. Everything else looks it up by id.
+  const program = given ?? getProgram(meso.programId);
   if (!program) return null;
   const mode = getMode(meso.mode ?? DEFAULT_MODE);
   const phase = getPhase(meso.phase ?? DEFAULT_PHASE);
@@ -385,8 +387,8 @@ export function estimateSessionMinutes(day) {
  */
 export function programTimeProfile(program) {
   const meso = newMesocycle(program);
-  const first = weekPlan(meso, [], 0).days.map(estimateSessionMinutes);
-  const peak = weekPlan(meso, [], (program.accumulationWeeks ?? 4) - 1).days.map(estimateSessionMinutes);
+  const first = weekPlan(meso, [], 0, { program }).days.map(estimateSessionMinutes);
+  const peak = weekPlan(meso, [], (program.accumulationWeeks ?? 4) - 1, { program }).days.map(estimateSessionMinutes);
   const sum = (xs) => xs.reduce((a, b) => a + b, 0);
   return {
     sessionMin: Math.min(...first),

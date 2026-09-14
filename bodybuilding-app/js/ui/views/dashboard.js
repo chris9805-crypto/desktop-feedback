@@ -449,10 +449,20 @@ function chip(text) {
 }
 
 /** "Upper A" -> "UA". Two letters of the name alone makes every day identical. */
+/**
+ * Two letters for a dot.
+ *
+ * The first two letters collide on exactly the names people give their own
+ * days - Push and Pull both become "PU", which makes the week unreadable. So a
+ * single word drops its vowels first: Push is PS, Pull is PL, Legs is LG.
+ */
 function dayInitials(name) {
   const parts = String(name).split(/[^A-Za-z0-9]+/).filter(Boolean);
   if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  return String(name).slice(0, 2).toUpperCase();
+  const word = parts[0] ?? String(name);
+  const consonants = word.slice(1).replace(/[aeiou]/gi, '');
+  if (consonants) return (word[0] + consonants[0]).toUpperCase();
+  return word.slice(0, 2).toUpperCase();
 }
 
 function achievementStrip(progress) {

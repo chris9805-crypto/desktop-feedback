@@ -2,13 +2,15 @@
 
 import { h, clear, fmtNumber } from '../dom.js';
 import { store } from '../../store.js';
-import { PROGRAMS, getProgram } from '../../data/programs.js';
+import { PROGRAMS, getProgram, allPrograms } from '../../data/programs.js';
 import { getExercise } from '../../data/exercises.js';
 import { MUSCLES, MUSCLE_DISPLAY_ORDER, muscleName } from '../../data/muscles.js';
 import { newMesocycle, weekPlan, programTimeProfile, totalWeeks, estimateSessionMinutes } from '../../engine/mesocycle.js';
 import { plannedSetsByMuscle } from '../../engine/volume.js';
 import { volumeChart } from '../charts.js';
-import { confirmSheet, promptSheet } from '../sheet.js';
+import { confirmSheet, promptSheet, alertSheet } from '../sheet.js';
+import { routeTo } from '../../util/route.js';
+import { isCustomId } from '../../engine/program-builder.js';
 
 export function render(container) {
   clear(container);
@@ -18,9 +20,10 @@ export function render(container) {
   wrap.append(h('div', { class: 'page-head' },
     h('h1', {}, 'Programs'),
     h('p', {},
-      'Five templates, each a five-week block: four weeks of accumulating volume and effort, ' +
-      'then a deload. Pick the one that matches the days you can genuinely train, not the one ' +
-      'that sounds hardest - a program you finish beats a program you admire.'),
+      `${PROGRAMS.length} templates, or build your own. Each runs as a block: weeks of ` +
+      'accumulating volume and effort, then a deload. Pick the one that matches the days you can ' +
+      'genuinely train, not the one that sounds hardest - a program you finish beats a program ' +
+      'you admire.'),
   ));
 
   if (active) {
@@ -30,11 +33,37 @@ export function render(container) {
       ' Starting a new block archives this one - its history is kept, but the block ends where it is.'));
   }
 
-  for (const program of PROGRAMS) wrap.append(programCard(program, active));
+  // Yours first: someone who has built one is looking for it, not browsing.
+  const mine = store.customPrograms();
+  if (mine.length) {
+    wrap.append(h('h4', { style: 'margin-top:8px' }, 'Yours'));
+    for (const program of mine) wrap.append(programCard(program, active, container));
+    wrap.append(h('h4', { style: 'margin-top:8px' }, 'Templates'));
+  } else {
+    wrap.append(h('a', { class: 'next-card', href: routeTo('/build', { new: 1 }) },
+      h('div', { class: 'next-body' },
+        h('span', { class: 'next-eyebrow' }, 'Or bring your own'),
+        h('h2', {}, 'Build a program'),
+        h('div', { class: 'chips' },
+          h('span', { class: 'chip' }, 'Your split'),
+          h('span', { class: 'chip' }, 'Same engine'),
+          h('span', { class: 'chip' }, 'Volume checked as you go'),
+        ),
+      ),
+      h('span', { class: 'next-go' }, 'Start'),
+    ));
+  }
+
+  for (const program of PROGRAMS) wrap.append(programCard(program, active, container));
+
+  if (mine.length) {
+    wrap.append(h('a', { class: 'btn btn-lg', style: 'justify-content:center', href: routeTo('/build', { new: 1 }) },
+      '+ Build another program'));
+  }
   container.append(wrap);
 }
 
-function programCard(program, active) {
+function programCard(program, active, container) {
   const time = programTimeProfile(program);
   const isActive = active?.programId === program.id;
   const meso = newMesocycle(program);
@@ -53,6 +82,7 @@ function programCard(program, active) {
         h('h2', {}, program.name),
         h('div', { class: 'small muted' }, program.subtitle),
       ),
+      isCustomId(program.id) && h('span', { class: 'badge' }, 'Yours'),
       isActive && h('span', { class: 'badge badge-accent' }, 'Running'),
     ),
     h('p', { class: 'secondary' }, program.summary),
@@ -97,6 +127,33 @@ function programCard(program, active) {
           if (!built) { buildDetail(detail, program, report); built = true; }
         },
       }, 'See the full block'),
+    ),
+    // Editing yours, or taking a template as a starting point. Forking is the
+    // honest way to use a template you almost agree with.
+    h('div', { class: 'row', style: 'margin-top:10px' },
+      isCustomId(program.id)
+        ? h('a', { class: 'btn btn-sm', href: routeTo('/build', { program: program.id }) }, 'Edit')
+        : h('a', { class: 'btn btn-sm', href: routeTo('/build', { fork: program.id }) }, 'Use as a starting point'),
+      isCustomId(program.id) && h('a', { class: 'btn btn-sm', href: routeTo('/build', { fork: program.id }) }, 'Duplicate'),
+      isCustomId(program.id) && h('button', {
+        class: 'btn-danger btn-sm', style: 'margin-left:auto',
+        onClick: async () => {
+          if (store.programInUse(program.id)) {
+            await alertSheet({
+              title: 'A block is running on this',
+              body: 'Deleting it would leave those sessions pointing at a program that no longer '
+                + 'exists. Delete the block in Settings first, or just leave it here.',
+            });
+            return;
+          }
+          const ok = await confirmSheet({
+            title: `Delete "${program.name}"?`,
+            body: 'The program goes. Nothing you have logged is touched.',
+            confirmLabel: 'Delete', danger: true,
+          });
+          if (ok) { store.deleteProgram(program.id); render(container); }
+        },
+      }, 'Delete'),
     ),
     detail,
   );
