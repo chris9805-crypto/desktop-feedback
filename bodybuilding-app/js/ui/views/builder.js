@@ -20,6 +20,7 @@ import { newMesocycle, weekPlan, programTimeProfile, estimateSessionMinutes } fr
 import { plannedSetsByMuscle, volumeReport } from '../../engine/volume.js';
 import { volumeChart } from '../charts.js';
 import { muscleMap } from '../muscle-map.js';
+import { movementDemoFor } from '../movement.js';
 import { confirmSheet, chooseSheet, alertSheet, openSheet, sheetHeader } from '../sheet.js';
 import { routeParams, clearRouteParams, routeTo } from '../../util/route.js';
 import {
@@ -318,10 +319,12 @@ function showSlotDetail(day, slot) {
   if (!exercise) return;
   return openSheet((panel, finish) => {
     sheetHeader(panel, exercise.name);
+    const demo = movementDemoFor(exercise.id, { height: 104 });
     const body = h('div', { class: 'sheet-body' },
       h('div', { class: 'exercise-visual' },
         muscleMap(exercise.id, { height: 150, legend: true }),
       ),
+      demo,
       h('p', { class: 'small secondary' },
         `${exercise.type === 'compound' ? 'Compound' : 'Isolation'} · ${exercise.equipment} · `
         + exercise.primary.map(muscleName).join(', ')),

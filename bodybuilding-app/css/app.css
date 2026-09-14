@@ -1401,3 +1401,85 @@ details.expandable > div { padding: 0 16px 16px; }
   background: var(--accent-wash); border-color: var(--accent); color: var(--accent);
 }
 .musclechip-half { margin-left: 4px; opacity: .8; font-weight: 700; }
+
+/* Drop sets: quiet until used. */
+.dropstrip { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: -6px 0 12px; }
+.dropstrip-label {
+  font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+.dropchip {
+  padding: 3px 9px; min-height: 0; border-radius: 999px;
+  font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums;
+  background: var(--surface-3); color: var(--text-secondary); border-color: transparent;
+}
+.dropchip-x { margin-left: 5px; color: var(--text-muted); font-weight: 700; }
+.dropchip:hover { border-color: var(--critical); color: var(--critical); }
+.dropadd {
+  padding: 3px 10px; min-height: 0; border-radius: 999px;
+  font-size: 11.5px; font-weight: 600;
+  background: transparent; border-style: dashed; color: var(--text-muted);
+}
+.dropadd:hover { border-color: var(--accent); color: var(--accent); }
+
+/* The heatmap reuses the body, and colours it by landmark zone. */
+.heatmap .mm-muscle { transition: fill .25s ease; }
+.hm-none       { fill: color-mix(in srgb, var(--text-muted) 18%, transparent); }
+.hm-below-mev  { fill: color-mix(in srgb, var(--series-1) 35%, transparent); }
+.hm-productive { fill: var(--good); }
+.hm-near-mrv   { fill: var(--warning); }
+.hm-over-mrv   { fill: var(--critical); }
+.heatmap [role="button"] { cursor: pointer; }
+.heatmap [role="button"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.heat-legend { margin-top: 10px; }
+.heat-dot {
+  display: inline-block; width: 9px; height: 9px; border-radius: 3px;
+  margin-right: 5px; vertical-align: -1px;
+}
+.heat-dot.hm-none { background: color-mix(in srgb, var(--text-muted) 40%, transparent); }
+.heat-dot.hm-below-mev { background: color-mix(in srgb, var(--series-1) 55%, transparent); }
+.heat-dot.hm-productive { background: var(--good); }
+.heat-dot.hm-near-mrv { background: var(--warning); }
+.heat-dot.hm-over-mrv { background: var(--critical); }
+
+.heat-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.heat-windows { display: flex; gap: 5px; margin-left: auto; }
+.heat-body { display: flex; justify-content: center; }
+.heat-note { font-size: 12.5px; color: var(--text-secondary); margin-top: 12px; }
+.heat-note b { color: var(--text-primary); }
+
+/* ==========================================================================
+   Movement demos: the two ends of a rep, drawn rather than photographed.
+   ========================================================================== */
+
+.mv-demo {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 12px; border-radius: 12px; background: var(--surface-2);
+}
+.mv-panel { flex: 1; min-width: 0; margin: 0; text-align: center; }
+.mv-panel figcaption { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
+.mv-phase {
+  font-size: 9.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+.mv-text { font-size: 11.5px; color: var(--text-secondary); line-height: 1.35; }
+.mv-arrow { align-self: center; color: var(--text-muted); font-size: 17px; flex: none; }
+
+.mv-figure { display: block; margin: 0 auto; width: auto; max-width: 100%; }
+.mv-torso { stroke: var(--text-secondary); stroke-width: 7; stroke-linecap: round; }
+.mv-limb  { stroke: var(--text-secondary); stroke-width: 5; stroke-linecap: round; }
+.mv-foot  { stroke: var(--text-secondary); stroke-width: 4; stroke-linecap: round; }
+.mv-far   { stroke: var(--text-muted); opacity: .55; }
+.mv-head  { fill: var(--text-secondary); }
+.mv-floor { stroke: var(--border-strong); stroke-width: 2; stroke-linecap: round; }
+.mv-prop  { fill: var(--surface-3); stroke: var(--border-strong); stroke-width: .8; }
+.mv-bar   { stroke: var(--accent); stroke-width: 3.5; stroke-linecap: round; }
+.mv-load  { fill: var(--accent); }
+.mv-cable { stroke: var(--text-muted); stroke-width: 1.4; stroke-dasharray: 3 2.5; }
+
+@media (max-width: 380px) {
+  .mv-demo { gap: 4px; padding: 10px; }
+  .mv-arrow { display: none; }
+  .mv-text { font-size: 11px; }
+}

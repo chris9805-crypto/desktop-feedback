@@ -18,7 +18,7 @@ import {
   usePlainLanguage, targetLine, reasonLine, tagLabel, warmupAdvice,
   EFFORT_CHOICES, effortShort,
 } from '../explain.js';
-import { nextPosition, sessionProgress, setCard, effortCard, exerciseCheckCard } from './cards.js';
+import { nextPosition, sessionProgress, setCard, effortCard, exerciseCheckCard, dropStrip } from './cards.js';
 import { buildCards } from './review.js';
 import { getMode } from '../../data/modes.js';
 import { routeParams, clearRouteParams } from '../../util/route.js';
@@ -499,6 +499,9 @@ function exerciseCard(entry, active) {
   ));
   entry.sets.forEach((set, i) => {
     sets.append(setRow(entry, set, i, p, exercise));
+    // Drops belong to the set above them, and have to be reachable here too -
+    // the card flow is not the only way people log.
+    if (set.done && !set.warmup) sets.append(dropStrip(entry, i, () => render()));
     // Beginners are asked the effort question in words, right after the set
     // they just did, instead of being handed an empty box labelled "RIR".
     if (beginner && set.done && set.rir == null && !set.warmup) {

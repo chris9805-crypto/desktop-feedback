@@ -11,6 +11,8 @@
  * with more certainty than it has.
  */
 
+import { dropTonnage } from './dropsets.js';
+
 const EPLEY_DIVISOR = 30;
 
 /** Reps you would have completed had you taken the set to failure. */
@@ -77,6 +79,9 @@ export function tonnage(sets) {
     if (!s.done || s.warmup) return sum;
     const w = Number(s.weight) || 0;
     const r = Number(s.reps) || 0;
-    return sum + w * r;
+    // Drops count here even though they do not count as extra hard sets:
+    // tonnage measures work done, and the reps after the weight came off were
+    // work. See engine/dropsets.js for why the two differ.
+    return sum + w * r + dropTonnage(s);
   }, 0);
 }

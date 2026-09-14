@@ -101,3 +101,56 @@ export function volumeFlags(totals, { weekComplete = true } = {}) {
     .filter((r) => r.status.zone === 'over-mrv' || (weekComplete && r.status.zone === 'below-mev'))
     .sort((a, b) => (a.status.zone === 'over-mrv' ? -1 : 1) - (b.status.zone === 'over-mrv' ? -1 : 1));
 }
+
+/* ---------------------------------------------------------------- windows */
+
+/**
+ * Volume over the last N days, expressed per week.
+ *
+ * The normalisation is the part that matters. Landmarks are weekly numbers, so
+ * comparing a 90-day total against them would say everybody is catastrophically
+ * over their ceiling. Dividing by the weeks in the window puts a quarter's
+ * training and a single week on the same scale, which is what makes the long
+ * view worth having: one bad week is noise, three months of neglecting hamstrings
+ * is a fact.
+ *
+ * The window is measured from the most recent session rather than from today,
+ * so a fortnight off does not drag every average towards zero and report a
+ * problem that is really just a holiday.
+ */
+export const HEATMAP_WINDOWS = [
+  { days: 7, label: '7 days', short: '7d' },
+  { days: 30, label: '30 days', short: '30d' },
+  { days: 90, label: '90 days', short: '90d' },
+];
+
+export function weeklySetsOverWindow(sessions, { days = 30, now = null } = {}) {
+  const logged = (sessions ?? []).filter((s) => Number.isFinite(s.date));
+  if (!logged.length) return { totals: {}, weeks: 0, sessions: 0, from: null, to: null };
+
+  const latest = now ?? Math.max(...logged.map((s) => s.date));
+  const from = latest - days * 86400000;
+  const window = logged.filter((s) => s.date > from);
+  if (!window.length) return { totals: {}, weeks: 0, sessions: 0, from, to: latest };
+
+  const raw = setsByMuscle(window);
+  // Never divide by less than one week: two sessions in three days is not
+  // evidence of a 20-set-a-week chest routine.
+  const weeks = Math.max(1, days / 7);
+  const totals = {};
+  for (const [muscle, sets] of Object.entries(raw)) totals[muscle] = sets / weeks;
+
+  return {
+    totals,
+    weeks,
+    sessions: window.length,
+    from: Math.min(...window.map((s) => s.date)),
+    to: latest,
+  };
+}
+
+/** The same report the charts use, for a window rather than one week. */
+export function windowReport(sessions, options = {}) {
+  const window = weeklySetsOverWindow(sessions, options);
+  return { ...window, rows: volumeReport(window.totals) };
+}

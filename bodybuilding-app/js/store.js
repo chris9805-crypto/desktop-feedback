@@ -27,6 +27,7 @@ import { backupStatus, backupFilename } from './engine/backup.js';
 import { DEFAULT_BAR, DEFAULT_PLATES } from './engine/plates.js';
 import { normalise as normaliseProgram, isRunnable } from './engine/program-builder.js';
 import { normalise as normaliseExercise, isSaveable } from './engine/exercise-builder.js';
+import { isValidDrop, MAX_DROPS, drops as dropsOf } from './engine/dropsets.js';
 
 const STORAGE_KEY = 'ironblock.state.v1';
 const SCHEMA_VERSION = 1;
@@ -789,6 +790,44 @@ class Store {
    */
   editSet(exerciseId, index, patch) {
     return this.logSet(exerciseId, index, { ...patch, edited: true });
+  }
+
+  /**
+   * Record a drop on a set already logged. The set itself is untouched: what
+   * you lifted before the weight came off is what the engine progresses from.
+   */
+  addDrop(exerciseId, index, drop) {
+    if (!isValidDrop(drop)) return false;
+    let added = false;
+    this.updateActive((active) => ({
+      ...active,
+      entries: active.entries.map((e) => {
+        if (e.exerciseId !== exerciseId) return e;
+        return {
+          ...e,
+          sets: e.sets.map((set, i) => {
+            if (i !== index || !set.done) return set;
+            const existing = dropsOf(set);
+            if (existing.length >= MAX_DROPS) return set;
+            added = true;
+            return { ...set, drops: [...existing, { weight: Number(drop.weight), reps: Number(drop.reps) }] };
+          }),
+        };
+      }),
+    }));
+    return added;
+  }
+
+  removeDrop(exerciseId, index, dropIndex) {
+    return this.updateActive((active) => ({
+      ...active,
+      entries: active.entries.map((e) => (e.exerciseId === exerciseId ? {
+        ...e,
+        sets: e.sets.map((set, i) => (i === index
+          ? { ...set, drops: dropsOf(set).filter((_, d) => d !== dropIndex) }
+          : set)),
+      } : e)),
+    }));
   }
 
   addSet(exerciseId) {

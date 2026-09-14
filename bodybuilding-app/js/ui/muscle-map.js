@@ -131,5 +131,92 @@ export function muscleMap(exerciseId, { height = 150, legend = false, exercise: 
   return wrap;
 }
 
+/* ------------------------------------------------------------- heatmap */
+
+/**
+ * The same body, coloured by how much work each muscle is actually getting.
+ *
+ * This is the picture the volume chart cannot give you: thirty rows of numbers
+ * tell you the facts, a body with one cold leg tells you the story. Colour runs
+ * by landmark zone rather than raw sets, because 12 sets is plenty for rear
+ * delts and nowhere near enough for quads - a scale that ignored that would
+ * make every big muscle look neglected and every small one look overcooked.
+ *
+ * Colour is never the only carrier: every lit muscle has a tooltip with its
+ * name, its weekly sets and its zone in words, and the legend spells the
+ * zones out.
+ *
+ * @param {Array} rows  volumeReport() rows - { id, sets, status }
+ */
+export function muscleHeatmap(rows, { height = 210, onPick = null } = {}) {
+  const byMuscle = new Map((rows ?? []).map((r) => [r.id, r]));
+
+  const wrap = h('div', { class: 'musclemap heatmap' });
+  const figure = svg('svg', {
+    viewBox: '0 0 250 250',
+    class: 'musclemap-svg',
+    style: `height:${height}px`,
+    role: 'img',
+    'aria-label': 'Weekly sets per muscle, front and back',
+  });
+
+  const box = (shape, cls) => svg('rect', {
+    x: shape.x, y: shape.y, width: shape.w, height: shape.h,
+    rx: shape.rx, ry: shape.rx, class: cls,
+  });
+
+  for (const [view, shapes, offset] of [['front', FRONT, 0], ['back', BACK, 130]]) {
+    const group = svg('g', { transform: `translate(${offset} 0)` });
+    for (const part of BODY) group.appendChild(box(part, 'mm-body'));
+
+    for (const [muscle, parts] of Object.entries(shapes)) {
+      const row = byMuscle.get(muscle);
+      const zone = row?.status?.zone ?? 'none';
+      for (const part of parts) {
+        const rect = box(part, `mm-muscle hm-${zone}`);
+        rect.appendChild(svg('title', {},
+          row
+            ? `${row.name} — ${round1(row.sets)} sets a week, ${row.status.label.toLowerCase()}`
+            : muscleName(muscle)));
+        if (onPick && row) {
+          rect.setAttribute('tabindex', '0');
+          rect.setAttribute('role', 'button');
+          rect.addEventListener('click', () => onPick(row));
+          rect.addEventListener('keydown', (ev) => {
+            if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); onPick(row); }
+          });
+        }
+        group.appendChild(rect);
+      }
+    }
+    group.appendChild(svg('text', { x: 60, y: 244, class: 'mm-label', 'text-anchor': 'middle' },
+      view === 'front' ? 'Front' : 'Back'));
+    figure.appendChild(group);
+  }
+
+  wrap.append(figure);
+  return wrap;
+}
+
+/** The zones, spelled out, because colour on its own says nothing. */
+export const HEAT_ZONES = [
+  { zone: 'none', label: 'Untrained' },
+  { zone: 'below-mev', label: 'Under' },
+  { zone: 'productive', label: 'Productive' },
+  { zone: 'near-mrv', label: 'Near ceiling' },
+  { zone: 'over-mrv', label: 'Over' },
+];
+
+export function heatLegend() {
+  return h('div', { class: 'mm-legend heat-legend' },
+    ...HEAT_ZONES.map((z) => h('span', { class: `mm-key hm-key-${z.zone}` },
+      h('span', { class: `heat-dot hm-${z.zone}` }), z.label)),
+  );
+}
+
+function round1(n) {
+  return Math.round((Number(n) || 0) * 10) / 10;
+}
+
 /** Which muscles this library can actually draw, for the coverage test. */
 export const DRAWN_MUSCLES = new Set([...Object.keys(FRONT), ...Object.keys(BACK)]);

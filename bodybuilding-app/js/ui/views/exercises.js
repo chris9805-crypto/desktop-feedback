@@ -5,6 +5,7 @@ import { EXERCISES, allExercises, getExercise } from '../../data/exercises.js';
 import { MUSCLE_DISPLAY_ORDER, muscleName } from '../../data/muscles.js';
 import { patternFor } from '../../data/patterns.js';
 import { muscleMap } from '../muscle-map.js';
+import { movementDemoFor } from '../movement.js';
 import { store } from '../../store.js';
 import { confirmSheet, alertSheet } from '../sheet.js';
 import { routeTo } from '../../util/route.js';
@@ -98,13 +99,11 @@ function card(ex, container) {
       muscleMap(ex.id, { height: 132 }),
       pattern && h('div', { class: 'pattern' },
         h('h4', {}, pattern.name),
-        h('div', { class: 'pattern-ends' },
-          h('div', {}, h('span', { class: 'pattern-tag' }, 'Start'), h('span', {}, pattern.bottom)),
-          h('div', {}, h('span', { class: 'pattern-tag' }, 'Finish'), h('span', {}, pattern.top)),
-        ),
         h('p', { class: 'pattern-watch' }, pattern.watch),
       ),
     ),
+    // What the movement looks like at each end, which the cues cannot say.
+    movementDemoFor(ex.id, { height: 116 }),
     h('div', { class: 'row small', style: 'gap:6px;margin:12px 0 10px' },
       ...ex.primary.map((m) => h('span', { class: 'badge badge-accent' }, muscleName(m))),
       ...ex.secondary.map((m) => h('span', { class: 'badge' }, muscleName(m), h('span', { class: 'muted' }, ' ½'))),

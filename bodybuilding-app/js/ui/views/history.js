@@ -10,14 +10,19 @@ import { store } from '../../store.js';
 import { getProgram } from '../../data/programs.js';
 import { getExercise } from '../../data/exercises.js';
 import { muscleName } from '../../data/muscles.js';
-import { setsByMuscle, volumeReport } from '../../engine/volume.js';
+import { setsByMuscle, volumeReport, windowReport, HEATMAP_WINDOWS } from '../../engine/volume.js';
 import { e1rm, tonnage } from '../../engine/onerm.js';
 import { bestSet, strengthTrend } from '../../engine/progression.js';
+import { hasDrops, describeDrops } from '../../engine/dropsets.js';
 import { trendChart, volumeChart } from '../charts.js';
+import { muscleHeatmap, heatLegend } from '../muscle-map.js';
+import { alertSheet } from '../sheet.js';
 import { confirmSheet } from '../sheet.js';
 import { routeParams, clearRouteParams } from '../../util/route.js';
 
 let selectedExercise = '';
+/** Remembered across renders: somebody who looks at 90 days wants 90 days. */
+let heatmapDays = 30;
 
 export function render(container) {
   clear(container);
@@ -81,6 +86,9 @@ export function render(container) {
   ));
   drawTrend(trendBox, unit);
 
+  /* --- where the work has actually gone ---------------------------------- */
+  wrap.append(heatmapCard(sessions));
+
   /* --- volume by week --------------------------------------------------- */
   const byWeek = new Map();
   for (const s of sessions) {
@@ -130,6 +138,77 @@ function takeFocusedSession() {
   return id;
 }
 
+/**
+ * A body, coloured by what each muscle has actually been getting.
+ *
+ * Thirty rows of numbers tell you the facts; a body with one cold leg tells you
+ * the story. The window matters as much as the picture: a week is what you just
+ * did, three months is what you have become, and the gap between those two
+ * views is usually where somebody finds the muscle they have been quietly
+ * skipping since March.
+ */
+function heatmapCard(sessions) {
+  const body = h('div', {});
+  let days = heatmapDays;
+
+  const draw = () => {
+    clear(body);
+    const report = windowReport(sessions, { days });
+
+    if (!report.sessions) {
+      body.append(h('p', { class: 'small muted' }, 'Nothing logged in this window.'));
+      return;
+    }
+
+    body.append(h('div', { class: 'heat-body' },
+      muscleHeatmap(report.rows, {
+        height: 220,
+        onPick: (row) => alertSheet({
+          title: row.name,
+          body: `${Math.round(row.sets * 10) / 10} sets a week over the last ${days} days.\n\n`
+            + `${row.status.label}. ${row.status.advice}`,
+        }),
+      }),
+    ));
+    body.append(heatLegend());
+
+    const cold = report.rows.filter((r) => r.status.zone === 'none' || r.status.zone === 'below-mev');
+    const hot = report.rows.filter((r) => r.status.zone === 'over-mrv');
+    body.append(h('p', { class: 'heat-note' },
+      hot.length
+        ? [h('b', {}, 'Over the ceiling: '), hot.map((r) => r.name).join(', '),
+           ' — more than most people recover from, sustained.']
+        : cold.length
+          ? [h('b', {}, 'Getting the least: '), cold.map((r) => r.name).join(', '),
+             ' — under the weekly work that reliably grows them.']
+          : ['Every muscle you train is inside its productive range over this window.'],
+    ));
+    body.append(h('p', { class: 'tiny muted' },
+      `${report.sessions} session${report.sessions === 1 ? '' : 's'}, averaged per week. `
+      + 'Measured back from your last session, so time off does not read as neglect.'));
+  };
+
+  const card = h('div', { class: 'card' },
+    h('div', { class: 'heat-head' },
+      h('h3', {}, 'Where the work went'),
+      h('div', { class: 'heat-windows' }, ...HEATMAP_WINDOWS.map((w) => h('button', {
+        class: 'week-pill', 'aria-pressed': String(w.days === days),
+        onClick: (ev) => {
+          days = w.days;
+          heatmapDays = w.days;
+          for (const pill of ev.currentTarget.parentElement.children) {
+            pill.setAttribute('aria-pressed', String(pill === ev.currentTarget));
+          }
+          draw();
+        },
+      }, w.label))),
+    ),
+    body,
+  );
+  draw();
+  return card;
+}
+
 function drawTrend(box, unit) {
   clear(box);
   if (!selectedExercise) return;
@@ -177,9 +256,14 @@ function sessionRow(session, unit, focused = false) {
         h('tbody', {}, ...session.entries.map((e) => {
           const best = bestSet(e.sets);
           const est = best ? e1rm(best.weight, best.reps, best.rir ?? 0) : 0;
+          const dropped = (e.sets ?? []).filter(hasDrops);
           return h('tr', {},
             h('td', {}, getExercise(e.exerciseId)?.name ?? e.exerciseId,
-              e.swappedFrom && h('span', { class: 'muted tiny' }, ' · swapped in')),
+              e.swappedFrom && h('span', { class: 'muted tiny' }, ' · swapped in'),
+              // Drops are not extra sets, so they are noted on the row rather
+              // than inflating the count beside it.
+              dropped.length ? h('div', { class: 'muted tiny' },
+                dropped.map((set) => describeDrops(set, unit)).join(' · ')) : null),
             h('td', {}, String(e.sets.length)),
             h('td', {}, best ? `${fmtWeight(best.weight, unit)} × ${best.reps} @ ${best.rir ?? '—'} RIR` : '—'),
             h('td', {}, est ? fmtWeight(Math.round(est), unit) : '—'),

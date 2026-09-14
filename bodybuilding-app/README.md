@@ -230,6 +230,62 @@ load, the deload — with no branch anywhere saying "unless it is a custom one".
 
 ---
 
+## Drop sets
+
+Strip the weight the moment you fail and keep going. The app could not express
+it at all, so people were logging the drops as extra sets — which is wrong in a
+way that quietly ruins the numbers.
+
+Log the set as normal; the card that appears next carries a small **+ Drop set**
+button, because that card is what is on screen while you are actually stripping
+plates. The next weight is pre-filled about a third down and rounded to
+something your rack can make.
+
+The accounting is the whole point:
+
+| | |
+|---|---|
+| **Volume** | One hard set, not three. The drops are extra fatigue on a muscle you already stimulated, not fresh stimulus — counting them separately would take you over your weekly ceiling while the app said you had room. |
+| **Tonnage** | Every rep counts. It measures work done, and the drops were work. |
+| **Records** | Never. Lighter by definition and taken past failure; a rep record from the tail of a drop set would make records meaningless. |
+| **Effort** | Not asked. A drop set ends when you cannot do another rep. |
+
+---
+
+## Where the work went
+
+Progress carries a body coloured by how much work each muscle is actually
+getting, over **7, 30 or 90 days**. Thirty rows of numbers tell you the facts; a
+body with one cold leg tells you the story.
+
+Two things make it honest. Sets are **averaged per week** rather than summed, so
+a quarter's training and a single week sit on the same scale — a 90-day total
+compared against weekly landmarks would tell everybody they were catastrophically
+over their ceiling. And the window is measured **back from your last session**
+rather than from today, so a fortnight off does not report itself as neglect.
+
+Colour runs by landmark zone rather than raw sets, because 12 sets is plenty for
+rear delts and nowhere near enough for quads. Nothing is carried by colour alone:
+every muscle is tappable for its weekly sets and what that means, and the legend
+spells the zones out.
+
+---
+
+## What the movement looks like
+
+Every exercise now shows the two ends of its rep, drawn — start and finish, side
+by side, each captioned with the position it is showing. It is the one thing a
+still picture can usefully say and the one thing written cues cannot.
+
+Drawn rather than photographed for the same reasons as the muscle maps: no
+licensed source exists, anything fetched from the web breaks the offline
+promise, and a stylised figure that is obviously a diagram reads as deliberate
+where a not-quite-right drawing of a person reads as a mistake. There are 21
+movement patterns and 42 positions, and the furniture — the bench, the cable
+stack, the leg pad — is most of what tells a press from a fly.
+
+---
+
 ## Adding your own lifts
 
 No fixed library covers every gym. But the better reason is that the same
@@ -732,7 +788,8 @@ js/
     route.js         hash routing with a query, so one screen can hand
                      another an intent ("open Train on Lower B")
   data/         exercises, programs, muscles + landmarks, glossary, modes,
-                phases, achievements, movement patterns
+                phases, achievements, movement patterns, the two positions
+                each pattern is drawn in
   engine/
     equipment.js     substituting movements for the kit you have
     imbalance.js     strength ratios, stalled muscles, side-to-side
@@ -741,6 +798,7 @@ js/
     bodyweight.js    the trend, and the only judgement it makes (rate)
     crew.js          share codes and standings, no server
     onerm.js         estimated 1RM and its inverse
+    dropsets.js      drops, and why they are work but not extra sets
     records.js       heaviest, rep and estimated-max records per lift
     plates.js        what to hang on each side, for the rack you have
     backup.js        how much is unsaved, and how loudly to say so
@@ -751,7 +809,8 @@ js/
     exercise-builder.js lifts you add, and the muscles you feel them in
   ui/
     explain.js       plain-English wording for everything the engine decides
-    muscle-map.js    body diagrams generated from the exercise data
+    muscle-map.js    body diagrams, and the volume heatmap over a window
+    movement.js      the two ends of a rep, drawn from pose data
     backup.js        handing the log over as a file, and reading one back
     sheet.js         bottom sheets (no alert/prompt/confirm anywhere)
     term.js          tappable jargon
@@ -764,10 +823,11 @@ js/
   store.js      state + localStorage persistence
 sw.js           offline cache
 manifest.webmanifest, icons/   home-screen install
-test/           337 tests: engine, program design audit, store, modes,
+test/           368 tests: engine, program design audit, store, modes,
                 weak-point detection, beginner layer, equipment adaptation,
                 offline shell, routing, records, plate maths, backup
-                prompting, the program and exercise editors, bundle, docs
+                prompting, the program and exercise editors, drop-set
+                accounting, windowed volume, movement figures, bundle, docs
 tools/          dev server, single-file bundler
 ```
 

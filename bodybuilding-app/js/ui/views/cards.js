@@ -23,11 +23,13 @@ import { muscleName, isPlural } from '../../data/muscles.js';
 import { getMode } from '../../data/modes.js';
 import { patternFor } from '../../data/patterns.js';
 import { muscleMap } from '../muscle-map.js';
+import { movementDemoFor } from '../movement.js';
 import { loadStep } from '../../engine/progression.js';
 import { showTerm } from '../term.js';
-import { chooseSheet, alertSheet, detailSheet } from '../sheet.js';
+import { chooseSheet, alertSheet, detailSheet, openSheet, sheetHeader } from '../sheet.js';
 import { EFFORT_CHOICES, effortShort, warmupAdvice, reasonLine, tagLabel } from '../explain.js';
 import { loadout, shorthand, plateCount, plateColour } from '../../engine/plates.js';
+import { drops, hasDrops, suggestDropWeight, describeDrops, MAX_DROPS } from '../../engine/dropsets.js';
 import { svg } from '../dom.js';
 
 /* ------------------------------------------------------------- position */
@@ -256,13 +258,13 @@ export function showExercise(exercise) {
     title: exercise.name,
     build: (panel) => {
       panel.append(muscleMap(exercise.id, { height: 150, legend: true }));
+      // The two ends of the rep, drawn. The words underneath each position are
+      // the same fact told twice, which is the point - one of them will land.
+      const demo = movementDemoFor(exercise.id, { height: 108 });
+      if (demo) panel.append(demo);
       if (pattern) {
-        panel.append(h('div', { class: 'pattern' },
+        panel.append(h('div', { class: 'pattern', style: 'margin-top:12px' },
           h('h4', {}, pattern.name),
-          h('div', { class: 'pattern-ends' },
-            h('div', {}, h('span', { class: 'pattern-tag' }, 'Start'), h('span', {}, pattern.bottom)),
-            h('div', {}, h('span', { class: 'pattern-tag' }, 'Finish'), h('span', {}, pattern.top)),
-          ),
           h('p', { class: 'pattern-watch' }, pattern.watch),
         ));
       }
@@ -359,6 +361,10 @@ export function effortCard(active, position, opts) {
         onClick: () => { store.logSet(entry.exerciseId, position.setIndex, { done: false }); opts.onChange(); },
       }, 'Undo'),
     ),
+    // Offered here because this is the card on screen while you are actually
+    // stripping plates - the drops have not happened yet when the set card is
+    // up, and they are over by the time the next one appears.
+    dropStrip(entry, position.setIndex, () => opts.onChange()),
     h('h2', { class: 'setcard-question' }, 'How many more could you have done?'),
     h('p', { class: 'setcard-hint' },
       h('button', { class: 'term', type: 'button', onClick: () => showTerm('rir') }, 'Why this matters'),
@@ -578,4 +584,99 @@ function plateDiagram(result, unit) {
     el.appendChild(svg('text', { x: width / 2, y: 124, 'text-anchor': 'middle', class: 'platediagram-label' }, 'bar only'));
   }
   return h('div', { class: 'platediagram-wrap' }, el);
+}
+
+/* ------------------------------------------------------------- drop sets */
+
+/**
+ * Drops on a set already logged.
+ *
+ * Deliberately quiet until used: one small button that most people will never
+ * press, and a row of chips once they have. A drop set is not something to
+ * nudge anybody towards - it is a tool for the last set of an exercise, and an
+ * app that advertises it on every card would have people doing them on
+ * everything.
+ */
+export function dropStrip(entry, setIndex, onChange) {
+  const set = entry.sets[setIndex];
+  const unit = store.state.settings.unit;
+  const list = drops(set);
+
+  const strip = h('div', { class: 'dropstrip' });
+  if (list.length) {
+    strip.append(h('span', { class: 'dropstrip-label' }, 'Dropped to'));
+    list.forEach((drop, i) => {
+      strip.append(h('button', {
+        class: 'dropchip', type: 'button',
+        title: 'Remove this drop',
+        'aria-label': `Remove drop ${fmtWeight(drop.weight, unit)} times ${drop.reps}`,
+        onClick: () => { store.removeDrop(entry.exerciseId, setIndex, i); onChange(); },
+      }, `${fmtWeight(drop.weight, unit)} × ${drop.reps}`, h('span', { class: 'dropchip-x' }, '×')));
+    });
+  }
+
+  if (list.length < MAX_DROPS) {
+    strip.append(h('button', {
+      class: 'dropadd', type: 'button',
+      onClick: () => dropSheet(entry, setIndex, onChange),
+    }, list.length ? '+ another' : '+ Drop set'));
+  }
+  return strip;
+}
+
+/**
+ * Logging one drop. The weight is pre-filled about a third down and rounded to
+ * something the rack can make, because that is what people actually do and
+ * typing a number mid-drop-set is not happening.
+ */
+export function dropSheet(entry, setIndex, onChange) {
+  const set = entry.sets[setIndex];
+  const exercise = getExercise(entry.exerciseId);
+  const unit = store.state.settings.unit;
+  const previous = drops(set).at(-1);
+  const from = previous?.weight ?? set.weight;
+  const step = loadStep(exercise, from ?? 20, unit);
+
+  let weight = suggestDropWeight(from, step);
+  let reps = null;
+
+  return openSheet((panel, finish) => {
+    sheetHeader(panel, drops(set).length ? 'Another drop' : 'Drop set',
+      `Stripped from ${fmtWeight(from, unit)} and kept going. What did you do?`);
+
+    const body = h('div', { class: 'sheet-body' });
+    const add = h('button', { class: 'btn-primary btn-lg' });
+    const refresh = () => {
+      add.disabled = !(weight >= 0) || !(reps > 0);
+      add.textContent = reps > 0 ? `Log ${fmtWeight(weight, unit)} × ${reps}` : 'How many reps?';
+    };
+
+    body.append(h('div', { class: 'setcard-numbers' },
+      stepper({
+        label: `Weight (${unit})`, value: weight, step, min: 0,
+        onCommit: (v) => { weight = v; refresh(); },
+      }),
+      h('div', { class: 'setcard-times' }, '×'),
+      stepper({
+        label: 'Reps', value: reps, placeholder: '—', step: 1, min: 1,
+        onCommit: (v) => { reps = v; refresh(); },
+      }),
+    ));
+    body.append(h('p', { class: 'tiny muted' },
+      'Counted as work done, but still one hard set — the drops are extra fatigue on a '
+      + 'muscle you already stimulated, not another set of stimulus.'));
+    panel.append(body);
+
+    add.addEventListener('click', () => {
+      if (!store.addDrop(entry.exerciseId, setIndex, { weight, reps })) return;
+      onChange();
+      finish(true);
+    });
+    refresh();
+
+    panel.append(h('div', { class: 'sheet-actions' },
+      add,
+      h('button', { class: 'btn-lg', onClick: () => finish(false) }, 'Cancel'),
+    ));
+  });
 }
