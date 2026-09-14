@@ -230,6 +230,42 @@ load, the deload — with no branch anywhere saying "unless it is a custom one".
 
 ---
 
+## Adding your own lifts
+
+No fixed library covers every gym. But the better reason is that the same
+movement is not the same stimulus for everybody — people genuinely feel a
+plate-loaded row in their lats and a cable row in their upper back, or exactly
+the reverse, and the only person who can say which is the one doing the set.
+
+So the library is something you add to. A lift you add is the *same object* as a
+shipped one: the volume counter charges sets to it the same way, the body map
+draws it, the weak-point analysis reasons about it, and the progression engine
+picks its loads.
+
+The screen asks three things and defaults the rest:
+
+- **What you call it.** Whatever you call it in the gym.
+- **Where you feel it.** One list of muscles; tapping cycles each through
+  *nothing → mainly → a bit*. Mainly counts a full set towards that muscle, a
+  bit counts half — the same fractional counting the rest of the app uses. A
+  muscle cannot be both, because being credited one and a half sets would
+  quietly inflate every volume figure you are shown. The body map fills in as
+  you tag.
+- **What kind of thing it is.** Machine, cable, dumbbell, barbell, bodyweight —
+  which sets how close to failure the engine will let you work on it, and the
+  smallest weight jump it assumes. Everything after that (rep range, increment,
+  one-side-at-a-time) has a default worth ignoring.
+
+You can also **copy any shipped movement and retag it** — same exercise, your
+muscles — which is the honest fix when the library says a pullover is a lat
+exercise and you feel it entirely in your chest.
+
+A lift you have logged sets with, or that one of your programs uses, cannot be
+deleted: sessions store only the id, so removing it would turn that history into
+unreadable rows. It says which, and offers editing instead.
+
+---
+
 ## Streaks, levels and badges
 
 Gamification in a training app is easy to get actively wrong, and the wrong
@@ -712,6 +748,7 @@ js/
     volume.js        fractional set counting against landmarks
     mesocycle.js     block construction, volume progression, MRV clamping
     program-builder.js  editing a program without breaking the engine
+    exercise-builder.js lifts you add, and the muscles you feel them in
   ui/
     explain.js       plain-English wording for everything the engine decides
     muscle-map.js    body diagrams generated from the exercise data
@@ -720,16 +757,17 @@ js/
     term.js          tappable jargon
     views/
       builder.js     the program editor
+      exercise-editor.js  adding a lift of your own
       cards.js       one-card-per-set logging
       review.js      the post-session flashcards
       ...            screens, the first-run walkthrough and Learn
   store.js      state + localStorage persistence
 sw.js           offline cache
 manifest.webmanifest, icons/   home-screen install
-test/           322 tests: engine, program design audit, store, modes,
+test/           337 tests: engine, program design audit, store, modes,
                 weak-point detection, beginner layer, equipment adaptation,
                 offline shell, routing, records, plate maths, backup
-                prompting, the program editor, bundle, docs
+                prompting, the program and exercise editors, bundle, docs
 tools/          dev server, single-file bundler
 ```
 

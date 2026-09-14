@@ -37,6 +37,8 @@ const SHELL = [
   './js/engine/volume.js',
   './js/engine/mesocycle.js',
   './js/engine/program-builder.js',
+  './js/engine/exercise-builder.js',
+  './js/ui/views/exercise-editor.js',
   './js/engine/equipment.js',
   './js/engine/imbalance.js',
   './js/engine/progress.js',

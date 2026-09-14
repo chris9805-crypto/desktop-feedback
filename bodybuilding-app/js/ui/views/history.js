@@ -8,7 +8,7 @@
 import { h, clear, fmtWeight, fmtNumber, fmtDate, fmtDateLong, fmtDuration, relativeDay } from '../dom.js';
 import { store } from '../../store.js';
 import { getProgram } from '../../data/programs.js';
-import { getExercise, EXERCISES } from '../../data/exercises.js';
+import { getExercise } from '../../data/exercises.js';
 import { muscleName } from '../../data/muscles.js';
 import { setsByMuscle, volumeReport } from '../../engine/volume.js';
 import { e1rm, tonnage } from '../../engine/onerm.js';

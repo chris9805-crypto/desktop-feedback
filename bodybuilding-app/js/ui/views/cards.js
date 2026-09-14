@@ -18,7 +18,7 @@
 
 import { h, fmtWeight } from '../dom.js';
 import { store } from '../../store.js';
-import { getExercise } from '../../data/exercises.js';
+import { getExercise, swapsFor } from '../../data/exercises.js';
 import { muscleName, isPlural } from '../../data/muscles.js';
 import { getMode } from '../../data/modes.js';
 import { patternFor } from '../../data/patterns.js';
@@ -202,7 +202,7 @@ export function setCard(active, position, opts) {
         const picked = await chooseSheet({
           title: `Swap ${exercise.name}`,
           body: 'Machine taken, or something hurts? These train the same muscle.',
-          options: exercise.subs.map((id) => {
+          options: swapsFor(exercise.id).map((id) => {
             const alt = getExercise(id);
             return {
               value: id,
@@ -214,7 +214,7 @@ export function setCard(active, position, opts) {
         });
         if (picked) { store.swapExercise(entry.exerciseId, picked); opts.onChange(); }
       },
-      disabled: !exercise.subs.length,
+      disabled: !swapsFor(exercise.id).length,
     }, 'Swap exercise'),
     h('button', {
       class: 'btn-sm',

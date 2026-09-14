@@ -25,7 +25,7 @@ import { routeParams, clearRouteParams } from '../../util/route.js';
 import { sessionXp, followedPlan, newlyEarned } from '../../engine/progress.js';
 import { ACHIEVEMENT_BY_ID } from '../../data/achievements.js';
 import { store } from '../../store.js';
-import { getExercise, EXERCISES } from '../../data/exercises.js';
+import { getExercise, swapsFor } from '../../data/exercises.js';
 import { getProgram } from '../../data/programs.js';
 import { muscleName } from '../../data/muscles.js';
 import { weekPlan, feedbackTargets, estimateSessionMinutes } from '../../engine/mesocycle.js';
@@ -513,14 +513,14 @@ function exerciseCard(entry, active) {
         const picked = await chooseSheet({
           title: `Swap ${exercise.name}`,
           body: 'Machine taken, or something hurts? These train the same muscle.',
-          options: exercise.subs.map((id) => {
+          options: swapsFor(exercise.id).map((id) => {
             const alt = getExercise(id);
             return { value: id, label: alt.name, detail: `${alt.equipment} · ${alt.reps[0]}-${alt.reps[1]} reps` };
           }),
         });
         if (picked) { store.swapExercise(entry.exerciseId, picked); render(); }
       },
-      disabled: !exercise.subs.length,
+      disabled: !swapsFor(exercise.id).length,
     }, 'Swap'),
     h('button', {
       class: 'btn-sm',

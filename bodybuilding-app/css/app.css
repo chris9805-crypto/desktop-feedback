@@ -1370,3 +1370,34 @@ details.expandable > div { padding: 0 16px 16px; }
   .slot { gap: 7px; padding: 8px; }
   .slot-map { display: none; }
 }
+
+/* The lift you added yourself: the body map fills in as it is tagged. */
+.musclemap-preview {
+  display: flex; justify-content: center;
+  min-height: 120px; align-items: center;
+  margin-top: 12px; padding: 10px;
+  border-radius: 12px; background: var(--surface-2);
+}
+.picker-new {
+  display: flex; justify-content: center; width: 100%;
+  margin-bottom: 12px;
+  border-style: dashed; background: transparent; color: var(--text-secondary);
+  text-decoration: none;
+}
+.picker-new:hover { border-color: var(--accent); color: var(--accent); }
+
+/* One chip per muscle, cycling off -> mainly -> a bit. */
+.musclepicker { display: flex; flex-wrap: wrap; gap: 6px; }
+.musclechip {
+  padding: 7px 12px; border-radius: 999px;
+  font-size: 13px; font-weight: 600;
+  background: var(--surface-2); color: var(--text-muted);
+  border-color: var(--border);
+}
+.musclechip.is-primary {
+  background: var(--accent); border-color: var(--accent); color: var(--accent-ink);
+}
+.musclechip.is-secondary {
+  background: var(--accent-wash); border-color: var(--accent); color: var(--accent);
+}
+.musclechip-half { margin-left: 4px; opacity: .8; font-weight: 700; }

@@ -14,7 +14,7 @@
 import { h, clear } from '../dom.js';
 import { store } from '../../store.js';
 import { getProgram } from '../../data/programs.js';
-import { EXERCISES, getExercise } from '../../data/exercises.js';
+import { allExercises, getExercise } from '../../data/exercises.js';
 import { MUSCLES, MUSCLE_DISPLAY_ORDER, muscleName } from '../../data/muscles.js';
 import { newMesocycle, weekPlan, programTimeProfile, estimateSessionMinutes } from '../../engine/mesocycle.js';
 import { plannedSetsByMuscle, volumeReport } from '../../engine/volume.js';
@@ -77,6 +77,20 @@ function consumeIntent() {
   const edit = params.get('program');
   const fork = params.get('fork');
   const fresh = params.get('new');
+
+  // Coming back from the exercise editor with a lift that did not exist when
+  // we left. The draft is untouched - only the new lift is added.
+  const added = params.get('add');
+  const addTo = params.get('day');
+  if (added && addTo) {
+    clearRouteParams();
+    if (draft && getExercise(added)) {
+      draft = addSlot(draft, addTo, added);
+      openDay = addTo;
+    }
+    return;
+  }
+
   if (!edit && !fork && !fresh) return;
   clearRouteParams();
   openDay = null;
@@ -94,6 +108,11 @@ function consumeIntent() {
   }
   draft = blankProgram();
   openDay = draft.days[0]?.id ?? null;
+}
+
+/** The draft being edited, for tests and for anything that needs to inspect it. */
+export function currentDraft() {
+  return draft;
 }
 
 /** Start the editor somewhere specific, without going through the URL. */
@@ -341,7 +360,7 @@ function pickExercise(day) {
     const draw = (query = '') => {
       clear(results);
       const q = query.trim().toLowerCase();
-      const matches = EXERCISES.filter((e) =>
+      const matches = allExercises().filter((e) =>
         !q || e.name.toLowerCase().includes(q)
         || e.primary.some((m) => muscleName(m).toLowerCase().includes(q))
         || e.equipment.toLowerCase().includes(q));
@@ -375,6 +394,13 @@ function pickExercise(day) {
     };
 
     panel.append(h('div', { class: 'field' }, search));
+    // The library cannot know about the one good machine in your gym, so the
+    // way out of it is the first thing in the list rather than buried.
+    panel.append(h('a', {
+      class: 'btn picker-new',
+      href: routeTo('/exercise', { new: 1, day: day.id }),
+      onClick: () => finish(null),
+    }, '+ Add a lift that is not here'));
     panel.append(results);
     panel.append(h('div', { class: 'sheet-actions' },
       h('button', { class: 'btn-lg', onClick: () => finish(null) }, 'Done'),

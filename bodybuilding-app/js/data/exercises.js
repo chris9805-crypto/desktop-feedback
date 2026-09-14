@@ -436,8 +436,51 @@ export const EXERCISES = [
 
 export const EXERCISE_BY_ID = Object.fromEntries(EXERCISES.map((e) => [e.id, e]));
 
+/**
+ * Lifts the person added themselves.
+ *
+ * Held here rather than passed around because a custom exercise *is* an
+ * exercise: the volume counter, the muscle maps, the progression engine and
+ * every screen already call getExercise(), and none of them should have to
+ * know that this one came from a gym floor rather than from this file. The
+ * store re-registers the list whenever it changes.
+ */
+let ownExercises = [];
+
+export function registerExercises(list) {
+  ownExercises = Array.isArray(list) ? list : [];
+}
+
+/** Everything pickable: shipped first, then yours. */
+export function allExercises() {
+  return [...EXERCISES, ...ownExercises];
+}
+
 export function getExercise(id) {
-  return EXERCISE_BY_ID[id];
+  return EXERCISE_BY_ID[id] ?? ownExercises.find((e) => e.id === id);
+}
+
+/**
+ * What could stand in for this lift.
+ *
+ * The shipped movements carry a hand-picked list. A lift somebody added
+ * themselves cannot - nobody wrote substitutions for the one good machine in
+ * their gym - so it falls back to anything training the same main muscle,
+ * preferring the same kind of movement. Without this, Swap is permanently
+ * greyed out on exactly the lifts a person cared enough to add.
+ */
+export function swapsFor(exerciseId, { limit = 8 } = {}) {
+  const exercise = getExercise(exerciseId);
+  if (!exercise) return [];
+  if (exercise.subs?.length) return exercise.subs.filter((id) => getExercise(id));
+
+  const primary = exercise.primary?.[0];
+  if (!primary) return [];
+  return allExercises()
+    .filter((e) => e.id !== exerciseId && e.primary.includes(primary))
+    .sort((a, b) => Number(b.type === exercise.type) - Number(a.type === exercise.type))
+    .slice(0, limit)
+    .map((e) => e.id);
 }
 
 /** Every muscle an exercise touches, with its volume weighting. */

@@ -76,8 +76,10 @@ const BACK = {
  * @param {number} [options.height]  rendered height in px
  * @param {boolean} [options.legend] show which muscles are lit and how much
  */
-export function muscleMap(exerciseId, { height = 150, legend = false } = {}) {
-  const exercise = getExercise(exerciseId);
+export function muscleMap(exerciseId, { height = 150, legend = false, exercise: given = null } = {}) {
+  // `given` is for a lift that is not in the library yet - the editor drawing a
+  // draft as its muscles are tagged. Everything else looks it up by id.
+  const exercise = given ?? getExercise(exerciseId);
   if (!exercise) return h('div', {});
   const contribution = volumeContribution(exercise);
 

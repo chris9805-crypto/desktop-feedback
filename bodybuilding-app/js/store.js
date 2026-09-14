@@ -10,7 +10,7 @@
  */
 
 import { getProgram, registerPrograms } from './data/programs.js';
-import { getExercise } from './data/exercises.js';
+import { getExercise, registerExercises } from './data/exercises.js';
 import { newMesocycle, weekPlan, nextSession, slotKey } from './engine/mesocycle.js';
 import { prescribe, bestSet } from './engine/progression.js';
 import { e1rm } from './engine/onerm.js';
@@ -26,6 +26,7 @@ import { recordBook, checkSet, applySet } from './engine/records.js';
 import { backupStatus, backupFilename } from './engine/backup.js';
 import { DEFAULT_BAR, DEFAULT_PLATES } from './engine/plates.js';
 import { normalise as normaliseProgram, isRunnable } from './engine/program-builder.js';
+import { normalise as normaliseExercise, isSaveable } from './engine/exercise-builder.js';
 
 const STORAGE_KEY = 'ironblock.state.v1';
 const SCHEMA_VERSION = 1;
@@ -69,6 +70,10 @@ function defaultState() {
     // Programs the lifter built. The same shape as the built-in templates, and
     // run by the same engine - the only difference is who wrote the shape.
     programs: [],
+    // Lifts the person added. Same shape as the shipped ones, and counted the
+    // same way - the muscle tags are theirs because where a movement is felt
+    // is not something a library can know.
+    exercises: [],
     mesocycles: [],
     activeMesoId: null,
     sessions: [],
@@ -115,6 +120,9 @@ function migrate(state) {
 class Store {
   constructor() {
     this.state = readStored() ?? defaultState();
+    // Both registries before anything reads state: a block or a logged set can
+    // refer to either, and an unregistered id renders as "unknown".
+    registerExercises(this.state.exercises);
     registerPrograms(this.state.programs);
     this.listeners = new Set();
     this.persistFailed = false;
@@ -132,9 +140,12 @@ class Store {
   update(mutator) {
     const next = mutator(this.state);
     const programsChanged = next && next.programs !== this.state.programs;
+    const exercisesChanged = next && next.exercises !== this.state.exercises;
     if (next) this.state = next;
-    // Custom programs have to be visible to getProgram() before anything reads
-    // the new state, or a screen renders a block whose program "does not exist".
+    // Custom programs and lifts have to be visible to getProgram() and
+    // getExercise() before anything reads the new state, or a screen renders a
+    // block whose program "does not exist".
+    if (exercisesChanged) registerExercises(this.state.exercises);
     if (programsChanged) registerPrograms(this.state.programs);
     this.persist();
     this.emit();
@@ -474,6 +485,47 @@ class Store {
   }
 
   /* ---------------------------------------------------------- mesocycles */
+
+  /* ------------------------------------------------------ your exercises */
+
+  customExercises() {
+    return this.state.exercises ?? [];
+  }
+
+  saveExercise(exercise) {
+    const clean = normaliseExercise(exercise);
+    if (!isSaveable(clean)) return null;
+    this.update((s) => {
+      const existing = (s.exercises ?? []).some((e) => e.id === clean.id);
+      return {
+        ...s,
+        exercises: existing
+          ? s.exercises.map((e) => (e.id === clean.id ? clean : e))
+          : [...(s.exercises ?? []), clean],
+      };
+    });
+    return clean;
+  }
+
+  /**
+   * Where a lift is referred to. Sessions store ids and nothing else, so
+   * deleting one that has been logged would turn its history into a row of
+   * unreadable identifiers.
+   */
+  exerciseUse(exerciseId) {
+    const sessions = this.state.sessions.filter((s) =>
+      (s.entries ?? []).some((e) => e.exerciseId === exerciseId)).length;
+    const programs = (this.state.programs ?? []).filter((p) =>
+      (p.days ?? []).some((d) => (d.slots ?? []).some((slot) => slot.exerciseId === exerciseId)));
+    const inActive = (this.state.active?.entries ?? []).some((e) => e.exerciseId === exerciseId);
+    return { sessions, programs, inActive, blocked: sessions > 0 || programs.length > 0 || inActive };
+  }
+
+  deleteExercise(exerciseId) {
+    if (this.exerciseUse(exerciseId).blocked) return false;
+    this.update((s) => ({ ...s, exercises: (s.exercises ?? []).filter((e) => e.id !== exerciseId) }));
+    return true;
+  }
 
   /* ------------------------------------------------------ your programs */
 

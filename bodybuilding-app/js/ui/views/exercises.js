@@ -1,10 +1,14 @@
 /** Exercise library: what each movement trains, how to do it, what replaces it. */
 
 import { h, clear } from '../dom.js';
-import { EXERCISES, getExercise } from '../../data/exercises.js';
+import { EXERCISES, allExercises, getExercise } from '../../data/exercises.js';
 import { MUSCLE_DISPLAY_ORDER, muscleName } from '../../data/muscles.js';
 import { patternFor } from '../../data/patterns.js';
 import { muscleMap } from '../muscle-map.js';
+import { store } from '../../store.js';
+import { confirmSheet, alertSheet } from '../sheet.js';
+import { routeTo } from '../../util/route.js';
+import { isCustomExerciseId } from '../../engine/exercise-builder.js';
 
 const EQUIPMENT = ['barbell', 'dumbbell', 'machine', 'cable', 'bodyweight'];
 
@@ -13,13 +17,20 @@ let filters = { muscle: '', equipment: '', query: '' };
 export function render(container) {
   clear(container);
   const wrap = h('div', { class: 'stack' });
+  const mine = store.customExercises();
 
   wrap.append(h('div', { class: 'page-head' },
     h('h1', {}, 'Exercise library'),
     h('p', {},
       `${EXERCISES.length} movements, each mapped to the muscles it actually trains, the rep ` +
-      'range it is good at, and the substitutes that train the same thing when the rack is taken.'),
+      'range it is good at, and the substitutes that train the same thing when the rack is taken.'
+      + (mine.length ? ` Plus ${mine.length} of your own.` : '')),
   ));
+
+  // Where a movement is felt differs from person to person, so the library has
+  // to be somewhere you can add to rather than only read.
+  wrap.append(h('a', { class: 'btn btn-lg', style: 'justify-content:center', href: routeTo('/exercise', { new: 1 }) },
+    '+ Add a lift of your own'));
 
   const list = h('div', { class: 'stack' });
 
@@ -53,7 +64,7 @@ export function render(container) {
 function draw(list) {
   clear(list);
   const q = filters.query.trim().toLowerCase();
-  const matches = EXERCISES.filter((ex) => {
+  const matches = allExercises().filter((ex) => {
     if (filters.muscle && !ex.primary.includes(filters.muscle) && !ex.secondary.includes(filters.muscle)) return false;
     if (filters.equipment && ex.equipment !== filters.equipment) return false;
     if (q && !ex.name.toLowerCase().includes(q)) return false;
@@ -66,11 +77,12 @@ function draw(list) {
   }
 
   list.append(h('p', { class: 'small muted' }, `${matches.length} movement${matches.length === 1 ? '' : 's'}`));
-  for (const ex of matches) list.append(card(ex));
+  for (const ex of matches) list.append(card(ex, list));
 }
 
-function card(ex) {
+function card(ex, container) {
   const pattern = patternFor(ex.id);
+  const own = isCustomExerciseId(ex.id);
   return h('div', { class: 'card' },
     h('div', { class: 'card-head' },
       h('div', {},
@@ -79,6 +91,7 @@ function card(ex) {
           `${ex.type === 'compound' ? 'Compound' : 'Isolation'} · ${ex.equipment}` +
           (ex.unilateral ? ' · one side at a time' : '')),
       ),
+      own && h('span', { class: 'badge badge-accent' }, 'Yours'),
       h('span', { class: 'badge' }, `${ex.reps[0]}–${ex.reps[1]} reps`),
     ),
     h('div', { class: 'exercise-visual' },
@@ -105,5 +118,41 @@ function card(ex) {
     ),
     ex.subs.length && h('div', { class: 'small secondary', style: 'margin-top:6px' },
       'Swaps: ', ex.subs.map((id) => getExercise(id)?.name).filter(Boolean).join(', ')),
+
+    h('div', { class: 'row', style: 'margin-top:12px' },
+      own
+        ? h('a', { class: 'btn btn-sm', href: routeTo('/exercise', { exercise: ex.id }) }, 'Edit')
+        : h('a', { class: 'btn btn-sm', href: routeTo('/exercise', { copy: ex.id }) },
+            'Copy and retag'),
+      own && h('button', {
+        class: 'btn-danger btn-sm', style: 'margin-left:auto',
+        onClick: async () => {
+          const use = store.exerciseUse(ex.id);
+          if (use.blocked) {
+            await alertSheet({
+              title: 'This one is in use',
+              body: reasonInUse(use)
+                + '\n\nDeleting it would leave those sessions pointing at a lift that no longer '
+                + 'exists. Edit it instead, or take it off the program first.',
+            });
+            return;
+          }
+          const ok = await confirmSheet({
+            title: `Delete "${ex.name}"?`,
+            body: 'You have not logged anything with it, so nothing else changes.',
+            confirmLabel: 'Delete', danger: true,
+          });
+          if (ok) { store.deleteExercise(ex.id); render(document.getElementById('view')); }
+        },
+      }, 'Delete'),
+    ),
   );
+}
+
+function reasonInUse(use) {
+  const parts = [];
+  if (use.sessions) parts.push(`${use.sessions} logged session${use.sessions === 1 ? '' : 's'}`);
+  if (use.programs.length) parts.push(`${use.programs.length} of your programs`);
+  if (use.inActive) parts.push('the session you are part-way through');
+  return `It appears in ${parts.join(' and ')}.`;
 }

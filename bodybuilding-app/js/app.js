@@ -12,6 +12,7 @@ import * as learn from './ui/views/learn.js';
 import * as onboarding from './ui/views/onboarding.js';
 import * as crew from './ui/views/crew.js';
 import * as builder from './ui/views/builder.js';
+import * as exerciseEditor from './ui/views/exercise-editor.js';
 import { listen as listenForInstall } from './ui/install.js';
 import { splitHash } from './util/route.js';
 
@@ -27,6 +28,7 @@ const ROUTES = [
   { path: '/history', label: 'Progress', view: history, tab: true, icon: 'chart' },
   { path: '/crew', label: 'Crew', view: crew, tab: true, icon: 'people' },
   { path: '/build', label: 'Build', view: builder },
+  { path: '/exercise', label: 'Add a lift', view: exerciseEditor },
   { path: '/learn', label: 'Learn', view: learn },
   { path: '/exercises', label: 'Exercises', view: exercises },
   { path: '/settings', label: 'Settings', view: settings },
