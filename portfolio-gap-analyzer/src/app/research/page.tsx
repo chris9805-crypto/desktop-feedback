@@ -3,11 +3,14 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { DisclaimerFooter } from "@/components/Disclaimer";
-import { Card, Field, Pill, SectionHeading, inputClass } from "@/components/ui";
+import { Button, Card, Field, Pill, SectionHeading, inputClass } from "@/components/ui";
 import { SECURITIES } from "@/lib/data/securities";
 import { qualityScore, valuationScore } from "@/lib/engine/scores";
 import { SECTORS, type Sector, type Security } from "@/lib/engine/types";
 import { formatCompactCurrency, formatPercent, label } from "@/lib/format";
+
+/** Enough rows to scan without scrolling past the filters that produced them. */
+const PAGE_SIZE = 30;
 
 type Kind = "all" | "etf" | "stock";
 type SortKey = "name" | "cost" | "yield" | "size" | "quality" | "value";
@@ -35,6 +38,7 @@ export default function ResearchPage() {
   const [sector, setSector] = useState<Sector | "all">("all");
   const [sort, setSort] = useState<SortKey>("size");
   const [maxCost, setMaxCost] = useState(100);
+  const [limit, setLimit] = useState(PAGE_SIZE);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -65,6 +69,8 @@ export default function ResearchPage() {
     });
   }, [query, kind, sector, sort, maxCost]);
 
+  const visible = rows.slice(0, limit);
+
   return (
     <div className="space-y-8">
       <div>
@@ -82,12 +88,12 @@ export default function ResearchPage() {
             <input
               className={inputClass}
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => { setQuery(event.target.value); setLimit(PAGE_SIZE); }}
               placeholder="Ticker or name"
             />
           </Field>
           <Field label="Instrument type">
-            <select className={inputClass} value={kind} onChange={(event) => setKind(event.target.value as Kind)}>
+            <select className={inputClass} value={kind} onChange={(event) => { setKind(event.target.value as Kind); setLimit(PAGE_SIZE); }}>
               <option value="all">All</option>
               <option value="etf">ETFs</option>
               <option value="stock">Companies</option>
@@ -97,7 +103,7 @@ export default function ResearchPage() {
             <select
               className={inputClass}
               value={sector}
-              onChange={(event) => setSector(event.target.value as Sector | "all")}
+              onChange={(event) => { setSector(event.target.value as Sector | "all"); setLimit(PAGE_SIZE); }}
             >
               <option value="all">Any</option>
               {SECTORS.map((key) => (
@@ -108,7 +114,7 @@ export default function ResearchPage() {
             </select>
           </Field>
           <Field label="Sort by">
-            <select className={inputClass} value={sort} onChange={(event) => setSort(event.target.value as SortKey)}>
+            <select className={inputClass} value={sort} onChange={(event) => { setSort(event.target.value as SortKey); setLimit(PAGE_SIZE); }}>
               {SORTS.map((option) => (
                 <option key={option.id} value={option.id}>
                   {option.label}
@@ -126,7 +132,7 @@ export default function ResearchPage() {
                 max={100}
                 step={5}
                 value={maxCost}
-                onChange={(event) => setMaxCost(Number(event.target.value))}
+                onChange={(event) => { setMaxCost(Number(event.target.value)); setLimit(PAGE_SIZE); }}
                 className="w-full accent-[var(--accent)]"
               />
             </Field>
@@ -136,7 +142,8 @@ export default function ResearchPage() {
 
       <Card>
         <div className="border-b border-[var(--border)] px-5 py-3 text-[12.5px] text-[var(--text-muted)]">
-          {rows.length} result{rows.length === 1 ? "" : "s"} from {SECURITIES.length} instruments in the bundled universe
+          Showing {visible.length} of {rows.length} result{rows.length === 1 ? "" : "s"}, from {SECURITIES.length}{" "}
+          instruments in the bundled universe
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-[13px]">
@@ -152,7 +159,7 @@ export default function ResearchPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border)]">
-              {rows.map((security) => (
+              {visible.map((security) => (
                 <tr key={security.symbol} className="hover:bg-[var(--surface-2)]">
                   <td className="px-5 py-2.5">
                     <Link href={`/research/${security.symbol}`} className="font-semibold text-[var(--text)] hover:underline">
@@ -187,6 +194,13 @@ export default function ResearchPage() {
           <p className="px-5 py-10 text-center text-[13px] text-[var(--text-muted)]">
             Nothing matches those filters. Widen one of them.
           </p>
+        ) : null}
+        {visible.length < rows.length ? (
+          <div className="border-t border-[var(--border)] px-5 py-3.5 text-center">
+            <Button variant="secondary" onClick={() => setLimit((value) => value + PAGE_SIZE)}>
+              Show {Math.min(PAGE_SIZE, rows.length - visible.length)} more
+            </Button>
+          </div>
         ) : null}
       </Card>
 

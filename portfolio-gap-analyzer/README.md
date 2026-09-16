@@ -112,8 +112,8 @@ as its ten largest holdings.
 
 ## Data
 
-**The bundled security master is illustrative sample data.** Around 45 funds and
-60 companies, hand-curated to be plausible and internally consistent, rounded,
+**The bundled security master is illustrative sample data.** 48 funds and 61
+companies, hand-curated to be plausible and internally consistent, rounded,
 and frozen at a single date. It exists so the engine can be exercised end to end
 and so the interface has something real to render. It is not live market data,
 and the app says so on every screen that uses it.

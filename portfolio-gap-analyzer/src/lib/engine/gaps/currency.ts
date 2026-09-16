@@ -1,6 +1,6 @@
 import { formatCurrency, formatPercent } from "@/lib/format";
 import { screenForExposure } from "../implement";
-import type { Finding } from "../types";
+import type { Currency, Finding } from "../types";
 import { materiality, type GapContext } from "./context";
 
 export function currencyFindings(ctx: GapContext): Finding[] {
@@ -21,7 +21,7 @@ export function currencyFindings(ctx: GapContext): Finding[] {
       direction: "over",
       severity: materiality({ magnitude: foreignShare - 0.5, scaleAt: 0.45, valueShare: foreignShare, weight: shortHorizon ? 1 : 0.7 }),
       title: `${formatPercent(foreignShare)} of the portfolio is in currencies other than ${base}`,
-      summary: `You will spend in ${base}, and ${formatCurrency(foreignShare * total, currency(base))} is exposed to exchange-rate moves on a ${ctx.profile.horizonYears}-year horizon.`,
+      summary: `You will spend in ${base}, and ${formatCurrency(foreignShare * total, base)} is exposed to exchange-rate moves on a ${ctx.profile.horizonYears}-year horizon.`,
       why:
         "Owning a foreign company means owning its currency too. Over long periods currency moves have tended to average out and hedging costs money, so most long-horizon investors leave equity exposure unhedged. Over a few years it is different: a 10-15% move in a major pair is unremarkable, and it lands directly on the value of money that is about to be spent. Bonds are the sharper case — a currency swing can be several times the yield, which is why international bond funds are usually sold hedged.",
       evidence: [
@@ -49,11 +49,7 @@ export function currencyFindings(ctx: GapContext): Finding[] {
   return findings;
 }
 
-function currency(base: string) {
-  return base as Parameters<typeof formatCurrency>[1];
-}
-
-function topCurrencies(map: Record<string, number | undefined>, base: string): string {
+function topCurrencies(map: Record<string, number | undefined>, base: Currency): string {
   return Object.entries(map)
     .filter(([code, weight]) => code !== base && (weight ?? 0) > 0.02)
     .sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))

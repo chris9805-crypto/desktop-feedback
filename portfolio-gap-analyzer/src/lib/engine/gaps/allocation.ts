@@ -1,5 +1,5 @@
 import { formatCurrency, formatPercent, formatPp, label } from "@/lib/format";
-import { normaliseSleeve } from "../exposure";
+import { buildExposure, normaliseSleeve } from "../exposure";
 import { routesToClose, screenForExposure, type ScreenDimension } from "../implement";
 import { REGIONS, SECTORS, SIZE_BUCKETS, type Finding } from "../types";
 import { materiality, type GapContext } from "./context";
@@ -89,14 +89,15 @@ function sleeveFindings(
   return findings;
 }
 
+/** Which holding contributes the most value to a bucket, for the trim route. */
 function largestIn(ctx: GapContext, dimension: "region" | "sector" | "size", key: string): string | null {
   let best: { name: string; symbol: string; value: number } | null = null;
   for (const position of ctx.portfolio.positions) {
-    const map = position.security.kind === "stock"
-      ? { [dimension === "region" ? position.security.region : dimension === "sector" ? position.security.sector : position.security.size]: 1 }
-      : ((position.security.breakdown[dimension] ?? {}) as Record<string, number>);
-    const share = map[key] ?? 0;
-    const value = share * position.value;
+    // Read the normalised exposure rather than the declared breakdown: declared
+    // maps do not sum to one, so comparing them raw would rank funds by how
+    // tidily their factsheet adds up.
+    const map = buildExposure(position.security)[dimension] as Record<string, number>;
+    const value = (map[key] ?? 0) * position.value;
     if (value > 0 && (!best || value > best.value)) {
       best = { name: position.security.name, symbol: position.symbol, value };
     }
