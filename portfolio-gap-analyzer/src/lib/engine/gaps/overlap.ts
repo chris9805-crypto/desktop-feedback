@@ -31,22 +31,41 @@ export function estimateOverlap(a: EtfSecurity, b: EtfSecurity): number {
   return Math.min(1, 0.5 * disclosedOverlap + 0.5 * indexOverlapFallback(a, b));
 }
 
-/** Structural similarity when holdings are not disclosed: same region, sector shape and size profile. */
+/**
+ * Structural similarity, used where holdings are not disclosed.
+ *
+ * Asset class and region act as gates rather than as scored dimensions: any two
+ * US equity funds match on both, so averaging them in would put a floor of
+ * roughly 0.5 under every pair and make a broad index fund look like a
+ * duplicate of a sector fund. Sector and size are what actually distinguish two
+ * equity funds from each other, so they carry the score.
+ */
 function indexOverlapFallback(a: EtfSecurity, b: EtfSecurity): number {
   const ea = buildExposure(a);
   const eb = buildExposure(b);
-  let shared = 0;
-  const dims = ["assetClass", "region", "sector", "size"] as const;
-  for (const dim of dims) {
+
+  const intersect = (dim: "assetClass" | "region" | "sector" | "size") => {
     const mapA = ea[dim] as Record<string, number>;
     const mapB = eb[dim] as Record<string, number>;
-    let dimShared = 0;
-    for (const key of Object.keys(mapA)) {
-      dimShared += Math.min(mapA[key] ?? 0, mapB[key] ?? 0);
-    }
-    shared += dimShared;
-  }
-  return Math.min(1, shared / dims.length);
+    let shared = 0;
+    for (const key of Object.keys(mapA)) shared += Math.min(mapA[key] ?? 0, mapB[key] ?? 0);
+    return shared;
+  };
+
+  const gate = Math.min(intersect("assetClass"), intersect("region"));
+  if (gate <= 0) return 0;
+
+  // Normalise the sleeve dimensions by the smaller fund's equity share, so a
+  // mixed-asset fund is not penalised for the part that has no sector at all.
+  const sleeve = Math.min(
+    ea.assetClass.equity + ea.assetClass.realEstate,
+    eb.assetClass.equity + eb.assetClass.realEstate,
+  );
+  if (sleeve <= 0) return gate;
+
+  const sectorSimilarity = intersect("sector") / sleeve;
+  const sizeSimilarity = intersect("size") / sleeve;
+  return Math.min(1, gate * (0.65 * sectorSimilarity + 0.35 * sizeSimilarity));
 }
 
 const REDUNDANCY_THRESHOLD = 0.8;

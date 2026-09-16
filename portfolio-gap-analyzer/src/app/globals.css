@@ -1,0 +1,168 @@
+@import "tailwindcss";
+
+/*
+ * A data-dense research tool. The palette is deliberately quiet so that
+ * numbers, not decoration, carry the page. Over- and under-weight get their
+ * own hues rather than red/green, because a deviation from a reference model
+ * is a difference, not a loss.
+ */
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #f1f3f6;
+  --surface-3: #e8ebf0;
+  --border: #e0e4ea;
+  --border-strong: #c9d0da;
+  --text: #11161f;
+  --text-muted: #5b6673;
+  --text-faint: #858e9b;
+  --accent: #1c5d88;
+  --accent-text: #164c70;
+  --accent-soft: #e6eff6;
+  --over: #a8532b;
+  --over-soft: #fbeee6;
+  --under: #1f6a56;
+  --under-soft: #e6f2ee;
+  --warn: #8a6100;
+  --warn-soft: #fdf3dd;
+  --chart-1: #1c5d88;
+  --chart-2: #3f8f7a;
+  --chart-3: #b07d2b;
+  --chart-4: #7a5ea3;
+  --chart-5: #a8532b;
+  --chart-6: #47738f;
+  --chart-7: #8d8f4d;
+  --chart-8: #6b7684;
+  --radius: 10px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0c1016;
+    --surface: #141a22;
+    --surface-2: #1a212a;
+    --surface-3: #222b36;
+    --border: #262f3b;
+    --border-strong: #3a4654;
+    --text: #e4e9f0;
+    --text-muted: #9aa4b2;
+    --text-faint: #6f7987;
+    --accent: #6cb0dd;
+    --accent-text: #8ec5eb;
+    --accent-soft: #14283a;
+    --over: #dd9160;
+    --over-soft: #2e2018;
+    --under: #63bfa0;
+    --under-soft: #14261f;
+    --warn: #d6a83f;
+    --warn-soft: #2b2415;
+    --chart-1: #6cb0dd;
+    --chart-2: #63bfa0;
+    --chart-3: #d6a83f;
+    --chart-4: #a996d6;
+    --chart-5: #dd9160;
+    --chart-6: #89aec8;
+    --chart-7: #c2c47a;
+    --chart-8: #93a0b0;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0c1016;
+  --surface: #141a22;
+  --surface-2: #1a212a;
+  --surface-3: #222b36;
+  --border: #262f3b;
+  --border-strong: #3a4654;
+  --text: #e4e9f0;
+  --text-muted: #9aa4b2;
+  --text-faint: #6f7987;
+  --accent: #6cb0dd;
+  --accent-text: #8ec5eb;
+  --accent-soft: #14283a;
+  --over: #dd9160;
+  --over-soft: #2e2018;
+  --under: #63bfa0;
+  --under-soft: #14261f;
+  --warn: #d6a83f;
+  --warn-soft: #2b2415;
+  --chart-1: #6cb0dd;
+  --chart-2: #63bfa0;
+  --chart-3: #d6a83f;
+  --chart-4: #a996d6;
+  --chart-5: #dd9160;
+  --chart-6: #89aec8;
+  --chart-7: #c2c47a;
+  --chart-8: #93a0b0;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-ink: var(--text);
+  --color-muted: var(--text-muted);
+  --color-faint: var(--text-faint);
+  --color-accent: var(--accent);
+  --color-accent-text: var(--accent-text);
+  --color-accent-soft: var(--accent-soft);
+  --color-over: var(--over);
+  --color-over-soft: var(--over-soft);
+  --color-under: var(--under);
+  --color-under-soft: var(--under-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+}
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Figures line up in columns; that is most of what makes a table readable. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.hairline {
+  border-color: var(--border);
+}
+
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -75,9 +75,12 @@ export function valuationScore(s: StockSecurity): ScoreBreakdown {
   );
 }
 
+/** Below this, the payout is a token one and a durability score would be noise. */
+const MEANINGFUL_YIELD = 0.005;
+
 export function dividendDurabilityScore(s: StockSecurity): ScoreBreakdown | null {
   const f = s.fundamentals;
-  if (f.dividendYield <= 0) return null;
+  if (f.dividendYield < MEANINGFUL_YIELD) return null;
   return build(
     [
       { label: "Payout ratio", value: pct(f.payoutRatio), contribution: inverseScale(f.payoutRatio, 0.25, 0.95) },
