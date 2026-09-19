@@ -125,6 +125,33 @@ two things a real implementation has to get right that the sample data papers
 over: factsheet staleness on fund look-through, and keeping prices, fundamentals
 and FX on a consistent as-of date.
 
+## Installing it on a phone
+
+Gapline is a progressive web app. On a phone, open it in the browser and use
+"Add to Home Screen" (Safari) or the install prompt (Chrome); it then launches
+standalone, without browser chrome.
+
+It is genuinely usable offline, which falls out of the architecture rather than
+being bolted on: the engine and the security master are both in the JavaScript
+bundle and holdings live in `localStorage`, so once the shell is cached there is
+nothing left to fetch. A full gap report can be produced with the network off.
+
+`public/sw.js` handles caching — navigations network first, content-hashed
+`/_next/static/` assets cache first, everything else stale-while-revalidate.
+
+One detail worth knowing if you touch it: the first visit cannot be controlled
+by a service worker, because it registers after that page has already fetched
+its scripts. Precaching the routes alone therefore leaves their hashed chunks
+uncached, and an offline cold start renders a blank page. Rather than
+duplicating the build's asset manifest in the worker, the page reports what it
+actually loaded and the worker stores it — correct across builds, with no build
+step to keep in sync. `src/test/pwa.test.ts` guards the manifest, the icon set
+and the worker's caching rules.
+
+There is no native app. The engine is a pure function with no dependency on
+React, the DOM or the network, so the analysis would port to React Native
+unchanged if that were ever wanted; only the UI layer would be rewritten.
+
 ## Privacy
 
 Holdings and the investor profile never leave the browser. The engine runs
@@ -138,13 +165,14 @@ reading `src/lib/state/store.tsx`.
 npm test
 ```
 
-61 tests across six suites:
+70 tests across seven suites:
 
 - **exposure** — normalisation invariants, aggregation, cash handling, duration weighting, look-through addition
 - **portfolio** — the paste parser's sizing rules, FX conversion, cross-account merging, ticker aliases, unresolved holdings
 - **reference** — allocation sums to one, growth share monotonic in horizon, risk capacity as a ceiling, home-tilt arithmetic
 - **overlap** — same-index funds score as duplicates; a Nasdaq-100 fund does not score as a duplicate of an S&P 500 fund
 - **gaps** — scenario portfolios produce the expected findings, ranking is ordered, no instrument is suggested that is already held, and a portfolio near its reference produces no manufactured findings
+- **pwa** — the manifest carries what installability needs, every icon file exists, and the worker's caching rules hold
 - **compliance** — advisory language is absent from both source and generated report text; findings carry evidence, reasoning and screen criteria
 
 ## Limitations
