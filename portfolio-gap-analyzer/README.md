@@ -129,7 +129,7 @@ src/
     data/            Security master, FX, provider seam
     content/         Education articles
     state/           Client store (localStorage)
-    chart.ts         Fan chart geometry, shared by both renderers
+    chart.ts         Fan chart and pie geometry, shared by both renderers
   components/        UI primitives, charts, finding cards
   app/               Next.js App Router pages
                      reference/ is the landing tab: the model, then the inputs behind it
@@ -147,6 +147,14 @@ fund has sector weights summing to 0.60. Aggregating positions is then a plain
 value-weighted sum, and "technology as a share of my portfolio" reads straight
 off the total. Normalising to a sleeve is a presentation concern, handled at the
 edge.
+
+**The categorical palette is validated, not eyeballed.** Both the light and dark
+eight-hue sets clear the dataviz checks — lightness band, chroma floor,
+colour-vision separation on adjacent slots, and contrast against their own
+surface. Slot order is part of what passed: rotating the palette so a blue led
+dropped adjacent green/orange separation to ΔE 2.8 for protanopes, so the
+validated order stands over the cosmetic preference. Categories beyond eight
+fold into "Other" rather than reusing a hue.
 
 **Risk uses a single-factor model, not value-weighted volatility.** Each holding
 splits into a market component (which adds up across holdings) and an

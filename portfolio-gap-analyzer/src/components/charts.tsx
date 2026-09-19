@@ -1,3 +1,4 @@
+import { buildPie } from "@/lib/chart";
 import { formatPercent, formatPp } from "@/lib/format";
 
 const PALETTE = [
@@ -142,3 +143,70 @@ export function MiniBar({ value, max, tone = "var(--accent)" }: { value: number;
 }
 
 export { PALETTE };
+
+/**
+ * A part-to-whole pie. Identity comes from the legend, which carries every
+ * label and its value as text — wedge fills vary in lightness, so no single
+ * text colour would be legible inside all of them.
+ */
+export function PieChart({
+  title,
+  slices,
+  size = 168,
+}: {
+  title: string;
+  slices: Slice[];
+  size?: number;
+}) {
+  const pie = buildPie(slices, size, PALETTE.length);
+  if (pie.wedges.length === 0) return null;
+
+  return (
+    <figure className="m-0">
+      <figcaption className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">{title}</figcaption>
+      <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-4">
+        <svg
+          viewBox={`0 0 ${pie.size} ${pie.size}`}
+          width={size}
+          height={size}
+          role="img"
+          aria-label={`${title}: ${pie.wedges.map((w) => `${w.label} ${formatPercent(w.share)}`).join(", ")}`}
+          style={{ flex: "none", maxWidth: "100%" }}
+        >
+          {pie.wedges.map((wedge) => (
+            <path
+              key={wedge.label}
+              d={wedge.path}
+              fill={PALETTE[wedge.colorIndex % PALETTE.length]}
+              // A 2px gap in the surface colour keeps adjacent wedges apart.
+              stroke="var(--surface)"
+              strokeWidth="2"
+              strokeLinejoin="round"
+            >
+              <title>{`${wedge.label} — ${formatPercent(wedge.share)}`}</title>
+            </path>
+          ))}
+        </svg>
+        <ul className="m-0 min-w-[9rem] flex-1 list-none space-y-1 p-0">
+          {pie.wedges.map((wedge) => (
+            <li key={wedge.label} className="flex items-baseline gap-2 text-[12px]">
+              <span
+                className="mt-[1px] inline-block h-2.5 w-2.5 shrink-0 rounded-[2px]"
+                style={{ background: PALETTE[wedge.colorIndex % PALETTE.length] }}
+                aria-hidden="true"
+              />
+              <span className="flex-1 text-[var(--text-muted)]">{wedge.label}</span>
+              <span className="tnum font-medium text-[var(--text)]">{formatPercent(wedge.share)}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      {pie.folded ? (
+        <p className="mt-2 text-[11px] text-[var(--text-faint)]">
+          The smallest categories are grouped as &ldquo;Other&rdquo; — there are eight distinguishable colours, and
+          reusing one would make two different things look the same.
+        </p>
+      ) : null}
+    </figure>
+  );
+}

@@ -2,7 +2,7 @@
 
 import { DisclaimerFooter } from "@/components/Disclaimer";
 import { ProjectionPanel } from "@/components/Projection";
-import { StackedBar } from "@/components/charts";
+import { PieChart } from "@/components/charts";
 import { normaliseSleeve } from "@/lib/engine/exposure";
 import { Button, Callout, Card, Field, Pill, SectionHeading, inputClass } from "@/components/ui";
 import { PRESET_LIST, type ReferencePresetId } from "@/lib/engine/presets";
@@ -106,33 +106,11 @@ export default function ProfilePage() {
           title={`What the ${reference.presetLabel} reference portfolio holds`}
           description="The whole model, laid out. Adjust anything below and these move with it."
         />
-        <div className="space-y-6">
-          <div>
-            <div className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">Across the whole portfolio</div>
-            <div className="mt-2.5">
-              <StackedBar slices={assetSlices} />
-            </div>
-          </div>
-          <div className="grid gap-6 border-t border-[var(--border)] pt-5 lg:grid-cols-2">
-            <div>
-              <div className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">Equity sleeve by region</div>
-              <div className="mt-2.5">
-                <StackedBar slices={regionSlices} height={12} />
-              </div>
-            </div>
-            <div>
-              <div className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">Equity sleeve by company size</div>
-              <div className="mt-2.5">
-                <StackedBar slices={sizeSlices} height={12} />
-              </div>
-            </div>
-          </div>
-          <div className="border-t border-[var(--border)] pt-5">
-            <div className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">Equity sleeve by sector</div>
-            <div className="mt-2.5">
-              <StackedBar slices={sectorSlices} height={12} />
-            </div>
-          </div>
+        <div className="grid gap-x-8 gap-y-7 sm:grid-cols-2">
+          <PieChart title="Across the whole portfolio" slices={assetSlices} />
+          <PieChart title="Equity sleeve by region" slices={regionSlices} />
+          <PieChart title="Equity sleeve by company size" slices={sizeSlices} />
+          <PieChart title="Equity sleeve by sector" slices={sectorSlices} />
         </div>
       </Card>
 

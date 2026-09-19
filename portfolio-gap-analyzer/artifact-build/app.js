@@ -97,6 +97,38 @@
       '">' + segs + '</div><div class="legend">' + legend + "</div>";
   }
 
+
+  /**
+   * A part-to-whole pie. Identity comes from the legend, which carries every
+   * label and value as text — wedge fills vary in lightness, so no single text
+   * colour would be legible inside all of them.
+   */
+  function pieChart(title, slices, size) {
+    size = size || 168;
+    var pie = G.buildPie(slices, size, PALETTE.length);
+    if (!pie.wedges.length) return "";
+    var wedges = pie.wedges.map(function (w) {
+      return '<path d="' + w.path + '" fill="' + PALETTE[w.colorIndex % PALETTE.length] +
+        '" stroke="var(--surface)" stroke-width="2" stroke-linejoin="round">' +
+        "<title>" + esc(w.label) + " — " + pct(w.share) + "</title></path>";
+    }).join("");
+    var legend = pie.wedges.map(function (w) {
+      return '<li style="display:flex;align-items:baseline;gap:8px;font-size:12px">' +
+        '<i class="swatch" style="background:' + PALETTE[w.colorIndex % PALETTE.length] + ';margin-top:1px"></i>' +
+        '<span style="flex:1;color:var(--muted)">' + esc(w.label) + "</span>" +
+        '<span class="num" style="font-weight:500">' + pct(w.share) + "</span></li>";
+    }).join("");
+    return '<figure style="margin:0"><figcaption class="eyebrow">' + esc(title) + "</figcaption>" +
+      '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:16px 24px;margin-top:12px">' +
+      '<svg viewBox="0 0 ' + pie.size + " " + pie.size + '" width="' + size + '" height="' + size +
+      '" role="img" aria-label="' + esc(title + ": " + pie.wedges.map(function (w) { return w.label + " " + pct(w.share); }).join(", ")) +
+      '" style="flex:none;max-width:100%">' + wedges + "</svg>" +
+      '<ul style="list-style:none;margin:0;padding:0;min-width:9rem;flex:1;display:flex;flex-direction:column;gap:4px">' +
+      legend + "</ul></div>" +
+      (pie.folded ? '<p style="margin-top:8px;font-size:11px;color:var(--faint)">The smallest categories are grouped as \u201cOther\u201d — there are eight distinguishable colours, and reusing one would make two different things look the same.</p>' : "") +
+      "</figure>";
+  }
+
   function gapTable(rows, threshold) {
     var max = Math.max.apply(null, rows.map(function (r) { return Math.max(r.current, r.reference); }).concat([0.01]));
     var body = rows.map(function (r) {
@@ -557,14 +589,12 @@
 
       '<section class="card pad"><h2 class="sec-title">What the ' + esc(ref.presetLabel) + ' reference portfolio holds</h2>' +
       '<p class="sub" style="margin-top:4px">The whole model, laid out. Adjust anything below and these move with it.</p>' +
-      '<div style="margin-top:18px"><div class="eyebrow">Across the whole portfolio</div>' +
-      '<div style="margin-top:10px">' + stackedBar(slices) + "</div></div>" +
-      '<div class="cols" style="margin-top:20px;padding-top:18px;border-top:1px solid var(--line)">' +
-      '<div><div class="eyebrow">Equity sleeve by region</div><div style="margin-top:10px">' + stackedBar(regionSlices) + "</div></div>" +
-      '<div><div class="eyebrow">Equity sleeve by company size</div><div style="margin-top:10px">' + stackedBar(sizeSlices) + "</div></div>" +
-      "</div>" +
-      '<div style="margin-top:20px;padding-top:18px;border-top:1px solid var(--line)"><div class="eyebrow">Equity sleeve by sector</div>' +
-      '<div style="margin-top:10px">' + stackedBar(sectorSlices) + "</div></div></section>" +
+      '<div class="cols" style="margin-top:18px;gap:28px 32px">' +
+      pieChart("Across the whole portfolio", slices) +
+      pieChart("Equity sleeve by region", regionSlices) +
+      pieChart("Equity sleeve by company size", sizeSlices) +
+      pieChart("Equity sleeve by sector", sectorSlices) +
+      "</div></section>" +
 
       '<div class="cols">' +
       '<div class="stack">' +

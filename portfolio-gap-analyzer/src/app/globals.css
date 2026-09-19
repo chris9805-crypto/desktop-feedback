@@ -25,14 +25,14 @@
   --under-soft: #e6f2ee;
   --warn: #8a6100;
   --warn-soft: #fdf3dd;
-  --chart-1: #1c5d88;
-  --chart-2: #3f8f7a;
-  --chart-3: #b07d2b;
-  --chart-4: #7a5ea3;
-  --chart-5: #a8532b;
-  --chart-6: #47738f;
-  --chart-7: #8d8f4d;
-  --chart-8: #6b7684;
+  --chart-1: #0a7e3a;
+  --chart-2: #d179ca;
+  --chart-3: #6e64c8;
+  --chart-4: #ca8a10;
+  --chart-5: #a8353e;
+  --chart-6: #a2af29;
+  --chart-7: #337bd0;
+  --chart-8: #d46a34;
   --radius: 10px;
 }
 
@@ -56,14 +56,14 @@
     --under-soft: #14261f;
     --warn: #d6a83f;
     --warn-soft: #2b2415;
-    --chart-1: #6cb0dd;
-    --chart-2: #63bfa0;
-    --chart-3: #d6a83f;
-    --chart-4: #a996d6;
-    --chart-5: #dd9160;
-    --chart-6: #89aec8;
-    --chart-7: #c2c47a;
-    --chart-8: #93a0b0;
+    --chart-1: #25984d;
+    --chart-2: #9d4997;
+    --chart-3: #847ce2;
+    --chart-4: #895c07;
+    --chart-5: #d15b60;
+    --chart-6: #737c06;
+    --chart-7: #3e96ea;
+    --chart-8: #af4803;
   }
 }
 
@@ -86,14 +86,14 @@
   --under-soft: #14261f;
   --warn: #d6a83f;
   --warn-soft: #2b2415;
-  --chart-1: #6cb0dd;
-  --chart-2: #63bfa0;
-  --chart-3: #d6a83f;
-  --chart-4: #a996d6;
-  --chart-5: #dd9160;
-  --chart-6: #89aec8;
-  --chart-7: #c2c47a;
-  --chart-8: #93a0b0;
+  --chart-1: #25984d;
+  --chart-2: #9d4997;
+  --chart-3: #847ce2;
+  --chart-4: #895c07;
+  --chart-5: #d15b60;
+  --chart-6: #737c06;
+  --chart-7: #3e96ea;
+  --chart-8: #af4803;
 }
 
 @theme inline {

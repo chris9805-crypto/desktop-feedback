@@ -120,3 +120,92 @@ export function buildFanChart(
     },
   };
 }
+
+export interface PieDatum {
+  label: string;
+  value: number;
+}
+
+export interface PieWedge {
+  label: string;
+  value: number;
+  /** Fraction of the whole, 0-1. */
+  share: number;
+  /** Index into the caller's palette. Fixed by position, never cycled. */
+  colorIndex: number;
+  path: string;
+}
+
+export interface Pie {
+  size: number;
+  cx: number;
+  cy: number;
+  radius: number;
+  total: number;
+  wedges: PieWedge[];
+  /** True when the tail was folded into "Other". */
+  folded: boolean;
+}
+
+const TAU = Math.PI * 2;
+
+/**
+ * Wedge geometry for a part-to-whole pie, shared by both renderers.
+ *
+ * Labels live in the legend rather than inside the wedges: fills vary in
+ * lightness, so no single text colour is legible on all of them.
+ *
+ * Categories beyond the palette's length fold into a single "Other" wedge.
+ * That is not a stylistic choice: there are eight categorical hues, and reusing
+ * one for a ninth category would make two different things the same colour,
+ * which on a pie is the difference between readable and not.
+ */
+export function buildPie(data: PieDatum[], size = 176, maxWedges = 8): Pie {
+  const radius = size / 2 - 1;
+  const cx = size / 2;
+  const cy = size / 2;
+
+  const sorted = data.filter((d) => d.value > 0).sort((a, b) => b.value - a.value);
+  const folded = sorted.length > maxWedges;
+  const kept = folded ? sorted.slice(0, maxWedges - 1) : sorted;
+  if (folded) {
+    const tail = sorted.slice(maxWedges - 1).reduce((a, d) => a + d.value, 0);
+    kept.push({ label: "Other", value: tail });
+  }
+
+  const total = kept.reduce((a, d) => a + d.value, 0);
+  if (total <= 0) return { size, cx, cy, radius, total: 0, wedges: [], folded };
+
+  // Start at twelve o'clock and sweep clockwise, the direction people read a pie.
+  let angle = -Math.PI / 2;
+
+  const wedges = kept.map((datum, index) => {
+    const share = datum.value / total;
+    const sweep = share * TAU;
+
+    let path: string;
+    if (share >= 0.9995) {
+      // A single full-circle wedge: an arc of exactly 360° is degenerate, so it
+      // is drawn as two half-circle arcs instead.
+      path = `M${cx},${cy - radius} A${radius},${radius} 0 1,1 ${cx},${cy + radius} A${radius},${radius} 0 1,1 ${cx},${cy - radius} Z`;
+    } else {
+      const x0 = cx + radius * Math.cos(angle);
+      const y0 = cy + radius * Math.sin(angle);
+      const x1 = cx + radius * Math.cos(angle + sweep);
+      const y1 = cy + radius * Math.sin(angle + sweep);
+      path = `M${cx},${cy} L${x0.toFixed(2)},${y0.toFixed(2)} A${radius},${radius} 0 ${sweep > Math.PI ? 1 : 0},1 ${x1.toFixed(2)},${y1.toFixed(2)} Z`;
+    }
+
+    angle += sweep;
+
+    return {
+      label: datum.label,
+      value: datum.value,
+      share,
+      colorIndex: index,
+      path,
+    };
+  });
+
+  return { size, cx, cy, radius, total, wedges, folded };
+}

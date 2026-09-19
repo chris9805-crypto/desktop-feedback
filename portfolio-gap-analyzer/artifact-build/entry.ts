@@ -15,7 +15,7 @@ export { DATASET_META } from "@/lib/data/dataset-meta";
 export { ARTICLES, getArticle } from "@/lib/content/education";
 export { DETECTORS } from "@/lib/engine/gaps";
 export { PRESET_LIST, PRESETS, DEFAULT_PRESET } from "@/lib/engine/presets";
-export { buildFanChart } from "@/lib/chart";
+export { buildFanChart, buildPie } from "@/lib/chart";
 export {
   formatCurrency,
   formatPercent,
