@@ -2,6 +2,7 @@ import { DATASET_META } from "@/lib/data/dataset-meta";
 import { formatPercent } from "@/lib/format";
 import { runDetectors } from "./gaps";
 import { computeMetrics } from "./metrics";
+import { buildProjection } from "./projection";
 import { buildReferenceModel, type ReferenceOverrides } from "./reference";
 import type { AnalysisReport, InvestorProfile, Portfolio } from "./types";
 
@@ -54,6 +55,8 @@ function buildCaveats(portfolio: Portfolio, metrics: ReturnType<typeof computeMe
 
 export interface AnalyseOptions {
   referenceOverrides?: ReferenceOverrides;
+  /** Override the projection's return, volatility or horizon. */
+  projectionOverrides?: { realReturn?: number; volatility?: number; years?: number };
   now?: Date;
 }
 
@@ -69,6 +72,7 @@ export function analysePortfolio(
   const metrics = computeMetrics(portfolio);
   const reference = buildReferenceModel(profile, portfolio.totalValue, options.referenceOverrides ?? {});
   const findings = runDetectors({ portfolio, profile, reference, metrics });
+  const projection = buildProjection(reference, profile, portfolio.totalValue, options.projectionOverrides ?? {});
 
   return {
     generatedAt: (options.now ?? new Date()).toISOString(),
@@ -77,6 +81,7 @@ export function analysePortfolio(
     reference,
     metrics,
     findings,
+    projection,
     caveats: buildCaveats(portfolio, metrics),
   };
 }

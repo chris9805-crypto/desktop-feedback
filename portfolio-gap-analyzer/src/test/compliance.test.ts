@@ -23,6 +23,8 @@ const BANNED: { pattern: RegExp; why: string }[] = [
   { pattern: /\bbest (stock|etf|fund)s?\b/i, why: "ranks instruments as universally best" },
   { pattern: /\brisk[- ]free\b/i, why: "describes an investment as risk-free" },
   { pattern: /\bcan't lose\b/i, why: "promises an outcome" },
+  { pattern: /\b(we|this) (forecast|predict)\b/i, why: "presents a projection as a forecast" },
+  { pattern: /\byour portfolio will be worth\b/i, why: "states a future value as fact" },
 ];
 
 /** "not financial advice" and similar denials are required copy, not violations. */
@@ -33,15 +35,24 @@ function walk(dir: string): string[] {
   for (const entry of readdirSync(dir)) {
     const path = join(dir, entry);
     if (statSync(path).isDirectory()) out.push(...walk(path));
-    else if (/\.(ts|tsx)$/.test(path) && !path.includes("compliance.test")) out.push(path);
+    else if (/\.(ts|tsx|js)$/.test(path) && !path.includes("compliance.test")) out.push(path);
   }
   return out;
 }
 
+/**
+ * The published artifact ships its own copy of the interface text, so it has to
+ * clear the same bar as the app. Its generated bundle is excluded — that is the
+ * engine's own source, already covered by walking src/.
+ */
+function sourceFiles(): string[] {
+  return [...walk(join(process.cwd(), "src")), join(process.cwd(), "artifact-build/app.js")];
+}
+
 describe("non-advisory language", () => {
-  it("is absent from every source file", () => {
+  it("is absent from every source file, the published artifact included", () => {
     const violations: string[] = [];
-    for (const path of walk(join(process.cwd(), "src"))) {
+    for (const path of sourceFiles()) {
       const contents = readFileSync(path, "utf8");
       contents.split("\n").forEach((line, index) => {
         if (ALLOWED_CONTEXT.test(line)) return;
@@ -67,6 +78,7 @@ describe("non-advisory language", () => {
       .flatMap((r) => [
         ...r.caveats,
         ...r.reference.rationale,
+        ...r.projection.notes,
         ...r.findings.flatMap((f) => [
           f.title,
           f.summary,
@@ -117,5 +129,19 @@ describe("report completeness", () => {
 
   it("shows its working for the reference model", () => {
     expect(report.reference.rationale.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it("presents the projection as a range with its limits attached", () => {
+    const notes = report.projection.notes.join(" ");
+    expect(report.projection.final.p10).toBeLessThan(report.projection.final.p90);
+    expect(notes).toContain("not a forecast");
+    expect(notes).toContain("today's money");
+    // The reader has to be told it is not their own holdings being projected.
+    expect(notes).toMatch(/reference mix, not the holdings/);
+  });
+
+  it("names the index the reference is built on, and what that index leaves out", () => {
+    expect(report.reference.presetLabel.length).toBeGreaterThan(2);
+    expect(report.reference.indexNote.length).toBeGreaterThan(40);
   });
 });

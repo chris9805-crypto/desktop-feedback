@@ -5,6 +5,7 @@ import { useState } from "react";
 import { DisclaimerFooter } from "@/components/Disclaimer";
 import { ExposureExplorer } from "@/components/ExposureExplorer";
 import { FindingCard } from "@/components/FindingCard";
+import { ProjectionPanel } from "@/components/Projection";
 import { MiniBar, StackedBar } from "@/components/charts";
 import { Button, Callout, Card, EmptyState, Pill, SectionHeading, Stat, StatGrid } from "@/components/ui";
 import { ASSET_CLASSES } from "@/lib/engine/types";
@@ -12,8 +13,9 @@ import { formatCurrency, formatPercent, label } from "@/lib/format";
 import { useStore } from "@/lib/state/store";
 
 export default function AnalysisPage() {
-  const { report, hasHoldings, loading, loadSample } = useStore();
+  const { state, report, hasHoldings, loading, loadSample, setProjectionReturn } = useStore();
   const [showCaveats, setShowCaveats] = useState(false);
+  const [showRest, setShowRest] = useState(false);
   const currency = report.portfolio.baseCurrency;
 
   if (loading) {
@@ -48,6 +50,10 @@ export default function AnalysisPage() {
     metrics.exposure.assetClass.equity + metrics.exposure.assetClass.realEstate + metrics.exposure.assetClass.commodity;
   const referenceGrowth = reference.assetClass.equity + reference.assetClass.realEstate + reference.assetClass.commodity;
   const topNames = metrics.lookThrough.slice(0, 12);
+  // Five is about what someone can hold in their head. The rest stay available
+  // rather than being dropped — a lower rank is not the same as unimportant.
+  const headline = findings.slice(0, 5);
+  const rest = findings.slice(5);
   const maxName = topNames[0]?.weight ?? 0.01;
 
   return (
@@ -93,8 +99,18 @@ export default function AnalysisPage() {
 
       <section>
         <SectionHeading
-          title={findings.length > 0 ? `${findings.length} gaps between your portfolio and the reference` : "No material gaps found"}
-          description="The number on each row ranks how much of the portfolio the finding touches. It is an ordering, not a severity or a risk score, and a low-ranked finding can still matter more to you than a high-ranked one."
+          title={
+            findings.length === 0
+              ? "No material gaps found"
+              : headline.length === 1
+                ? "The one gap worth starting with"
+                : `The ${headline.length} gaps worth starting with`
+          }
+          description={
+            findings.length > headline.length
+              ? `Ranked by how much of the portfolio each touches. ${rest.length} smaller finding${rest.length === 1 ? " sits" : "s sit"} below.`
+              : "Ranked by how much of the portfolio each touches. This is an ordering, not a severity or risk score."
+          }
         />
         {findings.length === 0 ? (
           <Callout title="Nothing crossed a materiality threshold">
@@ -103,13 +119,42 @@ export default function AnalysisPage() {
             this tool does not answer. Adjusting the reference inputs will change what counts as a gap.
           </Callout>
         ) : (
-          <div className="space-y-3">
-            {findings.map((finding) => (
-              <FindingCard key={finding.id} finding={finding} currency={currency} />
-            ))}
-          </div>
+          <>
+            <div className="space-y-3">
+              {headline.map((finding) => (
+                <FindingCard key={finding.id} finding={finding} currency={currency} />
+              ))}
+            </div>
+            {rest.length > 0 ? (
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowRest((value) => !value)}
+                  aria-expanded={showRest}
+                  className="w-full rounded-[var(--radius)] border border-dashed border-[var(--border-strong)] px-4 py-3 text-[13px] font-medium text-[var(--text-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
+                >
+                  {showRest
+                    ? "Hide the smaller findings"
+                    : `Show ${rest.length} smaller finding${rest.length === 1 ? "" : "s"} — ${rest.map((f) => f.title.split(" ").slice(0, 3).join(" ")).slice(0, 3).join(", ")}${rest.length > 3 ? "…" : ""}`}
+                </button>
+                {showRest ? (
+                  <div className="mt-3 space-y-3">
+                    {rest.map((finding) => (
+                      <FindingCard key={finding.id} finding={finding} currency={currency} />
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </>
         )}
       </section>
+
+      <ProjectionPanel
+        report={report}
+        realReturn={state.projectionOverrides.realReturn ?? null}
+        onReturnChange={setProjectionReturn}
+      />
 
       <Card className="p-5">
         <SectionHeading

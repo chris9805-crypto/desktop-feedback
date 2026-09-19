@@ -2,7 +2,8 @@
 
 import { DisclaimerFooter } from "@/components/Disclaimer";
 import { StackedBar } from "@/components/charts";
-import { Button, Callout, Card, Field, SectionHeading, inputClass } from "@/components/ui";
+import { Button, Callout, Card, Field, Pill, SectionHeading, inputClass } from "@/components/ui";
+import { PRESET_LIST, type ReferencePresetId } from "@/lib/engine/presets";
 import { ASSET_CLASSES, type Goal, type Region, type TaxWrapper } from "@/lib/engine/types";
 import { formatPercent, label } from "@/lib/format";
 import { useStore } from "@/lib/state/store";
@@ -39,6 +40,45 @@ export default function ProfilePage() {
           on the right.
         </p>
       </div>
+
+      <Card className="p-5">
+        <SectionHeading
+          title="The index your portfolio is compared against"
+          description="This decides what counts as a gap. Pick the one that matches how you think about your portfolio — the report rebuilds around it."
+        />
+        <div className="grid gap-3 sm:grid-cols-3">
+          {PRESET_LIST.map((preset) => {
+            const selected = (state.referenceOverrides.presetId ?? "msciWorld") === preset.id;
+            return (
+              <button
+                key={preset.id}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => setReferenceOverrides({ ...state.referenceOverrides, presetId: preset.id as ReferencePresetId })}
+                className={`rounded-[var(--radius)] border p-4 text-left transition-colors ${
+                  selected
+                    ? "border-[var(--accent)] bg-[var(--accent-soft)]"
+                    : "border-[var(--border)] bg-[var(--surface)] hover:border-[var(--border-strong)]"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[14px] font-semibold text-[var(--text)]">{preset.label}</span>
+                  {selected ? <Pill tone="accent">In use</Pill> : null}
+                </div>
+                <p className="mt-1.5 text-[12.5px] leading-relaxed text-[var(--text-muted)]">{preset.blurb}</p>
+                <p className="tnum mt-2 text-[11.5px] text-[var(--text-faint)]">
+                  Long-run real return {formatPercent(preset.realReturn)} · volatility {formatPercent(preset.volatility)}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+        <div className="mt-4">
+          <Callout tone="warn" title={`What choosing ${reference.presetLabel} means for your report`}>
+            {reference.indexNote}
+          </Callout>
+        </div>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
         <div className="space-y-6">
@@ -231,26 +271,36 @@ export default function ProfilePage() {
 
           <Card className="p-5">
             <SectionHeading
-              title="Override the growth share"
-              description="If you disagree with the derived figure, replace it. The rest of the model rebuilds around your number and says that it was set manually."
+              title="Set the bond allocation directly"
+              description="The glidepath above estimates this from your horizon. If you already know what split you want, set it here and it replaces the estimate."
             />
             <input
               type="range"
               min={0}
-              max={100}
+              max={90}
               step={5}
-              value={Math.round((state.referenceOverrides.growthShare ?? reference.inputs.growthShare) * 100)}
-              onChange={(event) => setReferenceOverrides({ ...state.referenceOverrides, growthShare: Number(event.target.value) / 100 })}
+              value={Math.round((state.referenceOverrides.bondShare ?? reference.assetClass.bond) * 100)}
+              onChange={(event) =>
+                setReferenceOverrides({ ...state.referenceOverrides, bondShare: Number(event.target.value) / 100 })
+              }
               className="w-full accent-[var(--accent)]"
-              aria-label="Growth share override"
+              aria-label="Bond allocation"
             />
-            <div className="mt-2 flex items-center justify-between">
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
               <span className="tnum text-[13px] text-[var(--text-muted)]">
-                {formatPercent(state.referenceOverrides.growthShare ?? reference.inputs.growthShare)} in growth assets
+                {formatPercent(reference.assetClass.bond)} bonds · {formatPercent(reference.inputs.growthShare)} growth ·{" "}
+                {formatPercent(reference.assetClass.cash)} cash
               </span>
-              {state.referenceOverrides.growthShare !== undefined ? (
-                <Button variant="ghost" onClick={() => setReferenceOverrides({})}>
-                  Back to derived
+              {state.referenceOverrides.bondShare !== undefined ? (
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    const next = { ...state.referenceOverrides };
+                    delete next.bondShare;
+                    setReferenceOverrides(next);
+                  }}
+                >
+                  Back to the glidepath
                 </Button>
               ) : null}
             </div>

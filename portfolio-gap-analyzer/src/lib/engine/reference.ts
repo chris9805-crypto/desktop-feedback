@@ -1,4 +1,5 @@
 import { scale } from "./factors";
+import { DEFAULT_PRESET, PRESETS, SLEEVE_ASSUMPTIONS, type ReferencePresetId } from "./presets";
 import {
   ASSET_CLASSES,
   REGIONS,
@@ -51,8 +52,12 @@ const MARKET_SIZE_WEIGHTS: Record<SizeBucket, number> = { large: 0.72, mid: 0.19
 const LOW_COST_INDEX_BENCHMARK = 0.0015;
 
 export interface ReferenceOverrides {
+  /** Which published index the equity side is modelled on. */
+  presetId?: ReferencePresetId;
   /** Replace the derived growth-asset share, 0-1. */
   growthShare?: number;
+  /** Set the bond sleeve directly, 0-1. Growth takes whatever is left after cash. */
+  bondShare?: number;
   /** Replace the derived cash floor, 0-1. */
   cashShare?: number;
 }
@@ -93,7 +98,8 @@ export function buildReferenceModel(
   portfolioValue: number,
   overrides: ReferenceOverrides = {},
 ): ReferenceModel {
-  const rationale: string[] = [];
+  const preset = PRESETS[overrides.presetId ?? DEFAULT_PRESET];
+  const rationale: string[] = [`Equity side modelled on ${preset.label}: ${preset.blurb}`];
   const capacity = riskCapacity(profile, portfolioValue);
 
   // 1. Growth share from the horizon, then nudged by tolerance and capped by capacity.
@@ -133,7 +139,16 @@ export function buildReferenceModel(
     );
   }
 
-  if (overrides.growthShare !== undefined) {
+  if (overrides.bondShare !== undefined) {
+    // A bond allocation set directly wins over the glidepath: the investor has
+    // answered the question the glidepath exists to estimate.
+    const bondShare = clamp(overrides.bondShare, 0, 1);
+    cashShare = Math.min(cashShare, Math.max(0, 1 - bondShare));
+    growthShare = Math.max(0, 1 - bondShare - cashShare);
+    rationale.push(
+      `Bond allocation set directly to ${pct(bondShare)}, which leaves ${pct(growthShare)} in growth assets and replaces the horizon glidepath above.`,
+    );
+  } else if (overrides.growthShare !== undefined) {
     growthShare = clamp(overrides.growthShare, 0, 1);
     rationale.push(`Growth share manually set to ${pct(growthShare)}, replacing the derived figure.`);
   }
@@ -155,23 +170,29 @@ export function buildReferenceModel(
     `Growth assets are held as listed equity and listed property at their market weights. Commodities are excluded because they produce no cash flow — change that assumption if you disagree with it.`,
   );
 
-  // 4. Region weights: the market portfolio, plus any home bias the investor has chosen.
+  // 4. Region weights come from the chosen index, plus any home bias on top.
   const equityish = assetClassWeights.equity + assetClassWeights.realEstate;
   const homeTilt = clamp(profile.homeBiasAllowancePp / 100, 0, 0.6);
-  const tiltedRegions = { ...MARKET_REGION_WEIGHTS };
-  if (homeTilt > 0) {
-    const home = profile.homeRegion;
-    const others = REGIONS.filter((r) => r !== home);
-    const otherTotal = others.reduce((a, r) => a + MARKET_REGION_WEIGHTS[r], 0);
-    tiltedRegions[home] = MARKET_REGION_WEIGHTS[home] + homeTilt;
+  const tiltedRegions = { ...preset.region };
+  const home = profile.homeRegion;
+  const others = REGIONS.filter((r) => r !== home);
+  const otherTotal = others.reduce((a, r) => a + preset.region[r], 0);
+
+  if (homeTilt > 0 && otherTotal > 0) {
+    tiltedRegions[home] = preset.region[home] + homeTilt;
     for (const r of others) {
-      tiltedRegions[r] = MARKET_REGION_WEIGHTS[r] * (1 - homeTilt / otherTotal);
+      tiltedRegions[r] = preset.region[r] * (1 - homeTilt / otherTotal);
     }
     rationale.push(
-      `Global market weights, plus the ${profile.homeBiasAllowancePp} point home tilt you asked for, taken pro rata from every other region.`,
+      `${preset.label} weights, plus the ${profile.homeBiasAllowancePp} point home tilt you asked for, taken pro rata from every other region.`,
+    );
+  } else if (homeTilt > 0) {
+    // A single-country index has no other region to take the tilt from.
+    rationale.push(
+      `The ${profile.homeBiasAllowancePp} point home tilt has no effect against ${preset.label}, which holds only one region already.`,
     );
   } else {
-    rationale.push("Regions follow global market-capitalisation weights, with no home-country tilt applied.");
+    rationale.push(`Regions, sectors and company sizes follow ${preset.label} as published, with no home-country tilt applied.`);
   }
 
   // 5. Bond sleeve: duration roughly matched to the horizon, credit risk kept low.
@@ -185,14 +206,32 @@ export function buildReferenceModel(
     `Bond duration is set near ${targetDuration.toFixed(1)} years, roughly 60% of the horizon, and the sleeve is government and investment-grade only — high yield behaves more like equity than like ballast.`,
   );
 
+  // Blend the sleeve assumptions into one expected return and volatility.
+  const bondWeight = defensiveShare;
+  const cashWeight = cashShare;
+  const equityWeight = equityish;
+  const { bonds, cash, equityBondCorrelation } = SLEEVE_ASSUMPTIONS;
+  const expectedRealReturn =
+    equityWeight * preset.realReturn + bondWeight * bonds.realReturn + cashWeight * cash.realReturn;
+  const variance =
+    (equityWeight * preset.volatility) ** 2 +
+    (bondWeight * bonds.volatility) ** 2 +
+    (cashWeight * cash.volatility) ** 2 +
+    2 * equityWeight * bondWeight * equityBondCorrelation * preset.volatility * bonds.volatility;
+
   return {
-    id: "market-anchored",
-    label: "Market-anchored reference",
+    id: preset.id,
+    label: `${preset.label} reference`,
+    presetId: preset.id,
+    presetLabel: preset.label,
+    indexNote: preset.consequence,
+    expectedRealReturn,
+    expectedVolatility: Math.sqrt(variance),
     rationale,
     assetClass: scaleMap(assetClassWeights, ASSET_CLASSES, 1),
     region: scaleMap(tiltedRegions, REGIONS, equityish),
-    sector: scaleMap(MARKET_SECTOR_WEIGHTS, SECTORS, equityish),
-    size: scaleMap(MARKET_SIZE_WEIGHTS, SIZE_BUCKETS, equityish),
+    sector: scaleMap(preset.sector, SECTORS, equityish),
+    size: scaleMap(preset.size, SIZE_BUCKETS, equityish),
     credit,
     targetDuration,
     costBenchmark: LOW_COST_INDEX_BENCHMARK,

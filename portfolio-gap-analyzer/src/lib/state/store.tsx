@@ -23,6 +23,8 @@ export interface AppState {
   totalValueHint: number;
   profile: InvestorProfile;
   referenceOverrides: ReferenceOverrides;
+  /** Only the return assumption is user-settable; the rest is derived. */
+  projectionOverrides: { realReturn?: number };
   /** Set once the user has acknowledged what this tool is and is not. */
   disclaimerAccepted: boolean;
 }
@@ -59,6 +61,7 @@ export const EMPTY_STATE: AppState = {
   totalValueHint: 0,
   profile: DEFAULT_PROFILE,
   referenceOverrides: {},
+  projectionOverrides: {},
   disclaimerAccepted: false,
 };
 
@@ -79,6 +82,7 @@ interface StoreValue {
   setTotalValueHint: (value: number) => void;
   setProfile: (patch: Partial<InvestorProfile>) => void;
   setReferenceOverrides: (overrides: ReferenceOverrides) => void;
+  setProjectionReturn: (value: number | null) => void;
   acceptDisclaimer: () => void;
   loadSample: () => void;
   reset: () => void;
@@ -97,6 +101,7 @@ function readStored(): AppState | null {
       ...parsed,
       profile: { ...DEFAULT_PROFILE, ...(parsed.profile ?? {}) },
       referenceOverrides: parsed.referenceOverrides ?? {},
+      projectionOverrides: parsed.projectionOverrides ?? {},
     };
   } catch {
     // A corrupt or unreadable entry should not take the app down with it.
@@ -131,8 +136,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       baseCurrency: state.profile.baseCurrency,
       totalValueHint: state.totalValueHint,
     });
-    return analysePortfolio(portfolio, state.profile, { referenceOverrides: state.referenceOverrides });
-  }, [state.holdings, state.cash, state.totalValueHint, state.profile, state.referenceOverrides]);
+    return analysePortfolio(portfolio, state.profile, {
+      referenceOverrides: state.referenceOverrides,
+      projectionOverrides: state.projectionOverrides,
+    });
+  }, [state.holdings, state.cash, state.totalValueHint, state.profile, state.referenceOverrides, state.projectionOverrides]);
 
   const value = useMemo<StoreValue>(
     () => ({
@@ -145,6 +153,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setTotalValueHint: (totalValueHint) => patch({ totalValueHint }),
       setProfile: (p) => setState((prev) => ({ ...prev, profile: { ...prev.profile, ...p } })),
       setReferenceOverrides: (referenceOverrides) => patch({ referenceOverrides }),
+      setProjectionReturn: (value) => patch({ projectionOverrides: value === null ? {} : { realReturn: value } }),
       acceptDisclaimer: () => patch({ disclaimerAccepted: true }),
       loadSample: () => setState((prev) => ({ ...SAMPLE_STATE, disclaimerAccepted: prev.disclaimerAccepted })),
       reset: () => setState((prev) => ({ ...EMPTY_STATE, disclaimerAccepted: prev.disclaimerAccepted })),

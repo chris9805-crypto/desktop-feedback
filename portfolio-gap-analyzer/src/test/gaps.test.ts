@@ -10,7 +10,10 @@ describe("gap detection", () => {
     const report = analysePortfolio(TECH_HEAVY(), profile());
     const found = ids(report);
     expect(found).toContain("sector-informationTechnology");
-    expect(found).toContain("region-emergingMarkets");
+    // Against MSCI World the missing region is developed Europe, not emerging
+    // markets — that index holds none, so it cannot report an EM gap.
+    expect(found).toContain("region-europeExUk");
+    expect(found).not.toContain("region-emergingMarkets");
     expect(found).toContain("factor-growth-style");
     expect(found.some((id) => id.startsWith("concentration-"))).toBe(true);
   });
@@ -34,7 +37,10 @@ describe("gap detection", () => {
   });
 
   it("does not manufacture findings for a portfolio close to the reference", () => {
-    const report = analysePortfolio(BALANCED(), profile({ horizonYears: 8, riskTolerance: 3 }));
+    // VT is a global all-cap fund, so it is only close to the all-cap reference.
+    const report = analysePortfolio(BALANCED(), profile({ horizonYears: 8, riskTolerance: 3 }), {
+      referenceOverrides: { presetId: "globalAllCap" },
+    });
     expect(ids(report)).not.toContain("allocation-growth-share");
     expect(report.findings.filter((f) => f.category === "allocation")).toHaveLength(0);
     expect(report.findings.filter((f) => f.category === "overlap")).toHaveLength(0);

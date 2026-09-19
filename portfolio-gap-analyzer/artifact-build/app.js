@@ -23,6 +23,7 @@
     view: "report", holdings: SAMPLE.slice(), cash: 8000, isSample: true,
     profile: Object.assign({}, DEFAULT_PROFILE),
     growthOverride: null, accepted: false,
+    presetId: "msciWorld", bondShare: null, projReturn: null, showRest: false,
     open: {}, expTab: "region", detail: null, article: null,
     screen: { q: "", kind: "all", sector: "all", sort: "size", limit: 30 }
   };
@@ -42,7 +43,8 @@
       localStorage.setItem(STORE, JSON.stringify({
         holdings: state.holdings, cash: state.cash, isSample: state.isSample,
         profile: state.profile, growthOverride: state.growthOverride,
-        accepted: state.accepted, view: state.view, screen: state.screen
+        accepted: state.accepted, view: state.view, screen: state.screen,
+        presetId: state.presetId, bondShare: state.bondShare, projReturn: state.projReturn
       }));
     } catch (e) { /* nothing to do: the session still works, it just will not be remembered */ }
   }
@@ -60,13 +62,22 @@
 
   var reportCache = { key: null, value: null };
   function report() {
-    var key = JSON.stringify([state.holdings, state.cash, state.profile, state.growthOverride]);
+    var key = JSON.stringify([state.holdings, state.cash, state.profile, state.growthOverride,
+      state.presetId, state.bondShare, state.projReturn]);
     if (reportCache.key !== key) {
       var portfolio = G.buildPortfolio(state.holdings, {
         cash: state.cash, baseCurrency: state.profile.baseCurrency, totalValueHint: 0
       });
-      var overrides = state.growthOverride == null ? {} : { growthShare: state.growthOverride };
-      reportCache = { key: key, value: G.analysePortfolio(portfolio, state.profile, { referenceOverrides: overrides }) };
+      var overrides = { presetId: state.presetId };
+      if (state.bondShare != null) overrides.bondShare = state.bondShare;
+      else if (state.growthOverride != null) overrides.growthShare = state.growthOverride;
+      var projOverrides = state.projReturn == null ? {} : { realReturn: state.projReturn };
+      reportCache = {
+        key: key,
+        value: G.analysePortfolio(portfolio, state.profile, {
+          referenceOverrides: overrides, projectionOverrides: projOverrides
+        })
+      };
     }
     return reportCache.value;
   }
@@ -174,6 +185,80 @@
     return '<article class="finding">' + head + '<div class="finding-body">' + ev + why + impl + "</div></article>";
   }
 
+
+  function projectionPanel(r) {
+    var pj = r.projection, c = G.buildFanChart(pj.points, state.profile.baseCurrency, 640, 260);
+    var grid = c.yTicks.map(function (tk) {
+      return '<line x1="' + c.plot.left + '" x2="' + (c.width - c.plot.right) + '" y1="' + tk.y.toFixed(1) +
+        '" y2="' + tk.y.toFixed(1) + '" stroke="var(--line)" stroke-width="1"></line>' +
+        '<text x="' + (c.plot.left - 8) + '" y="' + (tk.y + 3.5).toFixed(1) +
+        '" text-anchor="end" font-size="10" fill="var(--faint)" font-family="var(--mono)">' + esc(tk.label) + "</text>";
+    }).join("");
+    var xlab = c.xTicks.map(function (tk) {
+      return '<text x="' + tk.x.toFixed(1) + '" y="' + (c.height - 8) +
+        '" text-anchor="middle" font-size="10" fill="var(--faint)" font-family="var(--mono)">' + esc(tk.label) + "</text>";
+    }).join("");
+    var years = pj.assumptions.years;
+    var step = Math.max(1, Math.round(years / 6));
+    var tableRows = pj.points.filter(function (pt) { return pt.year % step === 0 || pt.year === years; }).map(function (pt) {
+      return "<tr><td>" + (pt.year === 0 ? "Today" : pt.year + "y") + "</td>" +
+        '<td class="r" style="color:var(--muted)">' + cur(pt.contributed) + "</td>" +
+        '<td class="r">' + cur(pt.p10) + "</td>" +
+        '<td class="r" style="font-weight:500">' + cur(pt.p50) + "</td>" +
+        '<td class="r">' + cur(pt.p90) + "</td></tr>";
+    }).join("");
+
+    return '<section class="card pad"><h2 class="sec-title">What the ' + esc(r.reference.presetLabel) +
+      ' reference mix has historically ranged between</h2>' +
+      '<p class="sub" style="margin-top:4px">A simulation of 2,000 paths, in today\u2019s money. It is not a forecast, and it illustrates the reference model rather than the holdings you actually own.</p>' +
+
+      '<div class="grid3" style="margin-top:16px">' +
+      '<div><div class="stat-k">Lower edge — 1 path in 10 below</div><div class="stat-v t-over">' + cur(pj.final.p10) + "</div></div>" +
+      '<div><div class="stat-k">Middle outcome</div><div class="stat-v">' + cur(pj.final.p50) + "</div></div>" +
+      '<div><div class="stat-k">Upper edge — 1 path in 10 above</div><div class="stat-v t-under">' + cur(pj.final.p90) + "</div></div>" +
+      "</div>" +
+      '<p class="sub" style="margin-top:8px">After ' + years + " years, against " + cur(pj.final.contributed) + " of your own money paid in.</p>" +
+
+      '<figure style="margin:18px 0 0"><svg id="fan" viewBox="0 0 ' + c.width + " " + c.height +
+      '" width="100%" role="img" aria-label="Projected range for the reference mix over ' + years + " years, from " +
+      esc(cur(pj.final.p10)) + " to " + esc(cur(pj.final.p90)) + ' in today\u2019s money." style="display:block;max-width:100%;touch-action:none">' +
+      grid + xlab +
+      '<path d="' + c.bandPath + '" fill="var(--accent)" fill-opacity="0.16"></path>' +
+      '<path d="' + c.contributedPath + '" fill="none" stroke="var(--faint)" stroke-width="2" stroke-dasharray="4 4"></path>' +
+      '<path d="' + c.medianPath + '" fill="none" stroke="var(--accent)" stroke-width="2"></path>' +
+      '<line id="xhair" x1="0" x2="0" y1="' + c.plot.top + '" y2="' + (c.height - c.plot.bottom) +
+      '" stroke="var(--line-strong)" stroke-width="1" opacity="0"></line>' +
+      '<circle id="xdot" r="4" fill="var(--accent)" stroke="var(--surface)" stroke-width="2" opacity="0"></circle>' +
+      "</svg>" +
+      '<figcaption style="display:flex;flex-wrap:wrap;gap:6px 20px;align-items:center;margin-top:12px;font-size:11.5px;color:var(--muted)">' +
+      '<span class="legend-item"><i class="swatch" style="background:var(--accent);opacity:.26;width:14px;height:10px"></i>10th–90th percentile</span>' +
+      '<span class="legend-item"><i style="width:16px;height:2px;background:var(--accent)"></i>Median path</span>' +
+      '<span class="legend-item"><i style="width:16px;height:2px;background:var(--faint)"></i>Money paid in</span>' +
+      '<span id="readout" class="num" style="margin-left:auto">At ' + years + " years: " + cur(pj.final.p10) +
+      " – " + cur(pj.final.p90) + ", middle " + cur(pj.final.p50) + "</span></figcaption></figure>" +
+
+      '<div class="grid2" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--line)">' +
+      '<label class="field"><span class="field-k">Real return assumption: ' + pct(pj.assumptions.realReturn) + " a year</span>" +
+      '<span class="field-h">' + esc(r.reference.presetLabel) +
+      ' blended with the bond sleeve at this model\u2019s weights, on long-run historical figures. After inflation. Change it and the whole range moves.</span>' +
+      '<input type="range" id="projret" data-act="projret" min="0" max="10" step="0.1" value="' +
+      (Math.round(pj.assumptions.realReturn * 1000) / 10) + '" aria-label="Real return assumption">' +
+      (state.projReturn != null ? '<button class="row-link" data-act="projreset" style="margin-top:6px;font-size:12px;color:var(--accent-ink);text-decoration:none">Back to the historical figure</button>' : "") +
+      "</label>" +
+      '<label class="field"><span class="field-k">Volatility</span><span class="field-h">Derived from the reference mix, not set by you. It is what makes the band wide.</span>' +
+      '<input type="text" value="' + pct(pj.assumptions.volatility) + '" readonly aria-readonly="true"></label></div>' +
+
+      '<div style="margin-top:16px"><button class="row-link" data-act="projtable" style="font-size:12px;color:var(--accent-ink);text-decoration:none">' +
+      (state.showProjTable ? "Hide the figures" : "Show the figures as a table") + "</button>" +
+      (state.showProjTable ? '<div class="scroll" style="margin-top:10px"><table class="data"><thead><tr><th>Year</th>' +
+        '<th class="r">Paid in</th><th class="r">Lower edge</th><th class="r">Middle</th><th class="r">Upper edge</th></tr></thead>' +
+        '<tbody class="num">' + tableRows + "</tbody></table></div>" : "") + "</div>" +
+
+      '<div class="note warn" style="margin-top:16px"><strong>How to read this, and how not to</strong>' +
+      '<ul class="bullets" style="margin-top:6px">' + pj.notes.map(function (n) { return "<li>" + esc(n) + "</li>"; }).join("") +
+      "</ul></div></section>";
+  }
+
   function statTile(k, v, d, tone) {
     return '<div class="stat"><div class="stat-k">' + esc(k) + "</div>" +
       '<div class="stat-v ' + (tone || "") + '">' + esc(v) + "</div>" +
@@ -224,6 +309,8 @@
     var maxName = names.length ? names[0].weight : 0.01;
     var slices = G.ASSET_CLASSES.filter(function (k) { return ex.assetClass[k] > 0.001; })
       .map(function (k) { return { label: lab(k), value: ex.assetClass[k] }; });
+    // Five is about what someone can hold in their head; the rest stay available.
+    var headline = r.findings.slice(0, 5), rest = r.findings.slice(5);
 
     return (state.isSample ? '<div class="note accent"><strong>This is an example portfolio,</strong> not yours — eight holdings and ' +
       cur(state.cash) + ' in cash, so the report has something to show. Replace it in Holdings.</div>' : "") +
@@ -249,12 +336,29 @@
       '<div style="margin-top:14px">' + stackedBar(slices) + "</div></section>" +
 
       "<section>" +
-      '<h2 class="sec-title">' + (r.findings.length ? r.findings.length + " gaps between your portfolio and the reference" : "No material gaps found") + "</h2>" +
-      '<p class="sub" style="margin-top:4px">The number on each row ranks how much of the portfolio the finding touches. It is an ordering, not a severity or risk score.</p>' +
+      '<h2 class="sec-title">' + (!headline.length ? "No material gaps found"
+        : headline.length === 1 ? "The one gap worth starting with"
+        : "The " + headline.length + " gaps worth starting with") + "</h2>" +
+      '<p class="sub" style="margin-top:4px">' + (rest.length
+        ? "Ranked by how much of the portfolio each touches. " + rest.length + " smaller finding" + (rest.length === 1 ? " sits" : "s sit") + " below."
+        : "Ranked by how much of the portfolio each touches. This is an ordering, not a severity or risk score.") + "</p>" +
       (r.findings.length
-        ? '<div class="stack-s" style="margin-top:14px">' + r.findings.map(findingCard).join("") + "</div>"
+        ? '<div class="stack-s" style="margin-top:14px">' + headline.map(findingCard).join("") + "</div>" +
+          (rest.length
+            ? '<div style="margin-top:14px"><button data-act="showrest" aria-expanded="' + !!state.showRest +
+              '" style="width:100%;border:1px dashed var(--line-strong);background:none;border-radius:var(--r);padding:12px;font-size:13px;font-weight:500;color:var(--muted)">' +
+              (state.showRest ? "Hide the smaller findings"
+                : "Show " + rest.length + " smaller finding" + (rest.length === 1 ? "" : "s") + " — " +
+                  esc(rest.slice(0, 3).map(function (f) { return f.title.split(" ").slice(0, 3).join(" "); }).join(", ")) +
+                  (rest.length > 3 ? "…" : "")) +
+              "</button>" +
+              (state.showRest ? '<div class="stack-s" style="margin-top:12px">' + rest.map(findingCard).join("") + "</div>" : "") +
+              "</div>"
+            : "")
         : '<div class="note" style="margin-top:14px"><strong>Nothing crossed a materiality threshold.</strong> That means no gap was large enough to report — not that the portfolio is right for you, which is a question this tool does not answer.</div>') +
       "</section>" +
+
+      projectionPanel(r) +
 
       '<section class="card pad"><h2 class="sec-title">Exposure, dimension by dimension</h2>' +
       '<p class="sub" style="margin-top:4px">The same portfolio, sliced different ways, each against the corresponding reference weight.</p>' +
@@ -409,8 +513,27 @@
         (step ? ' step="' + step + '"' : "") + "></label>";
     }
 
+    var presetCards = G.PRESET_LIST.map(function (ps) {
+      var on = state.presetId === ps.id;
+      return '<button data-act="preset" data-preset="' + ps.id + '" aria-pressed="' + on + '" ' +
+        'style="text-align:left;border-radius:var(--r);padding:16px;background:' + (on ? "var(--accent-soft)" : "var(--surface)") +
+        ";border:1px solid " + (on ? "var(--accent)" : "var(--line)") + '">' +
+        '<span style="display:flex;align-items:center;justify-content:space-between;gap:8px">' +
+        '<span style="font-size:14px;font-weight:600">' + esc(ps.label) + "</span>" +
+        (on ? '<span class="pill accent">In use</span>' : "") + "</span>" +
+        '<span style="display:block;font-size:12.5px;color:var(--muted);margin-top:6px;line-height:1.5">' + esc(ps.blurb) + "</span>" +
+        '<span class="num" style="display:block;font-size:11.5px;color:var(--faint);margin-top:8px">Long-run real return ' +
+        pct(ps.realReturn) + " · volatility " + pct(ps.volatility) + "</span></button>";
+    }).join("");
+
     return '<header><h1 style="font-size:22px">Your situation</h1>' +
       '<p class="lede" style="margin-top:6px">These answers build the reference model your portfolio is compared against. They are not a suitability assessment — they are inputs to an arithmetic model whose every step is shown alongside.</p></header>' +
+
+      '<section class="card pad"><h2 class="sec-title">The index your portfolio is compared against</h2>' +
+      '<p class="sub" style="margin-top:4px">This decides what counts as a gap. Pick the one that matches how you think about your portfolio — the report rebuilds around it.</p>' +
+      '<div class="grid3" style="margin-top:14px">' + presetCards + "</div>" +
+      '<div class="note warn" style="margin-top:16px"><strong>What choosing ' + esc(ref.presetLabel) +
+      " means for your report</strong><br>" + esc(ref.indexNote) + "</div></section>" +
 
       '<div class="cols">' +
       '<div class="stack">' +
@@ -458,12 +581,14 @@
           '<span class="num" style="color:var(--accent-ink);font-weight:500;flex:none">' + String(i + 1).padStart(2, "0") + "</span>" + esc(line) + "</li>";
       }).join("") + "</ol></section>" +
 
-      '<section class="card pad"><h2 class="sec-title">Override the growth share</h2>' +
-      '<p class="sub" style="margin-top:4px">If you disagree with the derived figure, replace it. The rest of the model rebuilds around your number and says it was set manually.</p>' +
-      '<input type="range" id="ovr" data-act="ovr" min="0" max="100" step="5" value="' + Math.round((state.growthOverride == null ? ref.inputs.growthShare : state.growthOverride) * 100) + '" aria-label="Growth share override">' +
-      '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px">' +
-      '<span class="num" style="font-size:13px;color:var(--muted)">' + pct(state.growthOverride == null ? ref.inputs.growthShare : state.growthOverride) + " in growth assets</span>" +
-      (state.growthOverride != null ? '<button class="btn ghost" data-act="ovrreset">Back to derived</button>' : "") + "</div></section>" +
+      '<section class="card pad"><h2 class="sec-title">Set the bond allocation directly</h2>' +
+      '<p class="sub" style="margin-top:4px">The glidepath above estimates this from your horizon. If you already know what split you want, set it here and it replaces the estimate.</p>' +
+      '<input type="range" id="bond" data-act="bond" min="0" max="90" step="5" value="' +
+      Math.round((state.bondShare == null ? ref.assetClass.bond : state.bondShare) * 100) + '" aria-label="Bond allocation">' +
+      '<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-top:8px">' +
+      '<span class="num" style="font-size:13px;color:var(--muted)">' + pct(ref.assetClass.bond) + " bonds · " +
+      pct(ref.inputs.growthShare) + " growth · " + pct(ref.assetClass.cash) + " cash</span>" +
+      (state.bondShare != null ? '<button class="btn ghost" data-act="bondreset">Back to the glidepath</button>' : "") + "</div></section>" +
 
       '<div class="note"><strong>Why a market-anchored reference.</strong> The equity side uses global market-capitalisation weights. That is not a view about what anyone should hold — it is what all investors collectively do hold, which makes it the one benchmark that requires no forecast to justify. Differences from it are positions you have taken, deliberately or otherwise.</div>' +
       '<div class="btnrow"><button class="btn" data-act="go" data-view="report">See the gap report</button>' +
@@ -769,6 +894,11 @@
       save(); render();
     }
     else if (act === "ovrreset") { state.growthOverride = null; save(); render(); }
+    else if (act === "preset") { state.presetId = el.getAttribute("data-preset"); save(); render(); }
+    else if (act === "bondreset") { state.bondShare = null; save(); render(); }
+    else if (act === "projreset") { state.projReturn = null; save(); render(); }
+    else if (act === "projtable") { state.showProjTable = !state.showProjTable; render(); }
+    else if (act === "showrest") { state.showRest = !state.showRest; render(); }
   });
 
   app.addEventListener("input", function (event) {
@@ -789,6 +919,8 @@
     else if (act === "tol") { setProfile({ riskTolerance: num }); }
     else if (act === "tilt") { setProfile({ homeBiasAllowancePp: num }); }
     else if (act === "ovr") { state.growthOverride = num / 100; save(); render(); }
+    else if (act === "bond") { state.bondShare = num / 100; save(); render(); }
+    else if (act === "projret") { state.projReturn = num / 100; save(); render(); }
   });
 
   app.addEventListener("change", function (event) {
@@ -802,6 +934,34 @@
     else if (act === "skind") { state.screen.kind = el.value; state.screen.limit = 30; save(); render(); }
     else if (act === "ssec") { state.screen.sector = el.value; state.screen.limit = 30; save(); render(); }
     else if (act === "ssort") { state.screen.sort = el.value; save(); render(); }
+  });
+
+  // The crosshair updates the two nodes it owns rather than re-rendering, so
+  // moving the pointer never rebuilds the page underneath it.
+  app.addEventListener("mousemove", function (event) {
+    var svg = event.target.closest("#fan");
+    if (!svg) return;
+    var r = report(), pj = r.projection;
+    var c = G.buildFanChart(pj.points, state.profile.baseCurrency, 640, 260);
+    var box = svg.getBoundingClientRect();
+    var x = ((event.clientX - box.left) / box.width) * c.width;
+    var point = pj.points[c.pointAt(x)];
+    if (!point) return;
+    var hair = document.getElementById("xhair"), dot = document.getElementById("xdot"), out = document.getElementById("readout");
+    var px = c.xFor(point.year);
+    if (hair) { hair.setAttribute("x1", px); hair.setAttribute("x2", px); hair.setAttribute("opacity", "1"); }
+    if (dot) { dot.setAttribute("cx", px); dot.setAttribute("cy", c.yFor(point.p50)); dot.setAttribute("opacity", "1"); }
+    if (out) {
+      out.textContent = (point.year === 0 ? "Today" : "At " + point.year + " year" + (point.year === 1 ? "" : "s")) +
+        ": " + cur(point.p10) + " – " + cur(point.p90) + ", middle " + cur(point.p50);
+    }
+  });
+
+  app.addEventListener("mouseout", function (event) {
+    if (!event.target.closest("#fan")) return;
+    var hair = document.getElementById("xhair"), dot = document.getElementById("xdot");
+    if (hair) hair.setAttribute("opacity", "0");
+    if (dot) dot.setAttribute("opacity", "0");
   });
 
   render();

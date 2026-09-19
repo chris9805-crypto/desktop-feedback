@@ -32,11 +32,18 @@ the build if it produces the second.
 
 ### 1. The comparison baseline is an observable fact, not an opinion
 
-The reference model's equity side is anchored on **global market-capitalisation
-weights** — what all investors collectively hold. That is an accounting
-identity, not a view about what anyone should own. It lets the tool say "you
-differ from the market here" without ever asserting that the market weight is
-the right weight for this person.
+The reference model's equity side is anchored on a **published index the user
+chooses** — MSCI World by default, or the S&P 500, or a global all-cap index.
+Each one is an observable, externally maintained set of weights, not a view
+about what anyone should own. It lets the tool say "you differ from this index
+here" without ever asserting that the index is the right holding for this
+person.
+
+Because the choice changes what counts as a gap, the tool states the
+consequence of each one before the user commits to it: choosing MSCI World
+means emerging-market holdings read as an overweight rather than as a gap,
+and choosing the S&P 500 means no international gap can be found at all. A
+baseline whose blind spots are hidden would be a worse baseline than none.
 
 Where the model departs from pure market weights — the growth/defensive split,
 the cash floor, bond duration — it does so through **arithmetic the user can
@@ -74,6 +81,36 @@ rather than as a projection of what the portfolio will be worth.
 
 Past figures are described as history. The growth score is titled "Past growth"
 and says in its own note that it is history, not a projection.
+
+### 4b. Projections are illustrations of a range, never a forecast
+
+Return projections are the most advice-adjacent thing this tool does, and the
+part a regulator would look at hardest. Five constraints keep it on the
+research side:
+
+- **It is a band, not a number.** The output is the 10th to 90th percentile of
+  2,000 simulated paths. The median is shown as one outcome among those paths,
+  never as "what you will have". Removing the band and keeping the middle line
+  would change the nature of the feature.
+- **It is in today's money.** The return assumption is real rather than
+  nominal, and contributions are assumed to rise with inflation. A nominal
+  projection over thirty years produces a much larger and much less meaningful
+  number.
+- **The assumption is on the page and editable.** The real return sits in a
+  slider next to the chart with its provenance stated, not buried in a
+  footnote. A projection whose assumption the reader cannot see or change is
+  just an impressive figure.
+- **It illustrates the reference model, not the holdings.** The panel says so.
+  Projecting the user's actual portfolio would edge toward a personalised
+  outcome estimate.
+- **The model's own limits are stated with it.** Returns are drawn
+  independently from a normal distribution: no fat tails, no mean reversion, no
+  sequence effects. That is written next to the chart, not in a disclaimer
+  page.
+
+The words "forecast", "prediction", "expected value" and "projection of your
+portfolio" are avoided in the copy; the feature is described as an illustration
+of a historical range.
 
 ### 5. Composite scores are summaries, shown with their inputs
 
@@ -140,6 +177,9 @@ into something needing a licence, or into something it should not be:
 
 - Ranking candidate instruments by predicted return, or by any score that is
   implicitly a prediction.
+- Turning the projection into a single number, making it nominal rather than
+  real, hiding the return assumption, or running it over the user's actual
+  holdings rather than the reference mix.
 - Producing a single "recommended portfolio" output, or presenting the
   reference model as a target rather than a comparison baseline.
 - Removing the "decide the gap is intentional" route, which is what keeps the

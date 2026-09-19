@@ -300,6 +300,15 @@ export interface InvestorProfile {
 export interface ReferenceModel {
   id: string;
   label: string;
+  /** Which published index the equity side is modelled on. */
+  presetId: string;
+  presetLabel: string;
+  /** What choosing this index means for the gaps the report can and cannot find. */
+  indexNote: string;
+  /** Long-run historical real return of this mix, annualised. An assumption. */
+  expectedRealReturn: number;
+  /** Annualised volatility of this mix. An assumption. */
+  expectedVolatility: number;
   /** Plain-English account of how every number below was derived. */
   rationale: string[];
   assetClass: Record<AssetClass, number>;
@@ -408,6 +417,8 @@ export interface AnalysisReport {
   reference: ReferenceModel;
   metrics: PortfolioMetrics;
   findings: Finding[];
+  /** An illustration of the reference mix's historical range. Never a forecast. */
+  projection: import("./projection").Projection;
   /** Coverage caveats the reader needs in order to judge the findings. */
   caveats: string[];
 }

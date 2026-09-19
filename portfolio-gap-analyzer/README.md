@@ -51,10 +51,17 @@ normalised into exposure across asset class, region, sector, size, style,
 factor, credit and currency — then looked through funds to the individual
 companies underneath them.
 
-**Builds a reference to compare against.** Horizon, cash buffer, contributions
-and income needs produce a reference model whose equity side is anchored on
-global market-capitalisation weights. Every step of the derivation is shown in
-plain English on the profile page, and every input can be overridden.
+**Builds a reference to compare against.** The equity side is anchored on a
+published index the user picks — **MSCI World** by default, or the S&P 500, or a
+global all-cap index — and the growth/defensive split comes from horizon, cash
+buffer, contributions and income needs, or can be set directly as a bond
+allocation. Every step of the derivation is shown in plain English on the
+profile page, and every input can be overridden.
+
+Because the choice of index changes what counts as a gap, the tool states each
+one's blind spot before you commit to it: MSCI World holds no emerging markets,
+so EM reads as an overweight against it rather than as a gap; the S&P 500 is a
+single country, so no international gap can be found at all.
 
 **Finds the gaps.** Nine detector families run against the difference:
 
@@ -69,6 +76,18 @@ plain English on the profile page, and every input can be overridden.
 | Income | withdrawals against distributions, and dividends with thin cover |
 | Currency | exposure against the currency the money will be spent in |
 | Company quality | leverage and valuation across directly held shares |
+
+**Shows the range the reference has historically produced.** A 2,000-path Monte
+Carlo over the chosen index's long-run real return, reported as a 10th-to-90th
+percentile band in today's money. It is an illustration, never a forecast: the
+return assumption sits in a slider beside the chart, the model's own limits
+(normal returns, no fat tails, no mean reversion) are printed with it, and it
+illustrates the reference mix rather than the holdings you own.
+
+**Leads with the five that matter most.** A full report can run to a dozen-plus
+findings, which is more than anyone acts on. The five largest are shown up
+front; the rest sit one click away rather than being dropped, because a lower
+rank is not the same as unimportant.
 
 **Explains and offers routes.** Each finding carries its evidence, an
 explanation of what the measure captures, a link to a longer article, and the
@@ -86,7 +105,9 @@ src/
       exposure.ts    Normalisation and value-weighted aggregation
       portfolio.ts   Holdings parsing, pricing, FX, deduplication
       metrics.ts     Risk model, look-through concentration
-      reference.ts   The market-anchored reference model
+      reference.ts   The index-anchored reference model
+      presets.ts     MSCI World / S&P 500 / global all-cap index definitions
+      projection.ts  Monte Carlo range for the reference mix
       factors.ts     Factor loadings derived from published metrics
       scores.ts      Composite research scores
       implement.ts   Exposure screener and implementation routes
@@ -95,6 +116,7 @@ src/
     data/            Security master, FX, provider seam
     content/         Education articles
     state/           Client store (localStorage)
+    chart.ts         Fan chart geometry, shared by both renderers
   components/        UI primitives, charts, finding cards
   app/               Next.js App Router pages
   test/              Vitest suites
@@ -194,13 +216,14 @@ reading `src/lib/state/store.tsx`.
 npm test
 ```
 
-70 tests across seven suites:
+87 tests across eight suites:
 
 - **exposure** — normalisation invariants, aggregation, cash handling, duration weighting, look-through addition
 - **portfolio** — the paste parser's sizing rules, FX conversion, cross-account merging, ticker aliases, unresolved holdings
 - **reference** — allocation sums to one, growth share monotonic in horizon, risk capacity as a ceiling, home-tilt arithmetic
 - **overlap** — same-index funds score as duplicates; a Nasdaq-100 fund does not score as a duplicate of an S&P 500 fund
 - **gaps** — scenario portfolios produce the expected findings, ranking is ordered, no instrument is suggested that is already held, and a portfolio near its reference produces no manufactured findings
+- **projection** — determinism, ordered percentiles, bands that widen with horizon and narrow with bonds
 - **pwa** — the manifest carries what installability needs, every icon file exists, and the worker's caching rules hold
 - **compliance** — advisory language is absent from both source and generated report text; findings carry evidence, reasoning and screen criteria
 

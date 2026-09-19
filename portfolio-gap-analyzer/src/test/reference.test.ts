@@ -46,18 +46,60 @@ describe("buildReferenceModel", () => {
     expect(buildReferenceModel(profile({ horizonYears: 40 }), 100000).targetDuration).toBeCloseTo(9, 6);
   });
 
-  it("uses global market weights when no home tilt is asked for", () => {
+  it("defaults to MSCI World, which holds no emerging markets", () => {
     const model = buildReferenceModel(profile({ horizonYears: 30, riskTolerance: 5 }), 100000);
+    const equityish = model.assetClass.equity + model.assetClass.realEstate;
+    expect(model.presetId).toBe("msciWorld");
+    expect(model.region.us / equityish).toBeCloseTo(0.706, 3);
+    expect(model.region.emergingMarkets).toBe(0);
+  });
+
+  it("uses global market weights when the all-cap index is chosen", () => {
+    const model = buildReferenceModel(profile({ horizonYears: 30, riskTolerance: 5 }), 100000, { presetId: "globalAllCap" });
     const equityish = model.assetClass.equity + model.assetClass.realEstate;
     expect(model.region.us / equityish).toBeCloseTo(0.635, 3);
     expect(model.region.emergingMarkets / equityish).toBeCloseTo(0.095, 3);
   });
 
+  it("puts the whole equity sleeve in the US when the S&P 500 is chosen", () => {
+    const model = buildReferenceModel(profile(), 100000, { presetId: "sp500" });
+    const equityish = model.assetClass.equity + model.assetClass.realEstate;
+    expect(model.region.us).toBeCloseTo(equityish, 6);
+    expect(model.region.japan).toBe(0);
+  });
+
   it("applies a home tilt pro rata across the other regions", () => {
     const model = buildReferenceModel(profile({ homeRegion: "uk", homeBiasAllowancePp: 20 }), 100000);
     const equityish = model.assetClass.equity + model.assetClass.realEstate;
-    expect(model.region.uk / equityish).toBeCloseTo(0.234, 3);
+    expect(model.region.uk / equityish).toBeCloseTo(0.237, 3);
     expect(sum(model.region, REGIONS)).toBeCloseTo(equityish, 6);
+  });
+
+  it("says so rather than dividing by zero when a home tilt has nowhere to come from", () => {
+    const model = buildReferenceModel(profile({ homeRegion: "us", homeBiasAllowancePp: 30 }), 100000, { presetId: "sp500" });
+    const equityish = model.assetClass.equity + model.assetClass.realEstate;
+    expect(model.region.us).toBeCloseTo(equityish, 6);
+    expect(model.rationale.join(" ")).toContain("no effect");
+  });
+
+  it("lets a bond allocation replace the glidepath", () => {
+    const model = buildReferenceModel(profile({ horizonYears: 30 }), 100000, { bondShare: 0.4 });
+    expect(model.assetClass.bond).toBeCloseTo(0.4, 6);
+    expect(model.inputs.growthShare).toBeCloseTo(1 - 0.4 - model.assetClass.cash, 6);
+    expect(model.rationale.join(" ")).toContain("Bond allocation set directly");
+  });
+
+  it("carries a return assumption that falls as bonds rise", () => {
+    const equityHeavy = buildReferenceModel(profile(), 100000, { bondShare: 0 });
+    const bondHeavy = buildReferenceModel(profile(), 100000, { bondShare: 0.6 });
+    expect(equityHeavy.expectedRealReturn).toBeGreaterThan(bondHeavy.expectedRealReturn);
+    expect(equityHeavy.expectedVolatility).toBeGreaterThan(bondHeavy.expectedVolatility);
+  });
+
+  it("prices the S&P 500 above MSCI World on the historical assumptions", () => {
+    const world = buildReferenceModel(profile(), 100000, { presetId: "msciWorld", bondShare: 0 });
+    const us = buildReferenceModel(profile(), 100000, { presetId: "sp500", bondShare: 0 });
+    expect(us.expectedRealReturn).toBeGreaterThan(world.expectedRealReturn);
   });
 
   it("explains every step it took", () => {
