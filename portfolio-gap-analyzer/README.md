@@ -72,10 +72,32 @@ a reference portfolio is, lets you pick the index behind it, lays out what it
 holds region by region and sector by sector, shows the range it has
 historically produced, and only then hands you over to enter your own holdings.
 
-Reference portfolio → Holdings → Gap report, with Themes, Research and Learn
+Start here → Reference → Holdings → Gap report, with Themes, Research and Learn
 alongside.
 
 ## What it does
+
+**Opens with the two decisions that come first.** Someone arriving usually wants
+to know which fund to buy. That is the last question. The landing tab settles
+the two that come before it, drawn on the reader's own starting sum, monthly
+amount and horizon:
+
+*How much sits in shares* — the same money run through four mixes, from none in
+shares to all of it, each shown as the middle 80% of 2,000 simulated outcomes
+with the median notched. On the defaults it makes the trade visible rather than
+asserted: all-shares roughly **1.6× the middle outcome** of no-shares, and also
+the **worst tenth of outcomes** of any mix on the board — below the two
+intermediate mixes, and barely above the money paid in. No mix wins on both,
+which is the entire lesson.
+
+*What the holding costs* — two compounding paths under a 1.50% and a 0.15%
+charge, with the widening gap shaded. A charge quoted as **$150 in year one**
+comes to **$60,605 over 30 years**, 22% of what the cheaper version ends with,
+or about 17 years of contributions. The shape is the argument: each year's
+charge also gives up everything that money would have earned afterwards.
+
+Both run the same simulator and the same compounding as the rest of the tool, so
+the primer cannot carry a quieter set of assumptions than the pages it leads to.
 
 **Maps the portfolio.** Holdings are resolved against a security master and
 normalised into exposure across asset class, region, sector, size, style,
@@ -183,6 +205,7 @@ src/
       reference.ts   The index-anchored reference model
       presets.ts     MSCI World / S&P 500 / global all-cap index definitions
       projection.ts  Monte Carlo range for the reference mix
+      primer.ts      The opening allocation and fee illustrations
       factors.ts     Factor loadings derived from published metrics
       scores.ts      Composite research scores
       themes.ts      Thematic screens: the rule, and the case against it
@@ -193,10 +216,11 @@ src/
     data/            Security master, trailing returns, FX, provider seam
     content/         Education articles and the plain-English glossary
     state/           Client store (localStorage)
-    chart.ts         Fan chart and pie geometry, shared by both renderers
+    chart.ts         Fan, pie, range and two-line geometry, shared by both renderers
   components/        UI primitives, charts, finding cards
   app/               Next.js App Router pages
-                     reference/ is the landing tab: the model, then the inputs behind it
+                     page.tsx is the landing tab: allocation and cost, before any ticker
+                     reference/ the model, then the inputs behind it
                      themes/ builds a sleeve and diffs the report against it
   test/              Vitest suites
 ```

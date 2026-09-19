@@ -20,13 +20,14 @@
   };
 
   var state = {
-    view: "reference", holdings: SAMPLE.slice(), cash: 8000, isSample: true,
+    view: "start", holdings: SAMPLE.slice(), cash: 8000, isSample: true,
     profile: Object.assign({}, DEFAULT_PROFILE),
     growthOverride: null, accepted: false,
     presetId: "msciWorld", bondShare: null, projReturn: null, showRest: false,
     openTerm: null, fee: { amount: 25000, monthly: 250, charge: 1.4, years: 25 },
     open: {}, expTab: "region", detail: null, article: null,
     theme: "ai-infrastructure", picked: [], sleeve: 0.05, sleeveSaved: false,
+    primer: { amount: 10000, monthly: 300, years: 30 },
     screen: { q: "", kind: "all", sector: "all", sort: "size", desc: true, limit: 30 }
   };
 
@@ -36,6 +37,7 @@
       state = Object.assign(state, saved);
       state.profile = Object.assign({}, DEFAULT_PROFILE, saved.profile || {});
       state.screen = Object.assign(state.screen, saved.screen || {});
+      state.primer = Object.assign({ amount: 10000, monthly: 300, years: 30 }, saved.primer || {});
       state.open = {};
     }
   } catch (e) { /* private mode, or blocked site data: run without persistence */ }
@@ -47,7 +49,7 @@
         profile: state.profile, growthOverride: state.growthOverride,
         accepted: state.accepted, view: state.view, screen: state.screen,
         presetId: state.presetId, bondShare: state.bondShare, projReturn: state.projReturn, fee: state.fee,
-        theme: state.theme, picked: state.picked, sleeve: state.sleeve
+        theme: state.theme, picked: state.picked, sleeve: state.sleeve, primer: state.primer
       }));
     } catch (e) { /* nothing to do: the session still works, it just will not be remembered */ }
   }
@@ -627,6 +629,166 @@
     5: "A 50% fall would not change what I do."
   };
 
+  /* ------------------------------------------------------------ primer */
+
+  /**
+   * The opening screen: the two decisions that come before any ticker.
+   *
+   * The range chart is HTML rather than SVG on purpose. A fixed-viewBox SVG
+   * scales its own text down with the drawing, which at phone width took
+   * four-word labels down to about six pixels. The fee chart has to be SVG —
+   * it is a line chart — so it is drawn twice, once at each break-point's own
+   * geometry, and CSS shows whichever fits.
+   */
+  function primerInputs() {
+    var p = state.primer;
+    return '<section class="card pad"><div class="grid3">' +
+      '<label class="field"><span class="field-k">Starting with</span>' +
+      '<input id="pr-amt" type="number" min="0" step="1000" value="' + p.amount + '" data-act="pramt"></label>' +
+      '<label class="field"><span class="field-k">Adding each month</span>' +
+      '<input id="pr-mon" type="number" min="0" step="50" value="' + p.monthly + '" data-act="prmon"></label>' +
+      '<label class="field"><span class="field-k">For ' + p.years + ' years</span>' +
+      '<input id="pr-yrs" type="range" min="5" max="45" step="1" value="' + p.years + '" data-act="pryrs"></label>' +
+      "</div></section>";
+  }
+
+  function rangeChart(bands, contributed) {
+    var c = G.buildRangeChart(bands, state.profile.baseCurrency, contributed);
+    var rows = c.bars.map(function (bar, i) {
+      var colour = PALETTE[i % PALETTE.length];
+      return '<li style="margin-bottom:14px">' +
+        '<div class="range-head">' +
+        '<span class="range-label">' + esc(bar.label) + "</span>" +
+        '<span class="range-vals num">' + cur(bar.p10) + ' <span style="color:var(--faint)">to</span> ' + cur(bar.p90) +
+        '<strong style="margin-left:8px;color:var(--ink)">' + cur(bar.p50) + "</strong></span></div>" +
+        '<div class="range-track" role="img" aria-label="' +
+        esc(bar.label + ": middle outcome " + cur(bar.p50) + ", middle 80% from " + cur(bar.p10) + " to " + cur(bar.p90)) + '">' +
+        '<span class="range-fill" style="left:' + bar.left.toFixed(2) + "%;width:" + bar.width.toFixed(2) + "%;background:" + colour + '"></span>' +
+        '<span class="range-median" style="left:calc(' + bar.medianLeft.toFixed(2) + '% - 1.5px);background:' + colour + '"></span>' +
+        (c.contributed ? '<span class="range-paid" style="left:' + c.contributed.left.toFixed(2) + '%"></span>' : "") +
+        "</div></li>";
+    }).join("");
+
+    var ticks = c.ticks.map(function (t, i) {
+      var shift = i === 0 ? "none" : i === c.ticks.length - 1 ? "translateX(-100%)" : "translateX(-50%)";
+      return '<span class="range-tick num" style="left:' + t.left.toFixed(2) + "%;transform:" + shift + '">' + esc(t.label) + "</span>";
+    }).join("");
+
+    return '<ul style="list-style:none;padding:0;margin:0">' + rows + "</ul>" +
+      '<div class="range-axis">' + ticks + "</div>" +
+      '<p style="margin-top:12px;font-size:11.5px;line-height:1.5;color:var(--faint)">' +
+      "Each bar is the middle 80% of 2,000 simulated outcomes; the notch is the middle one." +
+      (c.contributed ? " The thin line is the " + cur(c.contributed.value) + " paid in." : "") +
+      " In today's money. An illustration of long-run averages, not a forecast — real returns do not arrive evenly.</p>";
+  }
+
+  function feePlot(points, width, height, cls) {
+    var c = G.buildTwoLineChart(points, state.profile.baseCurrency, width, height);
+    var last = points[points.length - 1];
+    return '<svg class="' + cls + '" viewBox="0 0 ' + c.width + " " + c.height + '" style="width:100%;height:auto" role="img" aria-label="' +
+      esc("After " + last.year + " years the low-charge path reaches " + cur(last.low) +
+        " and the high-charge path " + cur(last.high) + ", a difference of " + cur(last.low - last.high) + ".") + '">' +
+      c.yTicks.map(function (t) {
+        return '<line x1="' + c.plot.left + '" x2="' + (c.width - c.plot.right) + '" y1="' + t.y + '" y2="' + t.y + '" stroke="var(--line)"/>' +
+          '<text x="' + (c.plot.left - 8) + '" y="' + (t.y + 4) + '" text-anchor="end" font-size="11" fill="var(--faint)" font-family="var(--mono)">' + esc(t.label) + "</text>";
+      }).join("") +
+      c.xTicks.map(function (t) {
+        var anchor = t.value === 0 ? "start" : t.x > c.width - 40 ? "end" : "middle";
+        return '<text x="' + t.x + '" y="' + (c.height - 8) + '" text-anchor="' + anchor + '" font-size="11" fill="var(--faint)" font-family="var(--mono)">' + esc(t.label) + "</text>";
+      }).join("") +
+      '<path d="' + c.gapPath + '" fill="var(--over)" opacity="0.2"/>' +
+      '<path d="' + c.lowPath + '" fill="none" stroke="var(--under)" stroke-width="2.2" stroke-linejoin="round"/>' +
+      '<path d="' + c.highPath + '" fill="none" stroke="var(--over)" stroke-width="2.2" stroke-linejoin="round"/>' +
+      "</svg>";
+  }
+
+  function feeChart(f) {
+    var last = f.points[f.points.length - 1];
+    return feePlot(f.points, 620, 240, "wide-only") + feePlot(f.points, 330, 230, "narrow-only") +
+      '<div class="legend" style="margin-top:8px">' +
+      '<span class="legend-item"><i style="width:16px;height:2px;border-radius:99px;background:var(--under)"></i>Low charge <span class="legend-v">' + cur(last.low) + "</span></span>" +
+      '<span class="legend-item"><i style="width:16px;height:2px;border-radius:99px;background:var(--over)"></i>High charge <span class="legend-v">' + cur(last.high) + "</span></span>" +
+      '<span class="legend-item"><i class="swatch" style="width:16px;height:10px;background:var(--over);opacity:.28"></i>The difference <span class="legend-v" style="color:var(--over)">' + cur(f.difference) + "</span></span>" +
+      "</div>";
+  }
+
+  function viewPrimer() {
+    var p = state.primer;
+    var a = G.allocationIllustration({ amount: p.amount, monthlyContribution: p.monthly, years: p.years });
+    var f = G.feeIllustration({ amount: p.amount, monthlyContribution: p.monthly, years: p.years });
+    var safest = a.bands[0], boldest = a.bands[a.bands.length - 1];
+    var bestFloor = a.bands.reduce(function (best, b) { return b.p10 > best.p10 ? b : best; });
+
+    return '<header><p class="eyebrow" style="color:var(--accent-ink)">Research and education for stock and ETF investors</p>' +
+      '<h1 style="font-size:30px;margin-top:10px;max-width:34ch">Two decisions matter more than which fund you buy.</h1>' +
+      '<p class="lede" style="margin-top:12px;font-size:15px">How much sits in shares, and what you pay to hold it. ' +
+      "Both are settled before any ticker matters, and both are just arithmetic. Here they are on your numbers.</p></header>" +
+
+      primerInputs() +
+      '<p class="sub" style="font-size:12px;color:var(--faint);margin-top:-12px">' +
+      cur(a.contributed) + " of your own money goes in over " + p.years +
+      " years. Everything below is in today's money, so a figure means what it would buy today.</p>" +
+
+      '<section><div class="step-head"><span class="step-n num">01</span>' +
+      '<h2 style="font-size:20px">How much you put in shares sets the range</h2></div>' +
+      '<p class="lede" style="margin-top:8px">Shares have paid more than bonds over long periods, and moved far more along the way. ' +
+      "That trade — not the choice between two similar funds — is what decides the spread of where you end up.</p>" +
+      '<div class="card pad" style="margin-top:18px">' + rangeChart(a.bands, a.contributed) + "</div>" +
+      '<div class="grid2" style="margin-top:14px">' +
+      '<div class="note accent"><strong>What more shares bought.</strong> The middle outcome went from ' + cur(safest.p50) +
+      " with no shares to " + cur(boldest.p50) + " with nothing else — about " + a.medianMultiple.toFixed(1) +
+      "× on the same " + cur(a.contributed) + " paid in.</div>" +
+      '<div class="note warn"><strong>What it cost.</strong> All shares also had the worst bad case: the lowest tenth of outcomes landed at ' +
+      cur(boldest.p10) + ", against " + cur(bestFloor.p10) + " for " + esc(bestFloor.label.toLowerCase()) +
+      ". A rough bad year runs to " + pct(Math.abs(boldest.roughBadYear), 0) + " against " + pct(Math.abs(safest.roughBadYear), 0) + ".</div>" +
+      "</div>" +
+      '<p class="sub" style="margin-top:14px">There is no mix that wins on both. Which one fits depends on when you need the money ' +
+      'and what you would do in a bad year — which is what the <button class="row-link" data-act="go" data-view="reference" style="color:var(--accent-ink)">reference portfolio</button> ' +
+      "works out from your own answers, rather than guessing at it here.</p></section>" +
+
+      '<section><div class="step-head"><span class="step-n num">02</span>' +
+      '<h2 style="font-size:20px">What you pay comes out of the same money</h2></div>' +
+      '<p class="lede" style="margin-top:8px">A charge is quoted as a small percentage a year. It is paid on everything you hold, ' +
+      "every year, and each year's charge also gives up whatever that money would have earned afterwards.</p>" +
+      '<div class="card pad" style="margin-top:18px">' + feeChart(f) + "</div>" +
+      '<div class="grid3" style="margin-top:14px">' +
+      '<div class="card pad"><div class="stat-k">The quoted number</div><div class="stat-v">' + cur(f.firstYearCharge) + "</div>" +
+      '<p class="stat-d">' + pct(f.highCharge, 2) + " on " + cur(f.amount) + " in the first year. It sounds small because it is small — once.</p></div>" +
+      '<div class="card pad"><div class="stat-k">What it costs by year ' + p.years + '</div><div class="stat-v t-over">' + cur(f.difference) + "</div>" +
+      '<p class="stat-d">' + pct(f.shareOfOutcome, 0) + " of what the cheaper version ends with, gone to the difference between " +
+      pct(f.highCharge, 2) + " and " + pct(f.lowCharge, 2) + ".</p></div>" +
+      '<div class="card pad"><div class="stat-k">Put another way</div><div class="stat-v">' +
+      (f.contributionYears == null ? "—" : f.contributionYears.toFixed(0) + " years") + "</div>" +
+      '<p class="stat-d">' + (f.contributionYears == null
+        ? "Add a monthly amount above to see the gap in years of contributions."
+        : "of your " + cur(p.monthly * 12) + " a year, to cover the same gap.") + "</p></div>" +
+      "</div>" +
+      '<p class="sub" style="margin-top:14px">Both lines assume the same ' + pct(f.growth, 0) +
+      " return before charges — the only difference is the " + term("ongoingCharge", "ongoing charge") +
+      ". A higher charge can still be worth paying; the point is to know what is being paid for. " +
+      '<button class="row-link" data-act="go" data-view="research" style="color:var(--accent-ink)">Check a charge you have been quoted</button>.</p></section>' +
+
+      '<section><div class="step-head"><span class="step-n num">03</span><h2 style="font-size:20px">Then, which holdings</h2></div>' +
+      '<p class="lede" style="margin-top:8px">Once the mix and the cost are settled, the rest is checking what you own against them. ' +
+      "Gapline builds a reference from your answers, compares your holdings with it, and shows the arithmetic behind every difference.</p>" +
+      '<div class="btnrow" style="margin-top:18px">' +
+      '<button class="btn" data-act="go" data-view="reference">Start with the reference portfolio</button>' +
+      '<button class="btn sec" data-act="go" data-view="holdings">Enter your holdings</button>' +
+      '<button class="btn ghost" data-act="sample">See it on an example portfolio</button></div>' +
+      '<p style="margin-top:12px;font-size:12px;color:var(--faint)">Runs entirely in this browser. Your holdings are never sent anywhere.</p></section>' +
+
+      '<div class="grid2">' +
+      '<div class="card pad"><h3 style="font-size:14px">Not an adviser</h3>' +
+      '<p class="sub" style="margin-top:8px">Personal investment advice requires a licence. This tool has none and pretends to none. ' +
+      "It describes, compares and explains, and shows the filter criteria behind every instrument list.</p></div>" +
+      '<div class="card pad"><h3 style="font-size:14px">Not a forecast</h3>' +
+      '<p class="sub" style="margin-top:8px">The illustrations above are long-run averages run through a simulation, not a view on what ' +
+      "happens next. No price targets, no ratings. Assumed rates are labelled wherever they are used.</p></div></div>" +
+
+      '<div class="note warn"><strong>About the data in this build.</strong> ' + esc(G.DATASET_META.warning) +
+      " The dataset is dated " + esc(G.DATASET_META.asOf) + ".</div>";
+  }
+
   function viewReference() {
     var r = report(), p = state.profile, ref = r.reference;
     var hasHoldings = r.portfolio.positions.length > 0;
@@ -1170,7 +1332,7 @@
 
   /* ------------------------------------------------------------ shell */
 
-  var VIEWS = [["reference", "Reference portfolio"], ["holdings", "Holdings"], ["report", "Gap report"], ["themes", "Themes"], ["research", "Research"], ["learn", "Learn"]];
+  var VIEWS = [["start", "Start here"], ["reference", "Reference"], ["holdings", "Holdings"], ["report", "Gap report"], ["themes", "Themes"], ["research", "Research"], ["learn", "Learn"]];
 
   function gate() {
     if (state.accepted) return "";
@@ -1202,6 +1364,7 @@
 
   function body() {
     if (state.view === "holdings") return viewHoldings();
+    if (state.view === "start") return viewPrimer();
     if (state.view === "reference") return viewReference();
     if (state.view === "themes") return viewThemes();
     if (state.view === "research") return viewResearch();
@@ -1303,7 +1466,10 @@
     var act = el.getAttribute("data-act");
     var num = Number(el.value);
 
-    if (act === "addq") { state.addQuery = el.value; render(); }
+    if (act === "pramt") { state.primer = Object.assign({}, state.primer, { amount: Math.max(0, num || 0) }); save(); render(); }
+    else if (act === "prmon") { state.primer = Object.assign({}, state.primer, { monthly: Math.max(0, num || 0) }); save(); render(); }
+    else if (act === "pryrs") { state.primer = Object.assign({}, state.primer, { years: num }); save(); render(); }
+    else if (act === "addq") { state.addQuery = el.value; render(); }
     else if (act === "addamt") { state.addAmount = el.value; }
     else if (act === "cash") { state.cash = Math.max(0, num || 0); state.isSample = false; save(); render(); }
     else if (act === "sq") { state.screen.q = el.value; state.screen.limit = 30; save(); render(); }

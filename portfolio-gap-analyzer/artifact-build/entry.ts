@@ -36,3 +36,5 @@ export {
 } from "@/lib/engine/types";
 export { THEMES, themeById, matchesFor } from "@/lib/engine/themes";
 export { themeImpact, applySleeve } from "@/lib/engine/theme-impact";
+export { allocationIllustration, feeIllustration } from "@/lib/engine/primer";
+export { buildRangeChart, buildTwoLineChart } from "@/lib/chart";

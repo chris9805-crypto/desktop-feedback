@@ -118,6 +118,32 @@ The words "forecast", "prediction", "expected value" and "projection of your
 portfolio" are avoided in the copy; the feature is described as an illustration
 of a historical range.
 
+### 4b2. The opening illustrations describe arithmetic, not anyone's portfolio
+
+The landing tab leads with two illustrations — what a share/bond split does to
+the range of outcomes, and what a charge costs over time — which puts the most
+persuasive figures in the product on the first screen a reader sees. Five things
+keep them on the research side:
+
+- **They are hypothetical, and obviously so.** They run on a sum the reader
+  types in, not on their holdings, and the page says so. Nothing about them is
+  personalised, because nothing about them knows anything about the reader.
+- **The allocation figure is a range per mix, never a ranking of mixes.** Four
+  mixes are shown, each as a 10th-to-90th percentile band. No mix is marked
+  suitable, recommended or best, and the page states plainly that none of them
+  wins on both counts.
+- **The cost of more shares is given the same prominence as the benefit.** The
+  two callouts are the same size, and the one naming the worst case is computed
+  from the same run rather than written as boilerplate — including the mix with
+  the best floor, which on the defaults is not the boldest one.
+- **It reuses the real simulator.** `allocationIllustration` calls the same
+  `simulateOutcomes` as the reference projection. An opening illustration built
+  on its own, gentler arithmetic would be the obvious way for this page to drift,
+  so there is only one implementation.
+- **The fee comparison compares a cost, not a product.** It names no provider,
+  and the copy says in as many words that a higher charge can still be worth
+  paying — the point being to know what is paid, not to conclude anything.
+
 ### 4c. The allocation is derived from stated constraints, and names which one bound
 
 The growth/defensive split is the minimum of three limits the user supplies —
@@ -254,6 +280,10 @@ into something needing a licence, or into something it should not be:
   (currency, listing country, wrapper eligibility) — for example filtering by
   what the tool thinks would suit the user.
 - Adding an overall portfolio score or grade.
+- Turning the opening illustrations into a suggestion: marking one mix as
+  suitable, dropping the worst-case callout or shrinking it relative to the
+  benefit, running them on the reader's actual holdings, or giving them their
+  own arithmetic rather than the engine's.
 - Turning a theme into a curated list: hand-picking its members, dropping the
   criteria or the caution, ranking themes against each other, attaching an
   expected return to one, or presenting the sleeve diff as an improvement

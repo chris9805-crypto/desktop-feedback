@@ -94,7 +94,8 @@
   .tab:hover { background: var(--surface-2); color: var(--ink); }
   .tab[aria-current="page"] { background: var(--accent-soft); color: var(--accent-ink); font-weight: 600; }
   .topbar-note { margin-left: auto; font-size: 11.5px; color: var(--faint); }
-  @media (max-width: 720px) { .topbar-note { display: none; } }
+  /* Seven tabs plus the note no longer fit on one row below this. */
+  @media (max-width: 1000px) { .topbar-note { display: none; } }
 
   main { max-width: 1060px; margin: 0 auto; padding-block: 26px 56px; padding-inline: 20px; }
   .stack { display: flex; flex-direction: column; gap: 22px; }
@@ -232,6 +233,25 @@
   .btn:disabled { opacity: .45; pointer-events: none; }
   .btnrow { display: flex; flex-wrap: wrap; gap: 8px; }
   .btn.sec.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-ink); }
+
+  /* ---- primer ---- */
+  .step-head { display: flex; align-items: baseline; gap: 12px; }
+  .step-n { font-size: 13px; font-weight: 600; color: var(--accent-ink); }
+  .range-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 12px; }
+  .range-label { font-size: 13px; font-weight: 500; width: 100%; }
+  @media (min-width: 560px) { .range-label { width: auto; } }
+  .range-vals { font-size: 12px; color: var(--muted); }
+  .range-track { position: relative; height: 20px; margin-top: 6px; border-radius: 3px; background: var(--surface-2); }
+  .range-fill { position: absolute; inset-block: 0; border-radius: 3px; opacity: .32; }
+  .range-median { position: absolute; inset-block: -2px; width: 3px; border-radius: 99px; }
+  /* Drawn last so a bar spanning this point cannot hide it. */
+  .range-paid { position: absolute; inset-block: -3px; width: 1px; background: var(--ink); opacity: .5; }
+  .range-axis { position: relative; height: 16px; margin-top: 8px; }
+  .range-tick { position: absolute; top: 0; font-size: 10.5px; color: var(--faint); }
+  /* The fee chart ships at two sizes; CSS picks the one whose text is legible. */
+  .narrow-only { display: block; }
+  .wide-only { display: none; }
+  @media (min-width: 640px) { .narrow-only { display: none; } .wide-only { display: block; } }
 
   /* ---- themes ---- */
   .theme-card { cursor: pointer; }

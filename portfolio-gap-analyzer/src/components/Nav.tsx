@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const LINKS = [
-  { href: "/reference", label: "Reference portfolio" },
+  { href: "/", label: "Start here" },
+  { href: "/reference", label: "Reference" },
   { href: "/portfolio", label: "Holdings" },
   { href: "/analysis", label: "Gap report" },
   { href: "/themes", label: "Themes" },
@@ -29,7 +30,9 @@ export function Nav() {
         </Link>
         <nav className="flex flex-wrap items-center gap-x-1 gap-y-1" aria-label="Main">
           {LINKS.map((link) => {
-            const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
+            // "/" is a prefix of everything, so the root tab matches exactly or not at all.
+            const active =
+              link.href === "/" ? pathname === "/" : pathname === link.href || pathname.startsWith(`${link.href}/`);
             return (
               <Link
                 key={link.href}

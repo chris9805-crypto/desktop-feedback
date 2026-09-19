@@ -209,3 +209,155 @@ export function buildPie(data: PieDatum[], size = 176, maxWedges = 8): Pie {
 
   return { size, cx, cy, radius, total, wedges, folded };
 }
+
+export interface RangeBar {
+  label: string;
+  /** Percentages of the plot width, so the bar can be laid out in CSS. */
+  left: number;
+  width: number;
+  medianLeft: number;
+  p10: number;
+  p50: number;
+  p90: number;
+}
+
+export interface RangeChart {
+  bars: RangeBar[];
+  ticks: { value: number; left: number; label: string }[];
+  /** Marker for money actually paid in, if it fits on the axis. */
+  contributed: { value: number; left: number } | null;
+  maxX: number;
+}
+
+/**
+ * Outcome ranges as percentages rather than pixels.
+ *
+ * This one is laid out in HTML rather than SVG, and the geometry is in percent
+ * so that it can be. A fixed-viewBox SVG shrinks its own text along with the
+ * drawing, which on a phone took four-word labels like "two-thirds in shares"
+ * down to about six pixels; HTML bars keep body text at body size at any width.
+ */
+export function buildRangeChart(
+  bands: { label: string; p10: number; p50: number; p90: number }[],
+  currency: Currency = "USD",
+  contributed?: number,
+): RangeChart {
+  const peak = Math.max(1, ...bands.map((b) => b.p90));
+  const maxX = niceCeiling(peak);
+  const pctFor = (value: number) => (Math.max(0, Math.min(maxX, value)) / maxX) * 100;
+
+  const bars: RangeBar[] = bands.map((band) => {
+    const left = pctFor(band.p10);
+    return {
+      label: band.label,
+      left,
+      width: Math.max(0.6, pctFor(band.p90) - left),
+      medianLeft: pctFor(band.p50),
+      p10: band.p10,
+      p50: band.p50,
+      p90: band.p90,
+    };
+  });
+
+  const steps = 4;
+  const ticks = Array.from({ length: steps + 1 }, (_, index) => {
+    const value = (maxX / steps) * index;
+    return { value, left: pctFor(value), label: value === 0 ? "0" : tickMoney(value, currency) };
+  });
+
+  return {
+    bars,
+    ticks,
+    contributed:
+      contributed !== undefined && contributed > 0 && contributed <= maxX
+        ? { value: contributed, left: pctFor(contributed) }
+        : null,
+    maxX,
+  };
+}
+
+
+export interface TwoLineChart {
+  width: number;
+  height: number;
+  plot: { left: number; top: number; right: number; bottom: number };
+  /** The upper line, the lower line, and the area between them. */
+  highPath: string;
+  lowPath: string;
+  gapPath: string;
+  yTicks: { value: number; y: number; label: string }[];
+  xTicks: { value: number; x: number; label: string }[];
+  /** Where to anchor a label on the gap, at the right-hand end. */
+  gapLabel: { x: number; y: number };
+  maxY: number;
+  xFor: (year: number) => number;
+  yFor: (value: number) => number;
+}
+
+/**
+ * Two compounding paths and the widening gap between them.
+ *
+ * The shaded area is the whole argument: a charge difference is a constant
+ * percentage but its cost is not, because every year's charge also gives up
+ * everything that money would have earned afterwards. A pair of end numbers
+ * states that; the shape shows it.
+ */
+export function buildTwoLineChart(
+  points: { year: number; low: number; high: number }[],
+  currency: Currency = "USD",
+  width = 620,
+  height = 240,
+): TwoLineChart {
+  const plot = { left: 56, top: 14, right: 12, bottom: 26 };
+  const innerWidth = Math.max(1, width - plot.left - plot.right);
+  const innerHeight = Math.max(1, height - plot.top - plot.bottom);
+  const years = Math.max(1, points.length - 1);
+
+  const maxY = niceCeiling(Math.max(1, ...points.map((p) => p.low)));
+  const xFor = (year: number) => plot.left + (year / years) * innerWidth;
+  const yFor = (value: number) => plot.top + innerHeight - (Math.max(0, value) / maxY) * innerHeight;
+
+  const line = (pick: (p: { low: number; high: number }) => number) =>
+    points.map((p, index) => `${index === 0 ? "M" : "L"}${xFor(p.year).toFixed(2)},${yFor(pick(p)).toFixed(2)}`).join(" ");
+
+  const upper = line((p) => p.low);
+  const lowerBack = points
+    .slice()
+    .reverse()
+    .map((p) => `L${xFor(p.year).toFixed(2)},${yFor(p.high).toFixed(2)}`)
+    .join(" ");
+
+  const steps = 4;
+  const yTicks = Array.from({ length: steps + 1 }, (_, index) => {
+    const value = (maxY / steps) * index;
+    return { value, y: yFor(value), label: value === 0 ? "0" : tickMoney(value, currency) };
+  });
+
+  const xStep = years <= 10 ? 2 : years <= 25 ? 5 : 10;
+  const xTicks: { value: number; x: number; label: string }[] = [];
+  for (let year = 0; year <= years; year += xStep) {
+    xTicks.push({ value: year, x: xFor(year), label: year === 0 ? "now" : `${year}y` });
+  }
+  const last = points[points.length - 1]!;
+  // Avoid a final tick colliding with the year label already at the end.
+  if (years - (xTicks[xTicks.length - 1]?.value ?? 0) > xStep * 0.4) {
+    xTicks.push({ value: years, x: xFor(years), label: `${years}y` });
+  } else if (xTicks.length > 1) {
+    xTicks[xTicks.length - 1] = { value: years, x: xFor(years), label: `${years}y` };
+  }
+
+  return {
+    width,
+    height,
+    plot,
+    highPath: line((p) => p.high),
+    lowPath: upper,
+    gapPath: `${upper} ${lowerBack} Z`,
+    yTicks,
+    xTicks,
+    gapLabel: { x: xFor(years), y: (yFor(last.low) + yFor(last.high)) / 2 },
+    maxY,
+    xFor,
+    yFor,
+  };
+}

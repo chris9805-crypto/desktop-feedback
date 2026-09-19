@@ -58,33 +58,27 @@ function percentile(sorted: number[], q: number): number {
 
 const PATHS = 2000;
 
+export interface SimulationInput {
+  realReturn: number;
+  volatility: number;
+  years: number;
+  startValue: number;
+  annualContribution: number;
+}
+
 /**
- * Illustrate the range of outcomes a reference mix has historically produced.
+ * The simulation itself, separated from the reference model that usually
+ * supplies its inputs.
  *
- * This is a simulation, not a forecast. It draws each year's return independently
- * from a normal distribution around the reference mix's long-run historical real
- * return, runs 2,000 paths, and reports the 10th, 50th and 90th percentiles.
- *
- * Two deliberate choices about honesty:
- *
- *  - Everything is in today's money. The return assumption is real rather than
- *    nominal and contributions are assumed to rise with inflation, so a figure
- *    thirty years out means what it would buy today. Nominal projections look
- *    far more impressive and tell the reader much less.
- *  - It reports a band, never a single number. The median is one outcome out of
- *    two thousand, and the distance between the 10th and 90th percentile is the
- *    actual content of the exercise.
+ * The primer illustrates several hypothetical mixes rather than one portfolio,
+ * and it has to use the same machinery: an illustration built on a different
+ * simulator than the one behind the real projection would be a second, quieter
+ * set of assumptions. Callers with a `ReferenceModel` go through
+ * `buildProjection` below, which adds the notes a reader needs.
  */
-export function buildProjection(
-  reference: ReferenceModel,
-  profile: InvestorProfile,
-  startValue: number,
-  overrides: { realReturn?: number; volatility?: number; years?: number } = {},
-): Projection {
-  const realReturn = overrides.realReturn ?? reference.expectedRealReturn;
-  const volatility = overrides.volatility ?? reference.expectedVolatility;
-  const years = Math.max(1, Math.round(overrides.years ?? profile.horizonYears));
-  const annualContribution = Math.max(0, profile.monthlyContribution) * 12;
+export function simulateOutcomes(input: SimulationInput): ProjectionPoint[] {
+  const { realReturn, volatility, startValue, annualContribution } = input;
+  const years = Math.max(1, Math.round(input.years));
 
   const random = mulberry32(hashSeed([realReturn, volatility, years, startValue, annualContribution]));
   let spare: number | null = null;
@@ -117,7 +111,7 @@ export function buildProjection(
     }
   }
 
-  const points: ProjectionPoint[] = byYear.map((values, year) => {
+  return byYear.map((values, year) => {
     const sorted = values.slice().sort((a, b) => a - b);
     return {
       year,
@@ -127,6 +121,37 @@ export function buildProjection(
       contributed: startValue + annualContribution * year,
     };
   });
+}
+
+/**
+ * Illustrate the range of outcomes a reference mix has historically produced.
+ *
+ * This is a simulation, not a forecast. It draws each year's return independently
+ * from a normal distribution around the reference mix's long-run historical real
+ * return, runs 2,000 paths, and reports the 10th, 50th and 90th percentiles.
+ *
+ * Two deliberate choices about honesty:
+ *
+ *  - Everything is in today's money. The return assumption is real rather than
+ *    nominal and contributions are assumed to rise with inflation, so a figure
+ *    thirty years out means what it would buy today. Nominal projections look
+ *    far more impressive and tell the reader much less.
+ *  - It reports a band, never a single number. The median is one outcome out of
+ *    two thousand, and the distance between the 10th and 90th percentile is the
+ *    actual content of the exercise.
+ */
+export function buildProjection(
+  reference: ReferenceModel,
+  profile: InvestorProfile,
+  startValue: number,
+  overrides: { realReturn?: number; volatility?: number; years?: number } = {},
+): Projection {
+  const realReturn = overrides.realReturn ?? reference.expectedRealReturn;
+  const volatility = overrides.volatility ?? reference.expectedVolatility;
+  const years = Math.max(1, Math.round(overrides.years ?? profile.horizonYears));
+  const annualContribution = Math.max(0, profile.monthlyContribution) * 12;
+
+  const points = simulateOutcomes({ realReturn, volatility, years, startValue, annualContribution });
 
   return {
     points,

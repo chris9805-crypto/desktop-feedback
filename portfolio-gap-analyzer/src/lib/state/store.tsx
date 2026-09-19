@@ -27,6 +27,8 @@ export interface AppState {
   projectionOverrides: { realReturn?: number };
   /** Set once the user has acknowledged what this tool is and is not. */
   disclaimerAccepted: boolean;
+  /** The sum the opening illustrations are drawn on. Exploratory, not a profile. */
+  primer: { amount: number; monthlyContribution: number; years: number };
 }
 
 export const DEFAULT_PROFILE: InvestorProfile = {
@@ -64,6 +66,7 @@ export const EMPTY_STATE: AppState = {
   referenceOverrides: {},
   projectionOverrides: {},
   disclaimerAccepted: false,
+  primer: { amount: 10000, monthlyContribution: 300, years: 30 },
 };
 
 export const SAMPLE_STATE: AppState = {
@@ -87,6 +90,7 @@ interface StoreValue {
   setProfile: (patch: Partial<InvestorProfile>) => void;
   setReferenceOverrides: (overrides: ReferenceOverrides) => void;
   setProjectionReturn: (value: number | null) => void;
+  setPrimer: (patch: Partial<AppState["primer"]>) => void;
   acceptDisclaimer: () => void;
   loadSample: () => void;
   reset: () => void;
@@ -106,6 +110,7 @@ function readStored(): AppState | null {
       profile: { ...DEFAULT_PROFILE, ...(parsed.profile ?? {}) },
       referenceOverrides: parsed.referenceOverrides ?? {},
       projectionOverrides: parsed.projectionOverrides ?? {},
+      primer: { ...EMPTY_STATE.primer, ...(parsed.primer ?? {}) },
     };
   } catch {
     // A corrupt or unreadable entry should not take the app down with it.
@@ -162,9 +167,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setProfile: (p) => setState((prev) => ({ ...prev, profile: { ...prev.profile, ...p } })),
       setReferenceOverrides: (referenceOverrides) => patch({ referenceOverrides }),
       setProjectionReturn: (value) => patch({ projectionOverrides: value === null ? {} : { realReturn: value } }),
+      setPrimer: (p) => setState((prev) => ({ ...prev, primer: { ...prev.primer, ...p } })),
       acceptDisclaimer: () => patch({ disclaimerAccepted: true }),
-      loadSample: () => setState((prev) => ({ ...SAMPLE_STATE, disclaimerAccepted: prev.disclaimerAccepted })),
-      reset: () => setState((prev) => ({ ...EMPTY_STATE, disclaimerAccepted: prev.disclaimerAccepted })),
+      loadSample: () =>
+        setState((prev) => ({ ...SAMPLE_STATE, disclaimerAccepted: prev.disclaimerAccepted, primer: prev.primer })),
+      reset: () =>
+        setState((prev) => ({ ...EMPTY_STATE, disclaimerAccepted: prev.disclaimerAccepted, primer: prev.primer })),
     }),
     [state, report, loading, openTerm, patch],
   );
