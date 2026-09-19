@@ -11,11 +11,24 @@ It is deliberately **not** a financial adviser. It never says what anyone
 should do with their money. See [COMPLIANCE.md](./COMPLIANCE.md) for how that
 line is drawn and how it is enforced in code.
 
+Needs Node 18.18 or newer (developed on 22). The app lives in this
+subdirectory of the repo, so run everything from here.
+
 ```bash
 npm install
 npm run dev      # http://localhost:3000
 npm run check    # typecheck + tests
 ```
+
+To exercise the installable and offline behaviour you need a production build —
+the service worker is deliberately not registered in development, where a
+cached shell in front of the dev server makes hot reload confusing:
+
+```bash
+npm run build && npm start     # http://localhost:3000
+```
+
+Set `PORT` to use a different port, e.g. `PORT=4000 npm run dev`.
 
 ## The idea
 
