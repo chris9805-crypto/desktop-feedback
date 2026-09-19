@@ -94,6 +94,11 @@ export function overlapFindings(ctx: GapContext): Finding[] {
       const cheaper = dearer === a ? b : a;
       const feeGap = dearer.security.fund.expenseRatio - cheaper.security.fund.expenseRatio;
       const annualSaving = feeGap * dearer.value;
+      // Only worth raising the wrapper as a reason to hold both if it differs.
+      const wrapperDiffers =
+        a.security.fund.domicile !== b.security.fund.domicile ||
+        a.security.fund.distribution !== b.security.fund.distribution ||
+        a.security.fund.currencyHedged !== b.security.fund.currencyHedged;
 
       findings.push({
         id: `overlap-${a.symbol}-${b.symbol}`,
@@ -103,7 +108,7 @@ export function overlapFindings(ctx: GapContext): Finding[] {
         title: `${a.symbol} and ${b.symbol} hold much the same thing`,
         summary: `Estimated overlap is ${formatPercent(overlap, 0)} across ${formatCurrency(combinedValue, currency)}, or ${formatPercent(combinedWeight)} of the portfolio. Two lines, close to one exposure.${feeGap > 0.0001 ? ` ${dearer.symbol} charges ${formatPercent(feeGap, 2)} more.` : ""}`,
         why:
-          "Holding two funds that track near-identical exposure does not add diversification — it adds a second set of charges, a second tracking difference and a second thing to rebalance. Overlap usually appears by accident: a fund bought at one broker, the same exposure bought later at another, or a provider switch that never got tidied up.",
+          "Two funds tracking near-identical exposure add no diversification — just a second set of charges and a second thing to rebalance. It is almost always an accident: a provider switch, or the same index bought twice at different brokers.",
         evidence: [
           { label: "Estimated overlap", value: formatPercent(overlap, 0), detail: "from disclosed holdings and the funds' structural profile" },
           { label: a.symbol, value: formatPercent(a.weight), detail: `${a.security.fund.indexName} · ${formatPercent(a.security.fund.expenseRatio, 2)} ongoing charge` },
@@ -125,15 +130,17 @@ export function overlapFindings(ctx: GapContext): Finding[] {
               label: "Or stop adding to one of them",
               detail: "Directing new money to a single fund lets the duplication fade without a disposal, which matters if the position carries a gain in a taxable account.",
             },
-            {
-              label: "Check whether the difference is the point",
-              detail: `Different domicile, hedging or distribution policy can justify two similar funds. ${a.symbol} is ${a.security.fund.domicile}-domiciled and ${a.security.fund.distribution}; ${b.symbol} is ${b.security.fund.domicile}-domiciled and ${b.security.fund.distribution}.`,
-            },
+            ...(wrapperDiffers
+              ? [{
+                  label: "The wrapper may be the point",
+                  detail: `${a.symbol} is ${a.security.fund.domicile}-domiciled and ${a.security.fund.distribution}; ${b.symbol} is ${b.security.fund.domicile}-domiciled and ${b.security.fund.distribution}. Domicile, hedging and distribution policy can justify two similar funds.`,
+                }]
+              : []),
           ],
           screen: null,
           tradeoffs: [
-            "Consolidating in a taxable account can realise a gain. The fee saving may take years to outweigh the tax bill — worth working out before acting.",
-            "Two funds in different accounts can be deliberate, for example to keep contributions simple at each provider.",
+            "Consolidating in a taxable account can realise a gain that takes years of fee saving to outweigh.",
+            "Two funds in different accounts can be deliberate — one per provider is simpler to run.",
           ],
         },
       });

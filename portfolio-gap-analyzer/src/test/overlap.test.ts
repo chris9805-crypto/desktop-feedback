@@ -36,3 +36,19 @@ describe("estimateOverlap", () => {
     expect(estimateOverlap(etf("VTV"), etf("VUG"))).toBeLessThan(0.7);
   });
 });
+
+describe("overlap findings", () => {
+  it("only raises the wrapper as a reason to hold both when it actually differs", async () => {
+    const { analysePortfolio } = await import("@/lib/engine/analyse");
+    const { buildPortfolio } = await import("@/lib/engine/portfolio");
+    const { profile } = await import("./fixtures");
+
+    // VOO and SPY are both US-domiciled and distributing, so saying so twice
+    // would just be noise.
+    const same = analysePortfolio(
+      buildPortfolio([{ symbol: "VOO", value: 50000 }, { symbol: "SPY", value: 50000 }]),
+      profile(),
+    ).findings.find((f) => f.id.startsWith("overlap-"));
+    expect(same!.implementation!.routes.some((r) => r.label === "The wrapper may be the point")).toBe(false);
+  });
+});

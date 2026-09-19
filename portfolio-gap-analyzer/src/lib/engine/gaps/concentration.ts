@@ -33,7 +33,7 @@ export function concentrationFindings(ctx: GapContext): Finding[] {
           ? `${formatPercent(directWeight)} is held directly and a further ${formatPercent(viaFunds)} comes through funds, for ${formatCurrency(name.value, currency)} in one company.`
           : `${formatCurrency(name.value, currency)} sits in one company. A single-company problem at this weight is a portfolio problem.`,
       why:
-        "Single-company risk is the one risk you are not compensated for taking — the market does not pay a premium for holding one name rather than many, because that risk can be diversified away for free. It also compounds quietly through funds: index funds are market-cap weighted, so the same handful of large companies appear in almost every equity fund you own.",
+        "Single-company risk is the one risk you are not paid for: it can be diversified away for free, so no premium attaches to it. It also builds quietly through funds, since index funds are market-cap weighted and hold the same names at the top.",
       evidence: [
         { label: "Total look-through weight", value: formatPercent(name.weight), detail: formatCurrency(name.value, currency) },
         ...(direct ? [{ label: "Held directly", value: formatPercent(directWeight) }] : []),
@@ -78,7 +78,7 @@ export function concentrationFindings(ctx: GapContext): Finding[] {
       title: `The portfolio behaves like about ${Math.round(diversification.effectiveNames)} equally sized holdings`,
       summary: `You hold ${diversification.positionCount} line${diversification.positionCount === 1 ? "" : "s"} covering roughly ${diversification.lookThroughNameCount.toLocaleString()} companies, but the weights are uneven enough that it behaves like ${Math.round(diversification.effectiveNames)} equal positions. The largest ten look-through names are ${formatPercent(diversification.topTenWeight)} of the portfolio.`,
       why:
-        "Counting holdings overstates diversification when weights are lopsided. The effective-holdings figure (one divided by the Herfindahl index) asks a more useful question: how many equally sized positions would produce the same concentration? A broad index fund typically lands somewhere near 100 on this measure.",
+        "Counting holdings overstates diversification when weights are lopsided. Effective holdings — one over the Herfindahl index — asks how many equal positions would be this concentrated. A broad index fund lands near 100.",
       evidence: [
         { label: "Lines on the statement", value: `${diversification.positionCount}` },
         { label: "Companies held through them", value: diversification.lookThroughNameCount.toLocaleString() },
@@ -107,7 +107,7 @@ export function concentrationFindings(ctx: GapContext): Finding[] {
       severity: materiality({ magnitude: diversification.topTenWeight - TOP_TEN_THRESHOLD, scaleAt: 0.3, valueShare: diversification.topTenWeight }),
       title: `The ten largest companies are ${formatPercent(diversification.topTenWeight)} of the portfolio`,
       summary: `Look-through weight in the ten largest names is ${formatPercent(diversification.topTenWeight)}, or ${formatCurrency(diversification.topTenWeight * total, currency)}.`,
-      why: "A high top-ten weight is normal in a market-cap index today, because the largest companies are unusually large by historical standards. It is worth knowing rather than fixing — but it does mean the portfolio's fate is tied to a small group of correlated businesses.",
+      why: "A high top-ten weight is normal in a market-cap index today, because the largest companies are unusually large. Worth knowing rather than fixing — but the portfolio's fate is tied to a small, correlated group.",
       evidence: [
         { label: "Top ten weight", value: formatPercent(diversification.topTenWeight) },
         { label: "Largest single name", value: formatPercent(diversification.topHoldingWeight) },

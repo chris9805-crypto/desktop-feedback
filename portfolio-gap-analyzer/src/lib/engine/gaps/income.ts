@@ -27,8 +27,8 @@ export function incomeFindings(ctx: GapContext): Finding[] {
           ? `You are drawing ${formatPercent(ctx.profile.incomeNeedRate)} a year — ${formatCurrency(ctx.profile.incomeNeedRate * total, currency)} — while the portfolio distributes ${formatPercent(portfolioYield)}. The difference, ${formatCurrency(Math.abs(shortfall) * total, currency)} a year, has to come from selling.`
           : `The portfolio distributes ${formatPercent(portfolioYield)} against a stated need of ${formatPercent(ctx.profile.incomeNeedRate)}. The surplus ${formatCurrency(Math.abs(shortfall) * total, currency)} is being paid out whether or not it is wanted.`,
         why: short
-          ? "Funding withdrawals by selling is not a failure mode — a total-return approach treats income and capital as the same money, and selling units is how you spend a portfolio that pays less than you need. What it does require is a plan for which assets get sold in a bad year, so the selling does not fall on whatever has just dropped most."
-          : "Distributions that are not spent still get taxed in a taxable account, and then have to be reinvested. Accumulating funds, or lower-yielding ones, avoid the round trip. In a tax-advantaged account this matters much less.",
+          ? "Selling to fund withdrawals is not a failure mode — income and capital are the same money. What it needs is a plan for what gets sold in a bad year, so the selling does not land on whatever has just dropped most."
+          : "Unspent distributions still get taxed in a taxable account, then have to be reinvested. Accumulating funds avoid the round trip. In a tax-advantaged account it matters much less.",
         evidence: [
           { label: "Income need", value: formatPercent(ctx.profile.incomeNeedRate), detail: formatCurrency(ctx.profile.incomeNeedRate * total, currency) },
           { label: "Portfolio distribution yield", value: formatPercent(portfolioYield), detail: formatCurrency(portfolioYield * total, currency) },
@@ -72,7 +72,7 @@ export function incomeFindings(ctx: GapContext): Finding[] {
       title: `${strained.length} holding${strained.length === 1 ? "" : "s"} pay${strained.length === 1 ? "s" : ""} a high dividend with little cover`,
       summary: `${strained.map((p) => p.symbol).join(", ")} — ${formatPercent(strainedWeight)} of the portfolio — combine a yield above 3.5% with a payout ratio above 75%.`,
       why:
-        "A yield is a ratio, and it rises when the price falls as readily as when the dividend rises. The combination of a high yield and a high payout ratio is the shape a dividend takes shortly before it is cut: most of the earnings are already committed, so there is little room for a bad year. The cut then usually takes the share price with it.",
+        "Yield is a ratio: it rises when the price falls as readily as when the payout rises. High yield plus a high payout ratio is the shape a dividend takes shortly before it is cut — and the cut usually takes the share price with it.",
       evidence: strained.slice(0, 4).map((p) => ({
         label: `${p.security.name} (${p.symbol})`,
         value: formatPercent(p.security.fundamentals.dividendYield),

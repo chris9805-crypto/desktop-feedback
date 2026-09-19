@@ -24,26 +24,20 @@ export function DisclaimerGate() {
         </h2>
         <div className="mt-3 space-y-3 text-[13px] leading-relaxed text-[var(--text-muted)]">
           <p>
-            <strong className="font-semibold text-[var(--text)]">This is a research and education tool.</strong> It
-            describes what a portfolio holds, compares it with a reference model built from figures you supply, and
-            explains the concepts behind the differences it finds.
+            <strong className="font-semibold text-[var(--text)]">A research and education tool.</strong> It describes
+            what a portfolio holds, compares it with a reference model, and explains the differences.
           </p>
           <p>
-            It is <strong className="font-semibold text-[var(--text)]">not a financial adviser</strong> and gives no
-            personal recommendations. Nothing here is a suggestion to buy or dispose of any investment. Where it lists
-            instruments, it is showing the results of a filter over a fund universe and the criteria used — that is a
-            screening result, not a shortlist anyone has vetted for you.
+            <strong className="font-semibold text-[var(--text)]">Not a financial adviser.</strong> No personal
+            recommendations, and nothing here is a suggestion to buy or dispose of anything. Instrument lists are
+            screening results shown with their criteria, not a vetted shortlist.
           </p>
-          <p>
-            The reference model it compares against is anchored on global market weights and on your own answers. Every
-            input is visible and editable. A difference from it is information, not a verdict.
-          </p>
+          <p>Every input behind the reference is visible and editable. A difference from it is information, not a verdict.</p>
           <p className="rounded-lg border border-[var(--warn)]/30 bg-[var(--warn-soft)] px-3 py-2 text-[var(--text)]">
             {DATASET_META.warning}
           </p>
           <p>
-            Your holdings and answers stay in this browser. They are saved to local storage on this device and are not
-            sent anywhere.
+            Your holdings stay in this browser. Nothing is sent anywhere.
           </p>
         </div>
         <div className="mt-5 flex justify-end">
@@ -58,11 +52,9 @@ export function DisclaimerGate() {
 export function DisclaimerFooter() {
   return (
     <p className="mt-10 border-t border-[var(--border)] pt-5 text-[11.5px] leading-relaxed text-[var(--text-faint)]">
-      Gapline is a research and education tool. It is not a financial adviser, it does not provide personal
-      recommendations, and nothing it produces is a suggestion to buy or dispose of any investment. Instrument lists are
-      the output of a filter over a fund universe, shown with the criteria that produced them. Figures in this build are
-      illustrative sample data, not live market data. Tax treatment depends on your own circumstances and your
-      country&apos;s rules. If you want advice on your particular situation, speak to someone licensed to give it.
+      Research and education, not financial advice. No personal recommendations; instrument lists are screening
+      results shown with their criteria. Figures are illustrative sample data, not live market data. Tax depends on your
+      own circumstances. For advice on your situation, speak to someone licensed to give it.
     </p>
   );
 }

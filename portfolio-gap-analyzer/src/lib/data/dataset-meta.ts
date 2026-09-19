@@ -12,5 +12,5 @@ export const DATASET_META = {
   asOf: "2025-06-30",
   headline: "Illustrative sample data — not live market data",
   warning:
-    "Prices, fundamentals and fund breakdowns in this build are hand-curated sample figures, rounded and frozen at a single date. Use them to explore how the analysis works, never to size a real trade. Connect a market-data provider for live figures.",
+    "Every figure here is hand-curated sample data, frozen at one date. Fine for exploring how the analysis works; never for sizing a real trade.",
 };

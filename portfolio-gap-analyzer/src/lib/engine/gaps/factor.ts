@@ -93,7 +93,7 @@ export function factorFindings(ctx: GapContext): Finding[] {
       title: `${formatPercent(style.growth ?? 0)} of the equity sleeve is in growth-styled companies`,
       summary: `Against roughly 31% for a broad market index. Value is ${formatPercent(style.value ?? 0)} of the sleeve.`,
       why:
-        "Growth companies are priced on expected future earnings rather than current ones, which makes them more sensitive to interest rates and to disappointment. A heavy growth weight is usually not a decision: it is what happens when a portfolio is built from a large-cap index, a technology fund and a few well-known names, each of which holds the same companies.",
+        "Growth companies are priced on future earnings, which makes them sensitive to rates and to disappointment. A heavy growth weight is usually not a decision — it is what a large-cap index plus a tech fund plus a few famous names produces.",
       evidence: [
         { label: "Growth", value: formatPercent(style.growth ?? 0) },
         { label: "Blend", value: formatPercent(style.blend ?? 0) },

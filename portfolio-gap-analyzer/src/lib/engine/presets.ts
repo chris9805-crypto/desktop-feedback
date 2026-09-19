@@ -72,7 +72,7 @@ export const PRESETS: Record<ReferencePresetId, ReferencePreset> = {
     label: "MSCI World",
     blurb: "Large and mid-cap companies across 23 developed markets. Around 1,400 holdings, roughly 70% of it in the United States.",
     consequence:
-      "This index holds no emerging markets, so emerging-market holdings will read as an overweight against it rather than as a gap to fill. Emerging markets are about a tenth of global listed market value, so that is a real exclusion, not a rounding difference.",
+      "No emerging markets, so EM holdings read as an overweight rather than a gap. That is about a tenth of global listed value — a real exclusion, not a rounding difference.",
     region: { ...NO_REGIONS, us: 0.706, canada: 0.03, uk: 0.037, europeExUk: 0.131, japan: 0.058, asiaPacificDeveloped: 0.038 },
     sector: WORLD_SECTORS,
     size: { large: 0.86, mid: 0.14, small: 0 },
@@ -84,7 +84,7 @@ export const PRESETS: Record<ReferencePresetId, ReferencePreset> = {
     label: "S&P 500",
     blurb: "The 500 largest US companies, about 85% of the US market by value and roughly 60% of global listed market value.",
     consequence:
-      "A single-country index. Every holding outside the United States will read as an overweight, and no international gap can be found against it. Its historical return is higher than a global index's, and so is its concentration.",
+      "A single country. Everything outside the US reads as an overweight, and no international gap can be found. Historically a higher return than a global index, and more concentration.",
     region: { ...NO_REGIONS, us: 1 },
     sector: US_SECTORS,
     size: { large: 0.88, mid: 0.12, small: 0 },
@@ -96,7 +96,7 @@ export const PRESETS: Record<ReferencePresetId, ReferencePreset> = {
     label: "Global all-cap",
     blurb: "Developed and emerging markets, large through small — the closest thing to the whole listed market portfolio.",
     consequence:
-      "The broadest of the three, so it finds the most gaps: emerging markets and small caps both carry a reference weight here that the other two indices do not.",
+      "The broadest of the three, so it finds the most gaps: emerging markets and small caps both carry weight here that the other two do not.",
     region: { us: 0.635, canada: 0.027, uk: 0.034, europeExUk: 0.119, japan: 0.053, asiaPacificDeveloped: 0.037, emergingMarkets: 0.095 },
     sector: GLOBAL_SECTORS,
     size: { large: 0.72, mid: 0.19, small: 0.09 },

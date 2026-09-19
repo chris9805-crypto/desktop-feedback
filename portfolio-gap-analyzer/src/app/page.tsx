@@ -8,15 +8,15 @@ import { DETECTORS } from "@/lib/engine/gaps";
 const STEPS = [
   {
     title: "Map what you actually hold",
-    body: "Paste your holdings and the tool resolves them into exposure across asset class, region, sector, size, style, factor, credit and currency — then looks through your funds to the individual companies underneath them.",
+    body: "Paste your holdings. They resolve into exposure across asset class, region, sector, size, style, factor, credit and currency — then look through your funds to the companies underneath.",
   },
   {
     title: "Build a reference to compare against",
-    body: "Your horizon, cash buffer, contributions and income needs produce a reference model anchored on global market weights. Every step of the derivation is shown in plain English, and every input is yours to change.",
+    body: "Pick an index, and your horizon and cash buffer size the rest. Every step of the derivation is shown, and every input is yours to change.",
   },
   {
     title: "Read the gaps, with the reasoning",
-    body: "Each difference comes with the numbers behind it, an explanation of why that measure matters, and the routes available for closing it — including the route of deciding the gap was intentional.",
+    body: "Each difference comes with the numbers, why the measure matters, and the routes for closing it — including deciding it was intentional.",
   },
 ];
 
@@ -31,10 +31,9 @@ export default function HomePage() {
           Most portfolios have holes their owners never chose.
         </h1>
         <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-[var(--text-muted)]">
-          Not because of bad decisions — because of drift. A sector grows into a third of your equity without you buying
-          any more of it. Two funds you bought years apart turn out to hold the same hundred companies. A single stock
-          reaches double-digit weight through index funds you never connected to it. Gapline finds those gaps, shows the
-          arithmetic, and explains what each one means.
+          Not bad decisions — drift. A sector grows into a third of your equity without you buying more. Two funds
+          bought years apart hold the same hundred companies. One stock hits double digits through index funds you never
+          connected to it. Gapline finds those gaps and shows the arithmetic.
         </p>
         <div className="mt-7">
           <StartButtons />
@@ -59,8 +58,7 @@ export default function HomePage() {
       <section>
         <h2 className="text-[18px] font-semibold tracking-tight text-[var(--text)]">What it checks</h2>
         <p className="mt-2 max-w-2xl text-[13.5px] leading-relaxed text-[var(--text-muted)]">
-          Nine families of checks run against the difference between your portfolio and your reference model. Each one
-          reports its own evidence, so you can disagree with a finding on the numbers rather than on faith.
+          Nine families of checks, each reporting its own evidence — so you can disagree on the numbers, not on faith.
         </p>
         <ul className="mt-5 grid gap-x-8 gap-y-2.5 sm:grid-cols-2 lg:grid-cols-3">
           {DETECTORS.map((detector) => (
@@ -78,17 +76,15 @@ export default function HomePage() {
           <Card className="p-5">
             <h3 className="text-[14px] font-semibold text-[var(--text)]">Not an adviser</h3>
             <p className="mt-2 text-[13px] leading-relaxed text-[var(--text-muted)]">
-              Giving personal investment advice requires a licence, and this tool does not have one or pretend to. It
-              never tells you what to do with your money. It describes, compares and explains — and where it lists
-              instruments, it shows the filter criteria that produced the list so you can judge the list for yourself.
+              Personal investment advice requires a licence. This tool has none and pretends to none. It describes,
+              compares and explains, and shows the filter criteria behind every instrument list.
             </p>
           </Card>
           <Card className="p-5">
             <h3 className="text-[14px] font-semibold text-[var(--text)]">Not a forecast</h3>
             <p className="mt-2 text-[13px] leading-relaxed text-[var(--text-muted)]">
-              No price targets, no expected returns dressed up as projections, no ratings. Where an illustration uses an
-              assumed rate of return, it is labelled as an assumption and the rate is shown. Past figures are described
-              as history, because that is all they are.
+              No price targets, no ratings, no returns dressed up as projections. Assumed rates are labelled and shown.
+              Past figures are described as history, because that is all they are.
             </p>
           </Card>
         </div>
@@ -97,7 +93,7 @@ export default function HomePage() {
       <section>
         <h2 className="text-[18px] font-semibold tracking-tight text-[var(--text)]">Start with the concepts</h2>
         <p className="mt-2 max-w-2xl text-[13.5px] leading-relaxed text-[var(--text-muted)]">
-          Every finding links to the idea behind it. You can also read them on their own.
+          Every finding links to the idea behind it.
         </p>
         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {ARTICLES.slice(0, 6).map((article) => (

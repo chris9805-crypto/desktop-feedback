@@ -21,7 +21,7 @@ function buildCaveats(portfolio: Portfolio, metrics: ReturnType<typeof computeMe
     const unpriced = portfolio.unresolved.filter((u) => u.reason === "no-value").map((u) => u.raw);
     if (unknown.length > 0) {
       caveats.push(
-        `Not analysed — not in the bundled security master: ${unknown.join(", ")}. Every weight below is a share of the holdings that were resolved, so these are missing from the whole report.`,
+        `Not analysed — not in the bundled security master: ${unknown.join(", ")}. Every weight below excludes them.`,
       );
     }
     if (unpriced.length > 0) {
@@ -32,22 +32,22 @@ function buildCaveats(portfolio: Portfolio, metrics: ReturnType<typeof computeMe
   const fundWeight = portfolio.positions.filter((p) => p.security.kind === "etf").reduce((a, p) => a + p.weight, 0);
   if (fundWeight > 0.1) {
     caveats.push(
-      "Look-through figures use each fund's disclosed top holdings plus an even spread across the rest. Single-name concentration through funds is therefore an estimate, and a slight understatement for funds that disclose only a handful of positions.",
+      "Look-through uses each fund's disclosed top holdings plus an even spread across the rest, so single-name concentration is an estimate and a slight understatement.",
     );
   }
 
   caveats.push(
-    "Momentum is not scored for directly held shares: it needs a trailing return series, which this build does not carry. A momentum tilt coming from individual stocks will not appear in the factor section.",
+    "Momentum is not scored for directly held shares — it needs a return series this build does not carry.",
   );
 
   if (metrics.estimatedVolatility > 0) {
     caveats.push(
-      `Volatility of ${formatPercent(metrics.estimatedVolatility)} comes from a single-factor model using each holding's beta and past three-year volatility. Past volatility is a poor guide to the size of a crisis, and correlations move toward one exactly when diversification is most needed.`,
+      `Volatility of ${formatPercent(metrics.estimatedVolatility)} comes from a single-factor model on past three-year figures. Past volatility is a poor guide to the size of a crisis, and correlations converge exactly when you need them not to.`,
     );
   }
 
   caveats.push(
-    "Tax treatment is flagged as a consideration but never calculated. It depends on your country, your account type and your own circumstances.",
+    "Tax is flagged as a consideration, never calculated. It depends on your country, account type and circumstances.",
   );
 
   return caveats;

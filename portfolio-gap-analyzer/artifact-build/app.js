@@ -242,7 +242,7 @@
 
     return '<section class="card pad"><h2 class="sec-title">What the ' + esc(r.reference.presetLabel) +
       ' reference mix has historically ranged between</h2>' +
-      '<p class="sub" style="margin-top:4px">A simulation of 2,000 paths, in today\u2019s money. It is not a forecast, and it illustrates the reference model rather than the holdings you actually own.</p>' +
+      '<p class="sub" style="margin-top:4px">2,000 simulated paths, in today\u2019s money. Not a forecast, and it is the reference mix rather than your holdings.</p>' +
 
       '<div class="grid3" style="margin-top:16px">' +
       '<div><div class="stat-k">Lower edge — 1 path in 10 below</div><div class="stat-v t-over">' + cur(pj.final.p10) + "</div></div>" +
@@ -272,12 +272,12 @@
       '<div class="grid2" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--line)">' +
       '<label class="field"><span class="field-k">Real return assumption: ' + pct(pj.assumptions.realReturn) + " a year</span>" +
       '<span class="field-h">' + esc(r.reference.presetLabel) +
-      ' blended with the bond sleeve at this model\u2019s weights, on long-run historical figures. After inflation. Change it and the whole range moves.</span>' +
+      ' and bonds at this model\u2019s weights, long-run historical, after inflation. Change it and the range moves.</span>' +
       '<input type="range" id="projret" data-act="projret" min="0" max="10" step="0.1" value="' +
       (Math.round(pj.assumptions.realReturn * 1000) / 10) + '" aria-label="Real return assumption">' +
       (state.projReturn != null ? '<button class="row-link" data-act="projreset" style="margin-top:6px;font-size:12px;color:var(--accent-ink);text-decoration:none">Back to the historical figure</button>' : "") +
       "</label>" +
-      '<label class="field"><span class="field-k">Volatility</span><span class="field-h">Derived from the reference mix, not set by you. It is what makes the band wide.</span>' +
+      '<label class="field"><span class="field-k">Volatility</span><span class="field-h">Derived from the mix. It is what makes the band wide.</span>' +
       '<input type="text" value="' + pct(pj.assumptions.volatility) + '" readonly aria-readonly="true"></label></div>' +
 
       '<div style="margin-top:16px"><button class="row-link" data-act="projtable" style="font-size:12px;color:var(--accent-ink);text-decoration:none">' +
@@ -364,7 +364,7 @@
       "</div></div>" +
 
       '<section class="card pad"><h2 class="sec-title">What the money is in</h2>' +
-      '<p class="sub" style="margin-top:4px">Asset class shares of the whole portfolio, including any uninvested cash.</p>' +
+      '<p class="sub" style="margin-top:4px">Including any uninvested cash.</p>' +
       '<div style="margin-top:14px">' + stackedBar(slices) + "</div></section>" +
 
       "<section>" +
@@ -373,7 +373,7 @@
         : "The " + headline.length + " gaps worth starting with") + "</h2>" +
       '<p class="sub" style="margin-top:4px">' + (rest.length
         ? "Ranked by how much of the portfolio each touches. " + rest.length + " smaller finding" + (rest.length === 1 ? " sits" : "s sit") + " below."
-        : "Ranked by how much of the portfolio each touches. This is an ordering, not a severity or risk score.") + "</p>" +
+        : "Ranked by how much of the portfolio each touches — an ordering, not a risk score.") + "</p>" +
       (r.findings.length
         ? '<div class="stack-s" style="margin-top:14px">' + headline.map(findingCard).join("") + "</div>" +
           (rest.length
@@ -387,19 +387,19 @@
               (state.showRest ? '<div class="stack-s" style="margin-top:12px">' + rest.map(findingCard).join("") + "</div>" : "") +
               "</div>"
             : "")
-        : '<div class="note" style="margin-top:14px"><strong>Nothing crossed a materiality threshold.</strong> That means no gap was large enough to report — not that the portfolio is right for you, which is a question this tool does not answer.</div>') +
+        : '<div class="note" style="margin-top:14px"><strong>Nothing crossed a materiality threshold.</strong> No gap was big enough to report — not that the portfolio is right for you, which this tool does not answer.</div>') +
       "</section>" +
 
       '<section class="card pad" style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between">' +
       '<div style="max-width:34rem"><h2 class="sec-title">What range has the ' + esc(r.reference.presetLabel) +
       ' reference mix historically produced?</h2>' +
-      '<p class="sub" style="margin-top:4px">The projection sits with the reference portfolio, because it illustrates that mix rather than the holdings you own. Over ' +
+      '<p class="sub" style="margin-top:4px">It illustrates that mix, not your holdings. Over ' +
       r.profile.horizonYears + " years it spans " + cur(r.projection.final.p10) + " to " + cur(r.projection.final.p90) +
       ' in today\u2019s money.</p></div>' +
       '<button class="btn sec" data-act="go" data-view="reference">See the projection</button></section>' +
 
       '<section class="card pad"><h2 class="sec-title">Exposure, dimension by dimension</h2>' +
-      '<p class="sub" style="margin-top:4px">The same portfolio, sliced different ways, each against the corresponding reference weight.</p>' +
+      '<p class="sub" style="margin-top:4px">Each slice against its reference weight.</p>' +
       '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:14px" role="tablist">' +
       EXP_TABS.map(function (t) {
         return '<button class="tab" role="tab" data-act="exptab" data-tab="' + t[0] + '"' +
@@ -423,7 +423,7 @@
       '<p style="font-size:11.5px;color:var(--faint);margin-top:10px">Funds publish only their largest holdings, so companies outside every fund’s disclosed list do not appear here. The concentration figures above account for that remainder; this table does not.</p></section>' +
 
       '<section class="card pad"><h2 class="sec-title">The reference model</h2>' +
-      '<p class="sub" style="margin-top:4px">What your portfolio is compared against, and how it was derived.</p>' +
+      '<p class="sub" style="margin-top:4px">What you are compared against, and how it was derived.</p>' +
       '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px">' +
       '<span class="pill accent">' + esc(ref.label) + "</span>" +
       '<span class="pill">Growth ' + pct(ref.inputs.growthShare) + "</span>" +
@@ -475,7 +475,7 @@
 
       '<div class="cols">' +
       '<section class="card pad"><h2 class="sec-title">Paste a list</h2>' +
-      '<p class="sub" style="margin-top:4px">One holding per line. A bare number is read as shares, a number with a currency symbol as a value, and a number with a percent sign as a share of the portfolio.</p>' +
+      '<p class="sub" style="margin-top:4px">One per line. A bare number is shares, a currency symbol means a value, a percent sign means a share of the portfolio.</p>' +
       '<textarea id="paste" rows="7" spellcheck="false" placeholder="VOO, 120&#10;QQQ, $26,000&#10;NVDA, 45&#10;BND, 8%" aria-label="Holdings to paste"></textarea>' +
       '<div class="btnrow" style="margin-top:10px"><button class="btn" data-act="paste" data-mode="replace">Replace holdings</button>' +
       '<button class="btn sec" data-act="paste" data-mode="add">Add to existing</button></div>' +
@@ -578,17 +578,17 @@
 
     return '<header><p class="eyebrow" style="color:var(--accent-ink)">Start here</p>' +
       '<h1 style="font-size:24px;margin-top:8px">The reference portfolio</h1>' +
-      '<p class="lede" style="margin-top:12px">Before looking at what you hold, it is worth knowing what you are holding it <em>against</em>. A reference portfolio is a transparent, boring, fully specified mix — an index for the equity side and a bond sleeve sized to your horizon. Everything this tool later calls a \u201cgap\u201d is just a difference between your portfolio and this one.</p>' +
-      '<p class="lede" style="margin-top:10px">It is not a target and nobody is recommending it. Its job is to be a fixed, visible yardstick, so that a difference becomes a decision you can examine rather than a drift you never noticed. Every number below is derived from inputs you control, and the derivation is printed in full.</p></header>' +
+      '<p class="lede" style="margin-top:12px">Know what you are measuring against before you measure. A reference portfolio is a plain, fully specified mix — an index for the equity side, a bond sleeve sized to your horizon. Every \u201cgap\u201d this tool reports is just a difference from it.</p>' +
+      '<p class="lede" style="margin-top:10px">It is a yardstick, not a target, and nobody is recommending it. Every number below comes from inputs you control, and the working is shown.</p></header>' +
 
       '<section class="card pad"><h2 class="sec-title">The index your portfolio is compared against</h2>' +
-      '<p class="sub" style="margin-top:4px">This decides what counts as a gap. Pick the one that matches how you think about your portfolio — the report rebuilds around it.</p>' +
+      '<p class="sub" style="margin-top:4px">This decides what counts as a gap. The report rebuilds around it.</p>' +
       '<div class="grid3" style="margin-top:14px">' + presetCards + "</div>" +
       '<div class="note warn" style="margin-top:16px"><strong>What choosing ' + esc(ref.presetLabel) +
       " means for your report</strong><br>" + esc(ref.indexNote) + "</div></section>" +
 
       '<section class="card pad"><h2 class="sec-title">What the ' + esc(ref.presetLabel) + ' reference portfolio holds</h2>' +
-      '<p class="sub" style="margin-top:4px">The whole model, laid out. Adjust anything below and these move with it.</p>' +
+      '<p class="sub" style="margin-top:4px">Adjust anything below and these move with it.</p>' +
       '<div class="cols" style="margin-top:18px;gap:28px 32px">' +
       pieChart("Across the whole portfolio", slices) +
       pieChart("Equity sleeve by region", regionSlices) +
@@ -599,7 +599,7 @@
       '<div class="cols">' +
       '<div class="stack">' +
       '<section class="card pad"><h2 class="sec-title">The goal and its date</h2>' +
-      '<p class="sub" style="margin-top:4px">These size the bond sleeve and the cash floor. They do not touch the index you picked above.</p>' +
+      '<p class="sub" style="margin-top:4px">These size the bond sleeve and the cash floor, not the index.</p>' +
       '<div class="grid2" style="margin-top:12px">' +
       '<label class="field"><span class="field-k">What the money is for</span>' + sel("goal", "goal", p.goal, ["retirement", "houseDeposit", "educationFund", "incomeNow", "generalGrowth"]) + "</label>" +
       numField("horizon", "horizon", "Years until you need it", "The single largest input", p.horizonYears, 1, 50) +
@@ -608,7 +608,7 @@
       "</div></section>" +
 
       '<section class="card pad"><h2 class="sec-title">Capacity for a bad year</h2>' +
-      '<p class="sub" style="margin-top:4px">Circumstances, not feelings. These decide how much volatility the plan can absorb without breaking.</p>' +
+      '<p class="sub" style="margin-top:4px">Circumstances, not feelings — what the plan can absorb without breaking.</p>' +
       '<div class="grid2" style="margin-top:12px">' +
       numField("contrib", "contrib", "Monthly contribution", "New money each month", p.monthlyContribution, 0, 1000000) +
       numField("spend", "spend", "Essential monthly spending", "What you would need if you cut back", p.monthlyEssentialSpend, 0, 1000000) +
@@ -627,7 +627,7 @@
 
       '<div class="stack">' +
       '<section class="card pad"><h2 class="sec-title">The model in four numbers</h2>' +
-      '<p class="sub" style="margin-top:4px">What the choices above add up to. A comparison baseline, not a target anyone is setting for you.</p>' +
+      '<p class="sub" style="margin-top:4px">What the choices above add up to.</p>' +
       '<div class="grid2" style="margin-top:16px;gap:12px">' +
       '<div><div class="stat-k">Growth assets</div><div class="stat-v">' + pct(ref.inputs.growthShare) + "</div></div>" +
       '<div><div class="stat-k">Risk capacity</div><div class="stat-v">' + Math.round(ref.inputs.riskCapacityScore * 100) + "/100</div></div>" +
@@ -643,7 +643,7 @@
       }).join("") + "</ol></section>" +
 
       '<section class="card pad"><h2 class="sec-title">Set the bond allocation directly</h2>' +
-      '<p class="sub" style="margin-top:4px">The glidepath above estimates this from your horizon. If you already know what split you want, set it here and it replaces the estimate.</p>' +
+      '<p class="sub" style="margin-top:4px">The glidepath estimates this from your horizon. Set it here to override.</p>' +
       '<input type="range" id="bond" data-act="bond" min="0" max="90" step="5" value="' +
       Math.round((state.bondShare == null ? ref.assetClass.bond : state.bondShare) * 100) + '" aria-label="Bond allocation">' +
       '<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-top:8px">' +
@@ -651,7 +651,7 @@
       pct(ref.inputs.growthShare) + " growth · " + pct(ref.assetClass.cash) + " cash</span>" +
       (state.bondShare != null ? '<button class="btn ghost" data-act="bondreset">Back to the glidepath</button>' : "") + "</div></section>" +
 
-      '<div class="note"><strong>Why an index, rather than someone\u2019s opinion.</strong> An index is maintained by someone else, published, and observable. That is the whole appeal: comparing your portfolio with one requires no forecast and no view about what anyone ought to hold. Differences from it are positions you have taken, deliberately or otherwise — and the point of the exercise is to find out which.</div>' +
+      '<div class="note"><strong>Why an index, rather than someone\u2019s opinion.</strong> Someone else maintains it, publishes it, and you can check it. Comparing against one needs no forecast and no view about what anyone ought to hold. Differences are positions you have taken — the point is finding out which ones you meant.</div>' +
       "</div></div>" +
 
       projectionPanel(r) +
@@ -660,8 +660,8 @@
       '<div style="max-width:34rem"><h2 class="sec-title">' +
       (hasHoldings ? "Now see where your portfolio differs" : "Next: add what you actually hold") + "</h2>" +
       '<p class="sub" style="margin-top:4px">' + (hasHoldings
-        ? "Your holdings are already loaded. The gap report measures them against the reference above, and ranks the differences by how much of the portfolio each one touches."
-        : "Paste a list or add positions one at a time. Nothing is uploaded — the whole comparison runs in this browser.") + "</p></div>" +
+        ? "The gap report measures them against the reference above, ranked by how much of the portfolio each difference touches."
+        : "Paste a list or add them one at a time. Nothing is uploaded — it all runs in this browser.") + "</p></div>" +
       '<div class="btnrow"><button class="btn" data-act="go" data-view="' + (hasHoldings ? "report" : "holdings") + '">' +
       (hasHoldings ? "See the gap report" : "Add your holdings") + "</button>" +
       (hasHoldings ? '<button class="btn sec" data-act="go" data-view="holdings">Edit holdings</button>' : "") +
@@ -695,7 +695,7 @@
     var visible = rows.slice(0, s.limit);
 
     return '<header><h1 style="font-size:22px">Research</h1>' +
-      '<p class="lede" style="margin-top:6px">Filter the bundled universe of funds and companies. The scores are arithmetic summaries of published metrics, shown next to the inputs that produced them.</p></header>' +
+      '<p class="lede" style="margin-top:6px">Filter the bundled universe. Scores are arithmetic summaries of published metrics, shown with their inputs.</p></header>' +
 
       '<section class="card pad"><div class="grid4">' +
       '<label class="field"><span class="field-k">Search</span><input type="text" id="sq" data-act="sq" value="' + esc(s.q) + '" placeholder="Ticker or name"></label>' +
@@ -807,7 +807,7 @@
           : f.dividendYield > 0 ? "A token payout; too small to analyse" : "") +
       "</div></div>" +
       '<section class="card pad"><h2 class="sec-title">Composite scores</h2>' +
-      '<p class="sub" style="margin-top:4px">Each score averages the components beneath it on a fixed 0-100 scale. They are not ratings, forecasts or a view on whether anything is worth owning.</p>' +
+      '<p class="sub" style="margin-top:4px">Each score averages the components beneath it, 0-100. Not ratings, not forecasts.</p>' +
       '<div class="grid2" style="margin-top:16px;gap:22px">' +
       meter("Quality", sc.quality) + meter("Financial strength", sc.strength) +
       meter("Past growth", sc.growth) + meter("Valuation", sc.valuation) +
@@ -853,7 +853,7 @@
           }).join("") + "</ul>" : "") + "</article>";
     }
     return '<header><h1 style="font-size:22px">Learn</h1>' +
-      '<p class="lede" style="margin-top:6px">Every finding in the gap report links to one of these. They explain what a measure captures, what it misses, and where the usual reasoning goes wrong — rather than telling you what to do about it.</p></header>' +
+      '<p class="lede" style="margin-top:6px">Every finding links to one of these. What a measure captures, what it misses, and where the usual reasoning goes wrong.</p></header>' +
       TOPICS.map(function (topic) {
         var list = G.ARTICLES.filter(function (a) { return a.topic === topic; });
         if (!list.length) return "";
@@ -877,11 +877,11 @@
     return '<div class="scrim" role="dialog" aria-modal="true" aria-labelledby="gate-t"><div class="modal">' +
       '<h2 id="gate-t" style="font-size:18px">Before you start</h2>' +
       '<div class="stack-s" style="margin-top:12px;font-size:13px;color:var(--muted);line-height:1.6">' +
-      '<p><strong style="color:var(--ink)">This is a research and education tool.</strong> It describes what a portfolio holds, compares it with a reference model built from figures you supply, and explains the concepts behind the differences it finds.</p>' +
-      '<p>It is <strong style="color:var(--ink)">not a financial adviser</strong> and gives no personal recommendations. Nothing here is a suggestion to buy or dispose of any investment. Where it lists instruments, it is showing the results of a filter over a fund universe and the criteria used — a screening result, not a shortlist anyone has vetted for you.</p>' +
-      '<p>The reference model it compares against is anchored on global market weights and on your own answers. Every input is visible and editable. A difference from it is information, not a verdict.</p>' +
+      '<p><strong style="color:var(--ink)">A research and education tool.</strong> It describes what a portfolio holds, compares it with a reference model, and explains the differences.</p>' +
+      '<p><strong style="color:var(--ink)">Not a financial adviser.</strong> No personal recommendations, and nothing here is a suggestion to buy or dispose of anything. Instrument lists are screening results shown with their criteria.</p>' +
+      '<p>Every input behind the reference is visible and editable. A difference from it is information, not a verdict.</p>' +
       '<p class="note warn" style="color:var(--ink)">' + esc(G.DATASET_META.warning) + "</p>" +
-      "<p>Your holdings and answers stay in this browser. They are not sent anywhere.</p></div>" +
+      "<p>Your holdings stay in this browser. Nothing is sent anywhere.</p></div>" +
       '<div class="btnrow" style="justify-content:flex-end;margin-top:18px"><button class="btn" data-act="accept">I understand</button></div>' +
       "</div></div>";
   }
@@ -896,7 +896,7 @@
       }).join("") + "</nav>" +
       '<span class="topbar-note">Research and education — not financial advice</span>' +
       "</div></div><main><div class=\"stack\">" + inner + "</div>" +
-      '<p class="foot">Gapline is a research and education tool. It is not a financial adviser, it does not provide personal recommendations, and nothing it produces is a suggestion to buy or dispose of any investment. Instrument lists are the output of a filter over a fund universe, shown with the criteria that produced them. Figures in this build are illustrative sample data, not live market data. Tax treatment depends on your own circumstances and your country’s rules. If you want advice on your particular situation, speak to someone licensed to give it.</p>' +
+      '<p class="foot">Research and education, not financial advice. No personal recommendations; instrument lists are screening results shown with their criteria. Figures are illustrative sample data, not live market data. Tax depends on your own circumstances. For advice on your situation, speak to someone licensed to give it.</p>' +
       "</main>" + gate();
   }
 

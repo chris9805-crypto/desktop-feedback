@@ -94,7 +94,7 @@ export default function AnalysisPage() {
       <Card className="p-5">
         <SectionHeading
           title="What the money is in"
-          description="Asset class shares of the whole portfolio, including any uninvested cash."
+          description="Including any uninvested cash."
         />
         <StackedBar slices={assetSlices} />
       </Card>
@@ -110,15 +110,14 @@ export default function AnalysisPage() {
           }
           description={
             findings.length > headline.length
-              ? `Ranked by how much of the portfolio each touches. ${rest.length} smaller finding${rest.length === 1 ? " sits" : "s sit"} below.`
-              : "Ranked by how much of the portfolio each touches. This is an ordering, not a severity or risk score."
+              ? `Ranked by how much of the portfolio each touches. ${rest.length} smaller below.`
+              : "Ranked by how much of the portfolio each touches — an ordering, not a risk score."
           }
         />
         {findings.length === 0 ? (
           <Callout title="Nothing crossed a materiality threshold">
-            On every check the engine runs, this portfolio sits within the thresholds of its reference model. That means
-            no gap was large enough to be worth reporting — not that the portfolio is right for you, which is a question
-            this tool does not answer. Adjusting the reference inputs will change what counts as a gap.
+            Every check came in within threshold. That means no gap was big enough to report — not that the portfolio
+            is right for you, which this tool does not answer.
           </Callout>
         ) : (
           <>
@@ -158,8 +157,8 @@ export default function AnalysisPage() {
             What range has the {reference.presetLabel} reference mix historically produced?
           </h2>
           <p className="mt-1 text-[13px] leading-relaxed text-[var(--text-muted)]">
-            The projection sits with the reference portfolio, because it illustrates that mix rather than the holdings
-            you own. Over {profile.horizonYears} years it spans {formatCurrency(report.projection.final.p10, currency)} to{" "}
+            It illustrates that mix, not your holdings. Over {profile.horizonYears} years:{" "}
+            {formatCurrency(report.projection.final.p10, currency)} to{" "}
             {formatCurrency(report.projection.final.p90, currency)} in today&apos;s money.
           </p>
         </div>
@@ -171,7 +170,7 @@ export default function AnalysisPage() {
       <Card className="p-5">
         <SectionHeading
           title="Exposure, dimension by dimension"
-          description="The same portfolio, sliced different ways, each against the corresponding reference weight."
+          description="Each slice against its reference weight."
         />
         <ExposureExplorer report={report} />
       </Card>
@@ -180,7 +179,7 @@ export default function AnalysisPage() {
         <Card className="p-5">
           <SectionHeading
             title="Largest companies, counted through funds"
-            description="Direct holdings and fund holdings added together. This is where most people find a weight they did not know they had."
+            description="Direct and fund holdings added together — usually where the surprise is."
           />
           <table className="w-full text-[12.5px]">
             <tbody className="divide-y divide-[var(--border)]">
@@ -210,7 +209,7 @@ export default function AnalysisPage() {
         <Card className="p-5">
           <SectionHeading
             title="The reference model"
-            description="What your portfolio is being compared against, and how it was derived."
+            description="What you are compared against, and how it was derived."
           />
           <div className="flex flex-wrap gap-2">
             <Pill tone="accent">{reference.label}</Pill>

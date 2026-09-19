@@ -58,8 +58,7 @@ export default function PortfolioPage() {
       <div>
         <h1 className="text-[22px] font-semibold tracking-tight text-[var(--text)]">Your holdings</h1>
         <p className="mt-2 max-w-2xl text-[13.5px] leading-relaxed text-[var(--text-muted)]">
-          Paste a list, or add positions one at a time. Everything stays in this browser — nothing is uploaded, and
-          there is no account to create.
+          Paste a list or add positions one at a time. Nothing is uploaded and there is no account.
         </p>
       </div>
 
@@ -67,7 +66,7 @@ export default function PortfolioPage() {
         <Card className="p-5">
           <SectionHeading
             title="Paste a list"
-            description="One holding per line. A bare number is read as shares, a number with a currency symbol as a cash value, and a number with a percent sign as a share of the portfolio."
+            description="One per line. A bare number is shares, a currency symbol means a value, a percent sign means a share of the portfolio."
           />
           <textarea
             value={paste}
@@ -162,7 +161,7 @@ export default function PortfolioPage() {
       <Card className="p-5">
         <SectionHeading
           title="Account settings"
-          description="Cash held in the account counts toward the portfolio. Base currency decides what everything is converted into."
+          description="Cash counts toward the portfolio. Base currency is what everything converts into."
         />
         <div className="grid gap-4 sm:grid-cols-3">
           <Field label="Uninvested cash" hint="Sitting in the account, not invested">
@@ -210,8 +209,7 @@ export default function PortfolioPage() {
             </Button>
           }
         >
-          Add holdings above, or load an example portfolio to see what the report looks like before entering anything of
-          your own.
+          Add holdings above, or load an example to see what the report produces.
         </EmptyState>
       ) : (
         <Card>

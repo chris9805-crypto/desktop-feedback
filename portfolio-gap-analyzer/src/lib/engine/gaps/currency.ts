@@ -23,7 +23,7 @@ export function currencyFindings(ctx: GapContext): Finding[] {
       title: `${formatPercent(foreignShare)} of the portfolio is in currencies other than ${base}`,
       summary: `You will spend in ${base}, and ${formatCurrency(foreignShare * total, base)} is exposed to exchange-rate moves on a ${ctx.profile.horizonYears}-year horizon.`,
       why:
-        "Owning a foreign company means owning its currency too. Over long periods currency moves have tended to average out and hedging costs money, so most long-horizon investors leave equity exposure unhedged. Over a few years it is different: a 10-15% move in a major pair is unremarkable, and it lands directly on the value of money that is about to be spent. Bonds are the sharper case — a currency swing can be several times the yield, which is why international bond funds are usually sold hedged.",
+        "Owning a foreign company means owning its currency too. Over decades that tends to wash out; over a few years a 10-15% swing lands straight on money you are about to spend. Bonds are the sharp case — a currency move can dwarf the yield.",
       evidence: [
         { label: `${base} exposure`, value: formatPercent(baseShare) },
         { label: "Other currencies", value: formatPercent(foreignShare), detail: topCurrencies(currencyMap, base) },

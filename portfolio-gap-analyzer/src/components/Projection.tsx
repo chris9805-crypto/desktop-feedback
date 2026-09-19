@@ -35,7 +35,7 @@ export function ProjectionPanel({
     <Card className="p-5">
       <SectionHeading
         title={`What the ${report.reference.presetLabel} reference mix has historically ranged between`}
-        description="A simulation of 2,000 paths, in today's money. It is not a forecast, and it illustrates the reference model rather than the holdings you actually own."
+        description="2,000 simulated paths, in today's money. Not a forecast, and it is the reference mix rather than your holdings."
       />
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -119,7 +119,7 @@ export function ProjectionPanel({
       <div className="mt-5 grid gap-4 border-t border-[var(--border)] pt-4 sm:grid-cols-2">
         <Field
           label={`Real return assumption: ${formatPercent(projection.assumptions.realReturn)} a year`}
-          hint={`${report.reference.presetLabel} blended with the bond sleeve at this model's weights, on long-run historical figures. After inflation. Change it and the whole range moves.`}
+          hint={`${report.reference.presetLabel} and bonds at this model's weights, long-run historical, after inflation. Change it and the range moves.`}
         >
           <input
             type="range"
@@ -137,7 +137,7 @@ export function ProjectionPanel({
             </button>
           ) : null}
         </Field>
-        <Field label="Volatility" hint="Derived from the reference mix, not set by you. It is what makes the band wide.">
+        <Field label="Volatility" hint="Derived from the mix. It is what makes the band wide.">
           <input className={inputClass} value={formatPercent(projection.assumptions.volatility)} readOnly aria-readonly="true" />
         </Field>
       </div>

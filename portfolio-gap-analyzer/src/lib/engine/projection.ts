@@ -133,10 +133,10 @@ export function buildProjection(
     final: points[points.length - 1]!,
     assumptions: { realReturn, volatility, years, startValue, annualContribution, paths: PATHS },
     notes: [
-      `Figures are in today's money. The ${(realReturn * 100).toFixed(1)}% return assumption is after inflation, and contributions are assumed to rise with it, so a number ${years} years out means what it would buy today.`,
-      `The assumption comes from the long-run historical record of ${reference.presetLabel} and a bond sleeve, blended at this reference model's weights. It is an assumption, not a forecast, and you can change it.`,
-      `The band is the 10th to 90th percentile of ${PATHS.toLocaleString()} simulated paths. One path in ten finished below the lower edge and one in ten above the upper — the width of the band is the point of the exercise, not the middle line.`,
-      "Each year's return is drawn independently from a normal distribution. Real markets have fatter tails than that, show some mean reversion over long periods, and do not hand out returns in a fixed order — so treat this as a way to feel the range, not as a distribution of what will happen.",
+      `In today's money: the ${(realReturn * 100).toFixed(1)}% return is after inflation and contributions rise with it, so a figure ${years} years out means what it would buy today.`,
+      `The rate is the long-run historical record of ${reference.presetLabel} and a bond sleeve at this model's weights. An assumption, not a forecast — change it and see.`,
+      `The band is the 10th to 90th percentile of ${PATHS.toLocaleString()} paths. Its width is the point, not the middle line.`,
+      "Returns are drawn independently from a normal distribution. Real markets have fatter tails, some mean reversion, and no fixed order — so use this to feel the range, not to predict.",
       "It illustrates the reference mix, not the holdings you actually own.",
     ],
   };

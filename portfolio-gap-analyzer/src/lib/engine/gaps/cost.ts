@@ -78,7 +78,7 @@ export function costFindings(ctx: GapContext): Finding[] {
       title: `Ongoing charges are ${formatPercent(feeGap, 2)} above a low-cost index benchmark`,
       summary: `The portfolio's weighted ongoing charge is ${formatPercent(held, 2)} against ${formatPercent(benchmark, 2)} for a comparable index portfolio — ${formatCurrency(ctx.metrics.annualCost, currency)} a year today, and about ${formatCurrency(drag, currency)} of end value given up over ${horizon} years at a 5% assumed return.`,
       why:
-        "Charges are the one input to a portfolio's outcome that is known in advance. A fee is deducted from the balance every year, so it compounds against you in exactly the way returns compound for you. Over decades a difference of a few tenths of a percent is not a rounding error — it is a meaningful share of the final balance.",
+        "Charges are the one input known in advance. A fee comes out of the balance every year, so it compounds against you exactly as returns compound for you. Over decades that is a real share of the final balance, not a rounding error.",
       evidence: [
         { label: "Your weighted ongoing charge", value: formatPercent(held, 2), detail: `${formatCurrency(ctx.metrics.annualCost, currency)} a year at today's balance` },
         { label: "Low-cost index benchmark", value: formatPercent(benchmark, 2), detail: "roughly what a two- or three-fund index portfolio costs" },
@@ -112,7 +112,7 @@ export function costFindings(ctx: GapContext): Finding[] {
       title: `${swap.position.symbol} has a cheaper equivalent in ${swap.alternative.symbol}`,
       summary: `${swap.position.symbol} charges ${formatPercent(swap.position.security.fund.expenseRatio, 2)} for exposure that ${swap.alternative.symbol} provides at ${formatPercent(swap.alternative.fund.expenseRatio, 2)}, with an estimated ${formatPercent(swap.overlap, 0)} overlap. On ${formatCurrency(swap.position.value, currency)} that is ${formatCurrency(swap.annualSaving, currency)} a year.`,
       why:
-        "Index exposures are close to a commodity: when two funds track the same or near-identical indices, the cheaper one keeps more of the return, and there is rarely a compensating advantage. The exceptions are real but narrow — trading liquidity for very large or very frequent orders, and differences in domicile or tax treatment.",
+        "Index exposure is close to a commodity: where two funds track the same thing, the cheaper one keeps more of the return. The real exceptions are narrow — trading liquidity on large orders, and domicile or tax treatment.",
       evidence: [
         { label: `${swap.position.symbol} ongoing charge`, value: formatPercent(swap.position.security.fund.expenseRatio, 2), detail: swap.position.security.fund.indexName },
         { label: `${swap.alternative.symbol} ongoing charge`, value: formatPercent(swap.alternative.fund.expenseRatio, 2), detail: swap.alternative.fund.indexName },

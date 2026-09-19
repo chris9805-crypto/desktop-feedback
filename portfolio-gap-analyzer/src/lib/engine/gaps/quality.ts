@@ -28,7 +28,7 @@ export function qualityFindings(ctx: GapContext): Finding[] {
       title: `${formatPercent(leveredWeight)} of the portfolio is in companies carrying heavy debt`,
       summary: `${levered.map((p) => p.symbol).join(", ")} each carry net debt above three times EBITDA. The stock sleeve as a whole averages ${formatMultiple(sleeve.netDebtToEbitda)}.`,
       why:
-        "Debt magnifies both directions. It also removes options: a levered company facing a weak year has to service the debt before anything else, which is when dividends get cut and shares get issued at bad prices. Three times EBITDA is a common threshold at which lenders start attaching conditions — it is a rough line, and it means different things in different industries.",
+        "Debt magnifies both directions and removes options. A levered company facing a weak year services the debt first — that is when dividends get cut and shares get issued at bad prices. Three times EBITDA is a rough line, not a rule.",
       evidence: levered.slice(0, 4).map((p) => ({
         label: `${p.security.name} (${p.symbol})`,
         value: formatMultiple(p.security.fundamentals.netDebtToEbitda),
@@ -58,7 +58,7 @@ export function qualityFindings(ctx: GapContext): Finding[] {
       title: `The directly held stocks are priced at ${sleeve.priceEarnings.toFixed(0)} times earnings`,
       summary: `Weighted across ${formatPercent(sleeve.weight)} of the portfolio, against roughly 20 times for a broad global index. Free cash flow yield on the sleeve is ${formatPercent(sleeve.freeCashFlowYield)}.`,
       why:
-        "A high multiple is not a prediction of a poor return — it is a statement that the price already contains a lot of future growth. The risk it creates is asymmetry: the companies have to deliver that growth to justify today's price, and merely growing well is not enough. " +
+        "A high multiple is not a prediction of a poor return — it says the price already contains a lot of growth. The risk is asymmetry: the companies have to deliver it, and merely growing well is not enough. " +
         `Return on invested capital across the sleeve is ${formatPercent(sleeve.returnOnInvestedCapital)}, and it is that rate persisting, not just revenue rising, that the multiple is asking for.`,
       evidence: [
         { label: "Weighted P/E", value: sleeve.priceEarnings.toFixed(1) },

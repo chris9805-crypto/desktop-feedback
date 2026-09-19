@@ -158,6 +158,6 @@ describe("gap detection", () => {
       profile(),
     );
     expect(report.caveats.join(" ")).toContain("WHATISTHIS");
-    expect(report.caveats.join(" ")).toContain("sample figures");
+    expect(report.caveats.join(" ")).toContain("sample data");
   });
 });

@@ -21,7 +21,7 @@ export function structureFindings(ctx: GapContext): Finding[] {
       title: `Money needed in ${ctx.profile.horizonYears} year${ctx.profile.horizonYears === 1 ? "" : "s"} sits in assets that move a lot`,
       summary: `Estimated annual volatility is ${formatPercent(ctx.metrics.estimatedVolatility)}. A fall of around ${formatPercent(illustrativeFall, 0)} — roughly ${formatCurrency(illustrativeFall * total, currency)} — would be an ordinary bad year for a portfolio shaped like this, not an extreme one.`,
       why:
-        "Over a long horizon, volatility is something you sit through. Over a short one it decides the outcome, because there is no time to recover before the money is spent. Broad equity markets have fallen by more than a third several times in the past century and taken years to regain the old level. The relevant question is not how likely that is, but what happens to the goal if it occurs in the year before the money is needed.",
+        "Over a long horizon, volatility is something you sit through. Over a short one it decides the outcome, because there is no time to recover. Broad markets have fallen by a third more than once and taken years to come back.",
       evidence: [
         { label: "Horizon", value: `${ctx.profile.horizonYears} year${ctx.profile.horizonYears === 1 ? "" : "s"}`, detail: `goal: ${ctx.profile.goal}` },
         { label: "Estimated volatility", value: formatPercent(ctx.metrics.estimatedVolatility), detail: "annualised, single-factor estimate" },
@@ -60,7 +60,7 @@ export function structureFindings(ctx: GapContext): Finding[] {
       title: `${formatPercent(cashWeight)} of the portfolio is sitting in cash`,
       summary: `That is ${formatCurrency(cashWeight * total, currency)}, against ${formatPercent(referenceCash)} in the reference model. With ${years} years until the money is needed, ${formatCurrency(excessValue, currency)} of it is uninvested for a long time.`,
       why:
-        "Cash is the right place for money that is needed soon and for the emergency buffer. Beyond that, a long horizon turns its safety into a cost: cash tends to roughly track inflation, so purchasing power stands still while invested money compounds. The usual reason for a large cash balance is not a decision but a pause — waiting for a better entry point, or simply not having got round to it.",
+        "Cash is right for near-term spending and the emergency buffer. Past that, a long horizon turns its safety into a cost: cash roughly tracks inflation while invested money compounds. Large balances are usually a pause, not a decision.",
       evidence: [
         { label: "Cash held", value: formatPercent(cashWeight), detail: formatCurrency(cashWeight * total, currency) },
         { label: "Reference cash", value: formatPercent(referenceCash), detail: "emergency buffer and near-term spending only" },
@@ -93,7 +93,7 @@ export function structureFindings(ctx: GapContext): Finding[] {
       title: `Emergency buffer covers ${ctx.profile.emergencyFundMonths} month${ctx.profile.emergencyFundMonths === 1 ? "" : "s"} of essential spending`,
       summary: `A ${formatCurrency(shortfall, currency)} shortfall against a three-month reference. Without a buffer in front of it, the portfolio becomes the emergency fund.`,
       why:
-        "This is the one structural gap that changes everything else. With no buffer, an unexpected bill has to be met by selling — and the times you are most likely to need money unexpectedly are the times markets are most likely to be down. A buffer is what lets the rest of the portfolio be left alone, which is the entire basis on which a long horizon works.",
+        "This is the gap that changes every other one. With no buffer, an unexpected bill has to be met by selling — and the moments you need money unexpectedly are the moments markets are down. The buffer is what lets everything else be left alone.",
       evidence: [
         { label: "Buffer held", value: `${ctx.profile.emergencyFundMonths} months`, detail: formatCurrency(ctx.profile.emergencyFundMonths * ctx.profile.monthlyEssentialSpend, currency) },
         { label: "Three-month reference", value: formatCurrency(3 * ctx.profile.monthlyEssentialSpend, currency), detail: "a common starting point; stable income may need less, variable income more" },
@@ -129,7 +129,7 @@ export function structureFindings(ctx: GapContext): Finding[] {
           ? `A one-point rise in yields would cost roughly ${formatPercent(exposure.duration * 0.01, 1)} of the ${formatPercent(rateSleeve)} held in bonds and cash — about ${formatCurrency(exposure.duration * 0.01 * rateSleeve * total, currency)}.`
           : `The bond sleeve is shorter than the horizon suggests, which limits both its sensitivity to rates and the yield it locks in.`,
         why:
-          "Duration is how much a bond's price moves when yields move: roughly, a one-point rise in yields costs one percent of value per year of duration. Matching duration to the horizon means a rate move changes the price and the reinvestment rate in roughly offsetting ways. A long-duration fund held for a short goal is a rate bet, whatever it says on the label.",
+          "Duration is how much a bond moves when rates move: roughly 1% of value per year of duration, per point of yield. Matching it to the horizon makes a rate move roughly self-cancelling. A long fund held for a short goal is a rate bet.",
         evidence: [
           { label: "Your bond duration", value: `${exposure.duration.toFixed(1)} years` },
           { label: "Reference duration", value: `${ctx.reference.targetDuration.toFixed(1)} years`, detail: "about 60% of the horizon" },
@@ -167,7 +167,7 @@ export function structureFindings(ctx: GapContext): Finding[] {
         title: `${formatPercent(highYieldShare)} of the defensive sleeve is high yield`,
         summary: `High-yield bonds are ${formatPercent(exposure.credit.highYield)} of the portfolio. They pay more than government bonds because they can default, and they tend to fall alongside equities rather than against them.`,
         why:
-          "The job of a defensive sleeve is to hold its value when equities do not. High-yield credit does not do that reliably — its price is driven by the same economic conditions that drive company earnings, so it has historically fallen at the same time as shares. Counting it as ballast overstates how defensive a portfolio really is.",
+          "A defensive sleeve should hold up when equities do not. High-yield credit does not: the same conditions drive both, so it has historically fallen alongside shares. Counting it as ballast overstates how defensive you are.",
         evidence: [
           { label: "High yield held", value: formatPercent(exposure.credit.highYield), detail: formatCurrency(exposure.credit.highYield * total, currency) },
           { label: "Share of defensive sleeve", value: formatPercent(highYieldShare) },

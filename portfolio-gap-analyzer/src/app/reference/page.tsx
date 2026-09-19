@@ -50,22 +50,20 @@ export default function ProfilePage() {
         <p className="text-[12px] font-medium uppercase tracking-wider text-[var(--accent-text)]">Start here</p>
         <h1 className="mt-2 text-[24px] font-semibold tracking-tight text-[var(--text)]">The reference portfolio</h1>
         <p className="mt-3 max-w-2xl text-[14px] leading-relaxed text-[var(--text-muted)]">
-          Before looking at what you hold, it is worth knowing what you are holding it <em>against</em>. A reference
-          portfolio is a transparent, boring, fully specified mix — an index for the equity side and a bond sleeve sized
-          to your horizon. Everything this tool later calls a &ldquo;gap&rdquo; is just a difference between your
-          portfolio and this one.
+          Know what you are measuring against before you measure. A reference portfolio is a plain, fully specified
+          mix — an index for the equity side, a bond sleeve sized to your horizon. Every &ldquo;gap&rdquo; this tool
+          reports is just a difference from it.
         </p>
         <p className="mt-2.5 max-w-2xl text-[14px] leading-relaxed text-[var(--text-muted)]">
-          It is not a target and nobody is recommending it. Its job is to be a fixed, visible yardstick, so that a
-          difference becomes a decision you can examine rather than a drift you never noticed. Every number below is
-          derived from inputs you control, and the derivation is printed in full.
+          It is a yardstick, not a target, and nobody is recommending it. Every number below comes from inputs you
+          control, and the working is shown.
         </p>
       </div>
 
       <Card className="p-5">
         <SectionHeading
           title="The index your portfolio is compared against"
-          description="This decides what counts as a gap. Pick the one that matches how you think about your portfolio — the report rebuilds around it."
+          description="This decides what counts as a gap. The report rebuilds around it."
         />
         <div className="grid gap-3 sm:grid-cols-3">
           {PRESET_LIST.map((preset) => {
@@ -104,7 +102,7 @@ export default function ProfilePage() {
       <Card className="p-5">
         <SectionHeading
           title={`What the ${reference.presetLabel} reference portfolio holds`}
-          description="The whole model, laid out. Adjust anything below and these move with it."
+          description="Adjust anything below and these move with it."
         />
         <div className="grid gap-x-8 gap-y-7 sm:grid-cols-2">
           <PieChart title="Across the whole portfolio" slices={assetSlices} />
@@ -119,7 +117,7 @@ export default function ProfilePage() {
           <Card className="p-5">
             <SectionHeading
               title="The goal and its date"
-              description="These size the bond sleeve and the cash floor. They do not touch the index you picked above."
+              description="These size the bond sleeve and the cash floor, not the index."
             />
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="What is the money for">
@@ -177,7 +175,7 @@ export default function ProfilePage() {
           <Card className="p-5">
             <SectionHeading
               title="Capacity for a bad year"
-              description="Circumstances, not feelings. These decide how much volatility the plan can absorb without breaking."
+              description="Circumstances, not feelings — what the plan can absorb without breaking."
             />
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Monthly contribution" hint="New money arriving each month">
@@ -261,7 +259,7 @@ export default function ProfilePage() {
           <Card className="p-5">
             <SectionHeading
               title="The model in four numbers"
-              description="What the choices above add up to. A comparison baseline, not a target anyone is setting for you."
+              description="What the choices above add up to."
             />
             <dl className="grid grid-cols-2 gap-x-4 gap-y-3 border-t border-[var(--border)] pt-4">
               <div>
@@ -308,7 +306,7 @@ export default function ProfilePage() {
           <Card className="p-5">
             <SectionHeading
               title="Set the bond allocation directly"
-              description="The glidepath above estimates this from your horizon. If you already know what split you want, set it here and it replaces the estimate."
+              description="The glidepath estimates this from your horizon. Set it here to override."
             />
             <input
               type="range"
@@ -343,9 +341,9 @@ export default function ProfilePage() {
           </Card>
 
           <Callout title="Why an index, rather than someone's opinion">
-            An index is maintained by someone else, published, and observable. That is the whole appeal: comparing your
-            portfolio with one requires no forecast and no view about what anyone ought to hold. Differences from it are
-            positions you have taken, deliberately or otherwise — and the point of the exercise is to find out which.
+            Someone else maintains it, publishes it, and you can check it. Comparing against one needs no forecast and
+            no view about what anyone ought to hold. Differences are positions you have taken — the point is finding out
+            which ones you meant.
           </Callout>
         </div>
       </div>
@@ -363,8 +361,8 @@ export default function ProfilePage() {
           </h2>
           <p className="mt-1.5 text-[13.5px] leading-relaxed text-[var(--text-muted)]">
             {hasHoldings
-              ? "Your holdings are already loaded. The gap report measures them against the reference above, and ranks the differences by how much of the portfolio each one touches."
-              : "Paste a list or add positions one at a time. Nothing is uploaded — the whole comparison runs in this browser."}
+              ? "The gap report measures them against the reference above, ranked by how much of the portfolio each difference touches."
+              : "Paste a list or add them one at a time. Nothing is uploaded — it all runs in this browser."}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

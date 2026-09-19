@@ -125,8 +125,8 @@ export function allocationFindings(ctx: GapContext): Finding[] {
       title: over ? "More in growth assets than the reference" : "Less in growth assets than the reference",
       summary: `Growth assets are ${formatPercent(heldGrowth)} of the portfolio against ${formatPercent(referenceGrowth)} in the reference model built from your ${ctx.profile.horizonYears}-year horizon and risk answers — ${formatPp(growthDeviation)}, or ${formatCurrency(gapValue, currency)}.`,
       why: over
-        ? "The growth share is the single biggest driver of how much a portfolio moves. Holding more than the reference means larger gains in good years and deeper falls in bad ones — the question is whether the money can be left alone long enough for that to matter less than it feels."
-        : "Holding less in growth assets makes the path smoother, and it lowers the expected end value. Over a long horizon the bigger risk is often not volatility but falling short — inflation compounds against cash just as returns compound for equities.",
+        ? "The growth share drives most of how much a portfolio moves. More than the reference means bigger gains and deeper falls — the question is whether the money can be left alone long enough for that to matter less than it feels."
+        : "Holding less in growth assets smooths the path and lowers the expected end value. Over a long horizon the bigger risk is often falling short, not volatility: inflation compounds against cash as returns compound for equities.",
       evidence: [
         { label: "Your growth assets", value: formatPercent(heldGrowth) },
         { label: "Reference model", value: formatPercent(referenceGrowth), detail: `derived from a ${ctx.profile.horizonYears}-year horizon and risk tolerance ${ctx.profile.riskTolerance}/5` },
@@ -144,8 +144,8 @@ export function allocationFindings(ctx: GapContext): Finding[] {
           ? screenForExposure({ dimension: "assetClass", bucket: "bond", minPurity: 0.9, excludeSymbols: ctx.portfolio.positions.map((p) => p.symbol), extraFilter: (e) => e.duration <= ctx.reference.targetDuration + 2, extraFilterLabel: `duration no more than ${(ctx.reference.targetDuration + 2).toFixed(1)} years` })
           : screenForExposure({ dimension: "assetClass", bucket: "equity", minPurity: 0.9, maxExpenseRatio: 0.0025, excludeSymbols: ctx.portfolio.positions.map((p) => p.symbol) }),
         tradeoffs: [
-          "The reference model is a starting point, not a target. Every input behind it is yours to change.",
-          "Moving the growth share is the change with the largest effect on outcomes, so it is the one worth thinking about longest.",
+          "The reference is a starting point, not a target. Every input behind it is yours to change.",
+          "It is the change with the largest effect on outcomes, so it deserves the most thought.",
         ],
       },
     });
