@@ -13,6 +13,7 @@ export const BASE_PROFILE: InvestorProfile = {
   incomeNeedRate: 0,
   taxWrapper: "taxAdvantaged",
   homeBiasAllowancePp: 0,
+  inflationConcern: 1,
 };
 
 export function profile(overrides: Partial<InvestorProfile> = {}): InvestorProfile {

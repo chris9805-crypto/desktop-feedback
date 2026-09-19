@@ -82,11 +82,63 @@ describe("buildReferenceModel", () => {
     expect(model.rationale.join(" ")).toContain("no effect");
   });
 
-  it("lets a bond allocation replace the glidepath", () => {
-    const model = buildReferenceModel(profile({ horizonYears: 30 }), 100000, { bondShare: 0.4 });
+  it("lets a bond allocation replace the derived limits", () => {
+    const model = buildReferenceModel(profile({ horizonYears: 30, inflationConcern: 0 }), 100000, { bondShare: 0.4 });
     expect(model.assetClass.bond).toBeCloseTo(0.4, 6);
     expect(model.inputs.growthShare).toBeCloseTo(1 - 0.4 - model.assetClass.cash, 6);
     expect(model.rationale.join(" ")).toContain("Bond allocation set directly");
+  });
+
+  it("funds commodities out of the bond sleeve, not out of equities", () => {
+    const base = buildReferenceModel(profile({ inflationConcern: 0 }), 100000);
+    const hedged = buildReferenceModel(profile({ inflationConcern: 2 }), 100000);
+    expect(hedged.inputs.growthShare).toBeCloseTo(base.inputs.growthShare, 6);
+    expect(hedged.assetClass.commodity).toBeGreaterThan(0);
+    expect(hedged.assetClass.bond + hedged.assetClass.commodity).toBeCloseTo(base.assetClass.bond, 6);
+  });
+
+  it("moves the defensive sleeve into linkers as inflation concern rises", () => {
+    const low = buildReferenceModel(profile({ inflationConcern: 0 }), 100000);
+    const high = buildReferenceModel(profile({ inflationConcern: 2 }), 100000);
+    expect(low.credit.inflationLinked).toBe(0);
+    expect(high.credit.inflationLinked).toBeGreaterThan(high.credit.government);
+  });
+
+  it("caps commodities so they cannot swamp a thin defensive sleeve", () => {
+    // Maximum tolerance leaves very little defensive sleeve to carve from.
+    const model = buildReferenceModel(profile({ riskTolerance: 5, inflationConcern: 2 }), 100000);
+    const defensive = model.assetClass.bond + model.assetClass.commodity;
+    expect(model.assetClass.commodity).toBeLessThanOrEqual(defensive * 0.45 + 1e-9);
+  });
+
+  it("gives the risk profile a real spread across tolerance", () => {
+    const bonds = ([1, 2, 3, 4, 5] as const).map(
+      (riskTolerance) => buildReferenceModel(profile({ horizonYears: 25, riskTolerance }), 100000).assetClass.bond,
+    );
+    // Strictly decreasing, and wide: the old residual model spanned 13 points.
+    for (let i = 1; i < bonds.length; i++) expect(bonds[i]!).toBeLessThan(bonds[i - 1]!);
+    expect(bonds[0]! - bonds[4]!).toBeGreaterThan(0.4);
+  });
+
+  it("names the tightest constraint rather than blending them", () => {
+    const cautious = buildReferenceModel(profile({ horizonYears: 30, riskTolerance: 1 }), 100000);
+    expect(cautious.bindingConstraint).toBe("tolerance");
+    expect(cautious.riskProfileLabel).toBe("Defensive");
+
+    const soon = buildReferenceModel(profile({ horizonYears: 3, riskTolerance: 5 }), 100000);
+    expect(soon.bindingConstraint).toBe("horizon");
+
+    const noBuffer = buildReferenceModel(
+      profile({ horizonYears: 30, riskTolerance: 5, emergencyFundMonths: 0, monthlyContribution: 0, incomeNeedRate: 0.05 }),
+      100000,
+    );
+    expect(noBuffer.bindingConstraint).toBe("capacity");
+  });
+
+  it("labels the band the allocation lands in", () => {
+    expect(buildReferenceModel(profile({ riskTolerance: 1, horizonYears: 30 }), 100000).riskProfileLabel).toBe("Defensive");
+    expect(buildReferenceModel(profile({ riskTolerance: 3, horizonYears: 30 }), 100000).riskProfileLabel).toBe("Balanced");
+    expect(buildReferenceModel(profile({ riskTolerance: 5, horizonYears: 30 }), 100000).riskProfileLabel).toBe("Adventurous");
   });
 
   it("carries a return assumption that falls as bonds rise", () => {
@@ -105,7 +157,7 @@ describe("buildReferenceModel", () => {
   it("explains every step it took", () => {
     const model = buildReferenceModel(profile(), 100000);
     expect(model.rationale.length).toBeGreaterThanOrEqual(4);
-    expect(model.rationale.join(" ")).toContain("Horizon");
+    expect(model.rationale.join(" ")).toContain("Three limits");
   });
 
   it("honours a manual growth-share override and says so", () => {

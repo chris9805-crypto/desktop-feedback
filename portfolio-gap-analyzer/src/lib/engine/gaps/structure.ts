@@ -8,7 +8,7 @@ export function structureFindings(ctx: GapContext): Finding[] {
   const currency = ctx.portfolio.baseCurrency;
   const { exposure } = ctx.metrics;
   const total = ctx.portfolio.totalValue;
-  const held = ctx.portfolio.positions.map((p) => p.symbol);
+  const held2 = ctx.portfolio.positions.map((p) => p.symbol);
 
   // --- Money needed soon, invested in assets that move a lot.
   if (ctx.profile.horizonYears <= 5 && ctx.metrics.estimatedVolatility > 0.11) {
@@ -36,7 +36,7 @@ export function structureFindings(ctx: GapContext): Finding[] {
           { label: "Separate the money by date", detail: "Money needed within a few years and money for decades away are different problems. Splitting them lets each be positioned on its own terms instead of averaging the two." },
           { label: "Shorten as the date approaches", detail: "A pre-decided glidepath — moving a fixed share into short-dated bonds or cash each year — takes the timing decision out of the moment when markets are moving." },
         ],
-        screen: screenForExposure({ dimension: "credit", bucket: "government", minPurity: 0.9, excludeSymbols: held, extraFilter: (e) => e.duration <= 3, extraFilterLabel: "duration of 3 years or less", limit: 3 }),
+        screen: screenForExposure({ dimension: "credit", bucket: "government", minPurity: 0.9, excludeSymbols: held2, extraFilter: (e) => e.duration <= 3, extraFilterLabel: "duration of 3 years or less", limit: 3 }),
         tradeoffs: [
           "Lowering volatility lowers the expected end value too. If the goal needs the growth, the answer may be a later date or a smaller target rather than more risk.",
         ],
@@ -76,7 +76,7 @@ export function structureFindings(ctx: GapContext): Finding[] {
           { label: "Invest on a schedule, not on a view", detail: "Splitting the balance into fixed instalments on set dates removes the need to pick a moment. It usually lags investing at once, and it is far easier to stick to." },
           ...routesToClose(excessValue, ctx.profile, null).slice(-1),
         ],
-        screen: screenForExposure({ dimension: "assetClass", bucket: "equity", minPurity: 0.9, maxExpenseRatio: 0.0025, excludeSymbols: held, limit: 3 }),
+        screen: screenForExposure({ dimension: "assetClass", bucket: "equity", minPurity: 0.9, maxExpenseRatio: 0.0025, excludeSymbols: held2, limit: 3 }),
         tradeoffs: ["Investing a large balance right before a fall is the scenario people regret most. A schedule does not avoid it, but it does make it survivable."],
       },
     });
@@ -146,7 +146,7 @@ export function structureFindings(ctx: GapContext): Finding[] {
             dimension: "credit",
             bucket: "government",
             minPurity: 0.8,
-            excludeSymbols: held,
+            excludeSymbols: held2,
             extraFilter: (e) => (long ? e.duration < exposure.duration - 2 : e.duration > exposure.duration + 2),
             extraFilterLabel: long ? "shorter duration than the current sleeve" : "longer duration than the current sleeve",
             limit: 3,
@@ -181,11 +181,48 @@ export function structureFindings(ctx: GapContext): Finding[] {
             { label: "Treat it as part of the growth sleeve", detail: "If the exposure is wanted, counting it alongside equities rather than bonds gives a truer picture of how much risk the portfolio carries." },
             { label: "Or replace it with government bonds", detail: "A government or investment-grade fund gives up yield and buys back the equity-drawdown cushion." },
           ],
-          screen: screenForExposure({ dimension: "credit", bucket: "government", minPurity: 0.8, excludeSymbols: held, limit: 3 }),
+          screen: screenForExposure({ dimension: "credit", bucket: "government", minPurity: 0.8, excludeSymbols: held2, limit: 3 }),
           tradeoffs: ["High-yield spreads have historically compensated buyers over full cycles. The issue is the timing of the losses, not the long-run return."],
         },
       });
     }
+  }
+
+  // --- Inflation protection, when the investor has asked for it.
+  const held = exposure.credit.inflationLinked + exposure.assetClass.commodity;
+  const wanted = ctx.reference.credit.inflationLinked + ctx.reference.assetClass.commodity;
+  if (wanted > 0.02 && wanted - held > 0.04) {
+    const shortfall = wanted - held;
+    findings.push({
+      id: "structure-inflation-protection",
+      category: "structure",
+      direction: "under",
+      severity: materiality({ magnitude: shortfall, scaleAt: 0.2, valueShare: wanted }),
+      title: `Little in the portfolio defends against inflation`,
+      summary: `Inflation-linked bonds and commodities are ${formatPercent(held)} of the portfolio against ${formatPercent(wanted)} in the reference — a gap of ${formatCurrency(shortfall * total, currency)}. The rest of the defensive sleeve is nominal.`,
+      why:
+        "Nominal bonds pay a fixed coupon, so an inflation surprise cuts what that coupon buys and the price falls with it. Index-linked bonds track inflation contractually rather than by correlation, which is why they are the direct hedge. Commodities have historically risen in inflation shocks, but they pay nothing and are as volatile as equities.",
+      evidence: [
+        { label: "Inflation-linked held", value: formatPercent(exposure.credit.inflationLinked) },
+        { label: "Commodities held", value: formatPercent(exposure.assetClass.commodity) },
+        { label: "Reference", value: formatPercent(wanted), detail: `your inflation concern is set to ${["low", "moderate", "high"][ctx.profile.inflationConcern]}` },
+        { label: "Nominal bonds held", value: formatPercent(exposure.credit.government + exposure.credit.investmentGrade) },
+      ],
+      learnSlug: "inflation-protection",
+      implementation: {
+        objective: "Decide whether the defensive sleeve is defending against the right thing.",
+        gapValue: shortfall * total,
+        routes: [
+          { label: "Linkers first, commodities second", detail: "Index-linked bonds hedge inflation directly and keep bond-like volatility. Commodities hedge it loosely and bring equity-like swings with no income." },
+          { label: "Or lower the inflation setting", detail: "If you are not worried about an inflation shock, say so on the reference tab and this gap disappears." },
+        ],
+        screen: screenForExposure({ dimension: "credit", bucket: "inflationLinked", minPurity: 0.8, excludeSymbols: held2, limit: 3 }),
+        tradeoffs: [
+          "Linkers yield less than nominals in real terms. That gap is the premium for the protection.",
+          "Commodities have produced close to zero real return over long periods. They are held for what they do in a shock, not for what they compound at.",
+        ],
+      },
+    });
   }
 
   return findings;

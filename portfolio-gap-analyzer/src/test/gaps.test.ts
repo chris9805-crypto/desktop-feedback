@@ -161,3 +161,47 @@ describe("gap detection", () => {
     expect(report.caveats.join(" ")).toContain("sample data");
   });
 });
+
+describe("inflation protection", () => {
+  it("flags a nominal-only defensive sleeve when inflation concern is high", () => {
+    const report = analysePortfolio(
+      buildPortfolio([
+        { symbol: "VT", value: 60000 },
+        { symbol: "BND", value: 40000 },
+      ]),
+      profile({ inflationConcern: 2 }),
+    );
+    const finding = report.findings.find((f) => f.id === "structure-inflation-protection");
+    expect(finding).toBeDefined();
+    expect(finding!.implementation!.screen!.symbols).toContain("TIP");
+  });
+
+  it("stays quiet when the investor is not worried about inflation", () => {
+    const report = analysePortfolio(
+      buildPortfolio([
+        { symbol: "VT", value: 60000 },
+        { symbol: "BND", value: 40000 },
+      ]),
+      profile({ inflationConcern: 0 }),
+    );
+    expect(report.findings.map((f) => f.id)).not.toContain("structure-inflation-protection");
+  });
+
+  it("stays quiet once linkers are actually held", () => {
+    const report = analysePortfolio(
+      buildPortfolio([
+        { symbol: "VT", value: 60000 },
+        { symbol: "BND", value: 20000 },
+        { symbol: "TIP", value: 15000 },
+        { symbol: "IAU", value: 5000 },
+      ]),
+      profile({ inflationConcern: 2 }),
+    );
+    expect(report.findings.map((f) => f.id)).not.toContain("structure-inflation-protection");
+  });
+
+  it("links to an article that exists", async () => {
+    const { getArticle } = await import("@/lib/content/education");
+    expect(getArticle("inflation-protection")).toBeDefined();
+  });
+});

@@ -73,6 +73,7 @@ const TITLES: Record<string, string> = {
   lowVolatility: "Low volatility",
   dividendYield: "Dividend yield",
   government: "Government",
+  inflationLinked: "Inflation-linked",
   investmentGrade: "Investment grade",
   highYield: "High yield",
   physicalFull: "Full physical replication",

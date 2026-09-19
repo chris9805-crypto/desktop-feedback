@@ -886,7 +886,7 @@ export const ETFS: EtfSecurity[] = [
     duration: 4.7,
     yield: 0.0329,
     fund: { expenseRatio: 0.0019, aumUsd: 1.4e10, indexName: "Bloomberg US TIPS", holdingsCount: 50 },
-    breakdown: { assetClass: { bond: 1 }, credit: { government: 1 }, currency: B.USD_ONLY },
+    breakdown: { assetClass: { bond: 1 }, credit: { inflationLinked: 1 }, currency: B.USD_ONLY },
     topHoldings: [],
     description: "Inflation-linked Treasuries. Principal tracks CPI, so this hedges unexpected inflation in a way nominal bonds do not.",
   }),

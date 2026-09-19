@@ -5,7 +5,7 @@ import { ProjectionPanel } from "@/components/Projection";
 import { PieChart } from "@/components/charts";
 import { normaliseSleeve } from "@/lib/engine/exposure";
 import { Button, Callout, Card, Field, Pill, SectionHeading, inputClass } from "@/components/ui";
-import { PRESET_LIST, type ReferencePresetId } from "@/lib/engine/presets";
+import { INFLATION_STANCES, PRESET_LIST, type ReferencePresetId } from "@/lib/engine/presets";
 import { ASSET_CLASSES, REGIONS, SECTORS, SIZE_BUCKETS, type Goal, type Region, type TaxWrapper } from "@/lib/engine/types";
 import { formatPercent, label } from "@/lib/format";
 import { useStore } from "@/lib/state/store";
@@ -21,6 +21,15 @@ const TOLERANCE_COPY: Record<number, string> = {
   3: "A 25% fall would be unpleasant and I would hold on.",
   4: "A 35% fall is the cost of doing business.",
   5: "A 50% fall would not change what I do.",
+};
+
+/** The growth share each answer allows, mirroring TOLERANCE_GROWTH in the engine. */
+const TOLERANCE_ALLOWS: Record<number, string> = { 1: "25%", 2: "42%", 3: "60%", 4: "78%", 5: "92%" };
+
+const BINDING_COPY: Record<string, string> = {
+  tolerance: "your risk tolerance",
+  capacity: "your circumstances",
+  horizon: "the horizon",
 };
 
 export default function ProfilePage() {
@@ -234,7 +243,10 @@ export default function ProfilePage() {
             />
             <p className="mt-2 text-[13px] text-[var(--text-muted)]">
               <span className="font-medium text-[var(--text)]">{profile.riskTolerance} of 5.</span>{" "}
-              {TOLERANCE_COPY[profile.riskTolerance]}
+              {TOLERANCE_COPY[profile.riskTolerance]}{" "}
+              <span className="text-[var(--text-faint)]">
+                Allows up to {TOLERANCE_ALLOWS[profile.riskTolerance]} in growth assets.
+              </span>
             </p>
             <div className="mt-5">
               <Field
@@ -253,6 +265,37 @@ export default function ProfilePage() {
               </Field>
             </div>
           </Card>
+
+          <Card className="p-5">
+            <SectionHeading
+              title="Inflation"
+              description="What the defensive sleeve should defend against. This changes what the bonds are, not how many there are."
+            />
+            <div className="grid gap-2 sm:grid-cols-3">
+              {INFLATION_STANCES.map((stance) => {
+                const selected = profile.inflationConcern === stance.id;
+                return (
+                  <button
+                    key={stance.id}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => setProfile({ inflationConcern: stance.id })}
+                    className={`rounded-lg border p-3 text-left transition-colors ${
+                      selected
+                        ? "border-[var(--accent)] bg-[var(--accent-soft)]"
+                        : "border-[var(--border)] hover:border-[var(--border-strong)]"
+                    }`}
+                  >
+                    <div className="text-[13px] font-semibold text-[var(--text)]">{stance.label}</div>
+                    <p className="mt-1 text-[11.5px] leading-snug text-[var(--text-muted)]">{stance.blurb}</p>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-3 text-[12.5px] leading-relaxed text-[var(--text-muted)]">
+              {INFLATION_STANCES[profile.inflationConcern]?.detail}
+            </p>
+          </Card>
         </div>
 
         <div className="space-y-6">
@@ -261,6 +304,16 @@ export default function ProfilePage() {
               title="The model in four numbers"
               description="What the choices above add up to."
             />
+            <div className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-lg bg-[var(--surface-2)] px-4 py-3">
+              <span className="text-[17px] font-semibold text-[var(--text)]">{reference.riskProfileLabel}</span>
+              <span className="tnum text-[13px] text-[var(--text-muted)]">
+                {formatPercent(reference.inputs.growthShare, 0)} growth / {formatPercent(1 - reference.inputs.growthShare, 0)} defensive
+              </span>
+              <span className="w-full text-[12px] text-[var(--text-muted)]">
+                Set by {BINDING_COPY[reference.bindingConstraint]} — the tightest of the three limits. Raising the other
+                two would not move it.
+              </span>
+            </div>
             <dl className="grid grid-cols-2 gap-x-4 gap-y-3 border-t border-[var(--border)] pt-4">
               <div>
                 <dt className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">Growth assets</dt>

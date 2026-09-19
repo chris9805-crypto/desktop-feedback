@@ -1,5 +1,5 @@
 import { scale } from "./factors";
-import { DEFAULT_PRESET, PRESETS, SLEEVE_ASSUMPTIONS, type ReferencePresetId } from "./presets";
+import { DEFAULT_PRESET, INFLATION_STANCES, PRESETS, SLEEVE_ASSUMPTIONS, type ReferencePresetId } from "./presets";
 import {
   ASSET_CLASSES,
   REGIONS,
@@ -66,6 +66,28 @@ function clamp(x: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, x));
 }
 
+/**
+ * The growth share each tolerance answer allows, from "a 10% fall would worry
+ * me" to "a 50% fall would not change what I do". These are the volatility
+ * someone says they can live with, translated into an allocation.
+ */
+const TOLERANCE_GROWTH: Record<1 | 2 | 3 | 4 | 5, number> = {
+  1: 0.25,
+  2: 0.42,
+  3: 0.6,
+  4: 0.78,
+  5: 0.92,
+};
+
+/** Names the band a growth share falls into, so the model is describable in a word. */
+function riskProfileLabel(growthShare: number): string {
+  if (growthShare < 0.35) return "Defensive";
+  if (growthShare < 0.52) return "Cautious";
+  if (growthShare < 0.68) return "Balanced";
+  if (growthShare < 0.85) return "Growth";
+  return "Adventurous";
+}
+
 function pct(x: number): string {
   return `${(x * 100).toFixed(0)}%`;
 }
@@ -102,22 +124,31 @@ export function buildReferenceModel(
   const rationale: string[] = [`Equity side modelled on ${preset.label}: ${preset.blurb}`];
   const capacity = riskCapacity(profile, portfolioValue);
 
-  // 1. Growth share from the horizon, then nudged by tolerance and capped by capacity.
-  const horizonBase = clamp(0.2 + 0.055 * profile.horizonYears, 0.2, 0.9);
-  const toleranceAdjustment = (profile.riskTolerance - 3) * 0.06;
-  const capacityCeiling = 0.5 + 0.42 * capacity;
-  let growthShare = clamp(Math.min(horizonBase + toleranceAdjustment, capacityCeiling), 0.1, 0.95);
+  // 1. Three independent constraints on the growth share; the tightest wins.
+  //
+  // Taking the minimum rather than blending is the point. Each one is a real
+  // limit on its own terms: what you would sit through, what your circumstances
+  // can absorb, and how long the money has to recover. Averaging them lets a
+  // long horizon talk a cautious investor into an allocation they will abandon
+  // in the first bad year, which is how the earlier residual model behaved.
+  const toleranceLimit = TOLERANCE_GROWTH[profile.riskTolerance];
+  const capacityLimit = clamp(0.2 + 0.75 * capacity, 0.2, 0.95);
+  const horizonLimit = clamp(0.15 + 0.06 * profile.horizonYears, 0.15, 0.95);
+
+  const limits = [
+    { name: "tolerance" as const, value: toleranceLimit },
+    { name: "capacity" as const, value: capacityLimit },
+    { name: "horizon" as const, value: horizonLimit },
+  ].sort((a, b) => a.value - b.value);
+  const binding = limits[0]!;
+  let growthShare = clamp(binding.value, 0.05, 0.95);
+  let bindingConstraint: "tolerance" | "capacity" | "horizon" = binding.name;
 
   rationale.push(
-    `Horizon of ${profile.horizonYears} year${profile.horizonYears === 1 ? "" : "s"} sets a starting growth share of ${pct(horizonBase)} (20% plus 5.5 points per year, capped at 90%).`,
+    `Three limits on growth assets: risk tolerance ${profile.riskTolerance}/5 allows ${pct(toleranceLimit)}, your circumstances allow ${pct(capacityLimit)}, and a ${profile.horizonYears}-year horizon allows ${pct(horizonLimit)}.`,
   );
   rationale.push(
-    toleranceAdjustment === 0
-      ? "Risk tolerance of 3 out of 5 leaves that unchanged."
-      : `Risk tolerance of ${profile.riskTolerance} out of 5 adjusts it by ${toleranceAdjustment > 0 ? "+" : ""}${(toleranceAdjustment * 100).toFixed(0)} points.`,
-  );
-  rationale.push(
-    `Risk capacity scores ${(capacity * 100).toFixed(0)}/100 on horizon, cash buffer, contributions and income needs, which caps growth assets at ${pct(capacityCeiling)}.`,
+    `The tightest wins, so ${binding.name === "tolerance" ? "risk tolerance" : binding.name === "capacity" ? "risk capacity" : "the horizon"} sets growth assets at ${pct(growthShare)}. Raising the other two would not move it.`,
   );
 
   // 2. A cash floor for near-term spending, ahead of any market exposure.
@@ -145,30 +176,46 @@ export function buildReferenceModel(
     const bondShare = clamp(overrides.bondShare, 0, 1);
     cashShare = Math.min(cashShare, Math.max(0, 1 - bondShare));
     growthShare = Math.max(0, 1 - bondShare - cashShare);
+    bindingConstraint = "tolerance";
     rationale.push(
-      `Bond allocation set directly to ${pct(bondShare)}, which leaves ${pct(growthShare)} in growth assets and replaces the horizon glidepath above.`,
+      `Bond allocation set directly to ${pct(bondShare)}, which leaves ${pct(growthShare)} in growth assets and replaces the three limits above.`,
     );
   } else if (overrides.growthShare !== undefined) {
     growthShare = clamp(overrides.growthShare, 0, 1);
+    bindingConstraint = "tolerance";
     rationale.push(`Growth share manually set to ${pct(growthShare)}, replacing the derived figure.`);
   }
   if (growthShare + cashShare > 1) cashShare = Math.max(0, 1 - growthShare);
 
   const defensiveShare = Math.max(0, 1 - growthShare - cashShare);
 
-  // 3. Split growth between listed equity and listed property at market weights.
+  // 3. Split growth between listed equity and listed property at market weights,
+  //    then carve any commodity sleeve out of the defensive side rather than
+  //    the growth side — it is held instead of bonds, not instead of shares.
+  const stance = INFLATION_STANCES[profile.inflationConcern] ?? INFLATION_STANCES[0]!;
+  const commodityShare = Math.min(stance.commodityShare, defensiveShare * 0.45);
+  const bondShareFinal = Math.max(0, defensiveShare - commodityShare);
+
   const propertyShareOfMarket = MARKET_SECTOR_WEIGHTS.realEstate;
   const assetClassWeights: Record<AssetClass, number> = {
     equity: growthShare * (1 - propertyShareOfMarket),
     realEstate: growthShare * propertyShareOfMarket,
-    bond: defensiveShare,
+    bond: bondShareFinal,
     cash: cashShare,
-    commodity: 0,
+    commodity: commodityShare,
     other: 0,
   };
-  rationale.push(
-    `Growth assets are held as listed equity and listed property at their market weights. Commodities are excluded because they produce no cash flow — change that assumption if you disagree with it.`,
-  );
+  rationale.push("Growth assets are held as listed equity and listed property at their market weights.");
+
+  if (commodityShare > 0.001) {
+    rationale.push(
+      `Inflation concern is ${stance.label.toLowerCase()}, so ${pct(stance.linkerShareOfBonds)} of the bond sleeve is inflation-linked and ${pct(commodityShare)} of the portfolio is commodities. The commodities come out of the bond sleeve, which makes that sleeve a less reliable cushion against an equity fall — that is the trade.`,
+    );
+  } else {
+    rationale.push(
+      "Inflation concern is low, so the defensive sleeve is nominal bonds only. Those cushion an equity fall well and lose purchasing power in an inflation shock.",
+    );
+  }
 
   // 4. Region weights come from the chosen index, plus any home bias on top.
   const equityish = assetClassWeights.equity + assetClassWeights.realEstate;
@@ -197,33 +244,54 @@ export function buildReferenceModel(
 
   // 5. Bond sleeve: duration roughly matched to the horizon, credit risk kept low.
   const targetDuration = clamp(profile.horizonYears * 0.6, 1.5, 9);
+  const linker = stance.linkerShareOfBonds;
   const credit: Record<CreditBucket, number> = scaleMap(
-    { government: 0.65, investmentGrade: 0.35, highYield: 0 },
-    ["government", "investmentGrade", "highYield"] as const,
-    defensiveShare + cashShare,
+    {
+      government: (1 - linker) * 0.65,
+      inflationLinked: linker,
+      investmentGrade: (1 - linker) * 0.35,
+      highYield: 0,
+    },
+    ["government", "inflationLinked", "investmentGrade", "highYield"] as const,
+    bondShareFinal + cashShare,
   );
   rationale.push(
-    `Bond duration is set near ${targetDuration.toFixed(1)} years, roughly 60% of the horizon, and the sleeve is government and investment-grade only — high yield behaves more like equity than like ballast.`,
+    `Bond duration is near ${targetDuration.toFixed(1)} years, roughly 60% of the horizon. No high yield — it behaves more like equity than like ballast.`,
   );
 
   // Blend the sleeve assumptions into one expected return and volatility.
-  const bondWeight = defensiveShare;
-  const cashWeight = cashShare;
+  const { bonds, inflationLinked, commodities, cash, equityBondCorrelation, equityCommodityCorrelation } =
+    SLEEVE_ASSUMPTIONS;
   const equityWeight = equityish;
-  const { bonds, cash, equityBondCorrelation } = SLEEVE_ASSUMPTIONS;
+  const nominalWeight = bondShareFinal * (1 - linker);
+  const linkerWeight = bondShareFinal * linker;
+  const cashWeight = cashShare;
+
   const expectedRealReturn =
-    equityWeight * preset.realReturn + bondWeight * bonds.realReturn + cashWeight * cash.realReturn;
+    equityWeight * preset.realReturn +
+    nominalWeight * bonds.realReturn +
+    linkerWeight * inflationLinked.realReturn +
+    commodityShare * commodities.realReturn +
+    cashWeight * cash.realReturn;
+
+  const bondWeight = nominalWeight + linkerWeight;
+  const blendedBondVol =
+    bondWeight > 0 ? (nominalWeight * bonds.volatility + linkerWeight * inflationLinked.volatility) / bondWeight : 0;
   const variance =
     (equityWeight * preset.volatility) ** 2 +
-    (bondWeight * bonds.volatility) ** 2 +
+    (bondWeight * blendedBondVol) ** 2 +
+    (commodityShare * commodities.volatility) ** 2 +
     (cashWeight * cash.volatility) ** 2 +
-    2 * equityWeight * bondWeight * equityBondCorrelation * preset.volatility * bonds.volatility;
+    2 * equityWeight * bondWeight * equityBondCorrelation * preset.volatility * blendedBondVol +
+    2 * equityWeight * commodityShare * equityCommodityCorrelation * preset.volatility * commodities.volatility;
 
   return {
     id: preset.id,
     label: `${preset.label} reference`,
     presetId: preset.id,
     presetLabel: preset.label,
+    riskProfileLabel: riskProfileLabel(growthShare),
+    bindingConstraint,
     indexNote: preset.consequence,
     expectedRealReturn,
     expectedVolatility: Math.sqrt(variance),

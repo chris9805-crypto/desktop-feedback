@@ -118,6 +118,20 @@ The words "forecast", "prediction", "expected value" and "projection of your
 portfolio" are avoided in the copy; the feature is described as an illustration
 of a historical range.
 
+### 4c. The allocation is derived from stated constraints, and names which one bound
+
+The growth/defensive split is the minimum of three limits the user supplies —
+tolerance, capacity, horizon — and the model states which one was binding. That
+keeps it a calculator rather than a judgement: the output is traceable to an
+input the reader gave, and raising the non-binding limits visibly does nothing.
+
+The inflation stance is the same shape. It changes the composition of the
+defensive sleeve, not its size, and the commodity sleeve is capped at 45% of
+that sleeve. The cost of the choice is stated where it is made: commodities are
+funded out of bonds, which makes the sleeve a weaker equity cushion, and they
+have produced close to zero real return over long periods. A hedge whose
+downside is not stated alongside it is being sold rather than explained.
+
 ### 5. Composite scores are summaries, shown with their inputs
 
 The research scores (quality, financial strength, growth, valuation, dividend

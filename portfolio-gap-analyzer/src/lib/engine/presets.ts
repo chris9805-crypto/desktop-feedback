@@ -112,7 +112,51 @@ export const DEFAULT_PRESET: ReferencePresetId = "msciWorld";
 /** Long-run historical real returns for the non-equity sleeves, on the same basis. */
 export const SLEEVE_ASSUMPTIONS = {
   bonds: { realReturn: 0.016, volatility: 0.06 },
+  /**
+   * Index-linked government bonds. A lower real yield than nominals is the
+   * price of having the principal follow inflation contractually.
+   */
+  inflationLinked: { realReturn: 0.011, volatility: 0.055 },
+  /**
+   * Broad commodity futures. Historically close to zero real return over very
+   * long periods, with equity-like volatility — held for what it does during
+   * an inflation shock, not for what it compounds at.
+   */
+  commodities: { realReturn: 0.005, volatility: 0.17 },
   cash: { realReturn: 0.005, volatility: 0.011 },
   /** Equity/bond correlation. Positive but low over long periods, and unstable in crises. */
   equityBondCorrelation: 0.1,
+  /** Commodities have historically been close to uncorrelated with equities. */
+  equityCommodityCorrelation: 0.15,
 };
+
+/** How hard the defensive sleeve leans against inflation. */
+export const INFLATION_STANCES = [
+  {
+    id: 0 as const,
+    label: "Low",
+    blurb: "Nominal government and investment-grade bonds only.",
+    detail:
+      "The defensive sleeve is built to cushion equity falls. Nominal bonds do that well and lose purchasing power in an inflation shock.",
+    commodityShare: 0,
+    linkerShareOfBonds: 0,
+  },
+  {
+    id: 1 as const,
+    label: "Moderate",
+    blurb: "Around a third of the bond sleeve in inflation-linked bonds.",
+    detail:
+      "Index-linked bonds track inflation contractually, so they defend purchasing power directly rather than by correlation. A small commodity sleeve is added on top.",
+    commodityShare: 0.03,
+    linkerShareOfBonds: 0.33,
+  },
+  {
+    id: 2 as const,
+    label: "High",
+    blurb: "Half the bond sleeve in linkers, plus a capped commodity sleeve.",
+    detail:
+      "The strongest inflation stance the model offers. Commodities are capped because they pay no income and have equity-like volatility — they are funded out of the bond sleeve, which makes that sleeve less reliable as an equity cushion.",
+    commodityShare: 0.07,
+    linkerShareOfBonds: 0.5,
+  },
+];

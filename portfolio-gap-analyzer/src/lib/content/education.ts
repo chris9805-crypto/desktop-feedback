@@ -227,6 +227,49 @@ export const ARTICLES: Article[] = [
     ],
   },
   {
+    slug: "inflation-protection",
+    title: "What actually defends against inflation",
+    summary: "Nominal bonds are built for a different job. Linkers hedge inflation by contract; commodities hedge it by correlation, at a price.",
+    topic: "Risk",
+    readingMinutes: 4,
+    keyPoints: [
+      "A nominal bond pays a fixed coupon, so an inflation surprise cuts what that coupon buys and the price falls with it.",
+      "Index-linked bonds track inflation contractually — the direct hedge, at the cost of a lower real yield.",
+      "Commodities have historically risen in inflation shocks, but pay nothing and carry equity-like volatility.",
+    ],
+    sections: [
+      {
+        heading: "Two different jobs",
+        paragraphs: [
+          "A defensive sleeve is usually asked to do two things at once: hold up when equities fall, and preserve purchasing power. Nominal government bonds are very good at the first and structurally bad at the second. Their coupon is fixed in cash terms, so when inflation surprises to the upside, both the real value of that coupon and the price of the bond fall together.",
+          "2022 was the clean demonstration. Equities and nominal bonds fell at the same time, because the shock that hurt equities was the same shock that repriced the bonds. A portfolio that held bonds purely as an equity cushion discovered it had one hedge doing two jobs and failing at both.",
+        ],
+      },
+      {
+        heading: "Index-linked bonds: the direct hedge",
+        paragraphs: [
+          "Inflation-linked bonds — TIPS in the United States, index-linked gilts in the UK — have their principal adjusted by the consumer price index. The link is contractual, not statistical, which makes them the only asset that hedges inflation by construction rather than by historical tendency.",
+          "The cost is a lower starting real yield than a nominal bond of the same maturity. That difference is roughly the market's expected inflation plus a risk premium, and it is the price of the protection. They are not free, and they are not a higher-returning bond.",
+        ],
+      },
+      {
+        heading: "Commodities: a hedge by correlation",
+        paragraphs: [
+          "Broad commodity futures have historically had positive sensitivity to unexpected inflation, which is the specific thing a portfolio cannot otherwise insure against. Energy and food are large components of the price indices themselves, so the link is not a coincidence.",
+          "But the terms are demanding. Commodities produce no earnings, no coupon and no dividend, so the whole return is the price change plus the roll. Over very long periods the real return has been close to zero, with volatility comparable to equities and drawdowns to match. They are held for what they do during a shock, not for what they compound at.",
+          "Gold is often assumed to belong in this category. Over decades it has roughly kept pace with inflation; over any particular five-year stretch it has frequently done nothing of the sort.",
+        ],
+      },
+      {
+        heading: "Sizing it",
+        paragraphs: [
+          "Because commodities substitute for bonds rather than for equities, funding them out of the defensive sleeve makes that sleeve less reliable as an equity cushion. That is the real trade, and it is why a commodity allocation is usually small and capped rather than open-ended.",
+          "The ordering that follows from all this: linkers first, because they hedge the risk directly at bond-like volatility; commodities second and in smaller size, for the part of an inflation shock that linkers alone do not cover.",
+        ],
+      },
+    ],
+  },
+  {
     slug: "cash-drag",
     title: "Cash: safe over one year, expensive over twenty",
     summary: "Cash is the right home for money needed soon. Over a long horizon its safety becomes the cost.",

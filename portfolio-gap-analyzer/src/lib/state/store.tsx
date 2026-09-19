@@ -41,6 +41,7 @@ export const DEFAULT_PROFILE: InvestorProfile = {
   incomeNeedRate: 0,
   taxWrapper: "mixed",
   homeBiasAllowancePp: 0,
+  inflationConcern: 1,
 };
 
 /** A worked example, so the report has something to show before anything is typed. */

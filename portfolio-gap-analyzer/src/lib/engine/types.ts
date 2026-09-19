@@ -50,7 +50,7 @@ export type Factor =
   | "lowVolatility"
   | "dividendYield";
 
-export type CreditBucket = "government" | "investmentGrade" | "highYield";
+export type CreditBucket = "government" | "inflationLinked" | "investmentGrade" | "highYield";
 
 export type Currency = "USD" | "GBP" | "EUR" | "JPY" | "CHF" | "CAD" | "AUD" | "other";
 
@@ -99,6 +99,7 @@ export const FACTORS: readonly Factor[] = [
 ];
 export const CREDIT_BUCKETS: readonly CreditBucket[] = [
   "government",
+  "inflationLinked",
   "investmentGrade",
   "highYield",
 ];
@@ -294,6 +295,12 @@ export interface InvestorProfile {
   taxWrapper: TaxWrapper;
   /** Extra domestic weight the investor deliberately wants, in percentage points. */
   homeBiasAllowancePp: number;
+  /**
+   * How much the investor wants the defensive sleeve to defend against
+   * inflation rather than only against equity drawdowns. 0 low, 1 moderate,
+   * 2 high. Drives the inflation-linked and commodity allocations.
+   */
+  inflationConcern: 0 | 1 | 2;
 }
 
 /** The transparent, user-editable comparison model. Never presented as advice. */
@@ -305,6 +312,10 @@ export interface ReferenceModel {
   presetLabel: string;
   /** What choosing this index means for the gaps the report can and cannot find. */
   indexNote: string;
+  /** Named risk band the derived allocation falls into, e.g. "Balanced". */
+  riskProfileLabel: string;
+  /** Which of the three constraints actually set the growth share. */
+  bindingConstraint: "tolerance" | "capacity" | "horizon";
   /** Long-run historical real return of this mix, annualised. An assumption. */
   expectedRealReturn: number;
   /** Annualised volatility of this mix. An assumption. */

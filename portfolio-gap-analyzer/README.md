@@ -64,8 +64,21 @@ companies underneath them.
 
 **Builds a reference to compare against.** The equity side is anchored on a
 published index the user picks — **MSCI World** by default, or the S&P 500, or a
-global all-cap index — and the growth/defensive split comes from horizon, cash
-buffer, contributions and income needs, or can be set directly as a bond
+global all-cap index.
+
+The growth/defensive split is the tightest of three independent limits: what
+risk tolerance allows, what circumstances allow, and what the horizon allows.
+Taking the minimum rather than blending is deliberate — each is a real limit on
+its own terms, and averaging them lets a long horizon talk a cautious investor
+into an allocation they will abandon in the first bad year. The model names
+which limit bound, and the band it lands in (Defensive through Adventurous).
+Across the tolerance range the defensive sleeve spans roughly 73% to 6%.
+
+An inflation stance then decides what the defensive sleeve is *made of*, not how
+big it is: nominal bonds only, or a third of it in index-linked bonds, or half
+in linkers plus a capped commodity sleeve. Commodities are funded out of bonds
+rather than equities, which makes that sleeve a less reliable equity cushion —
+the model says so where it applies it. It can also be set directly as a bond
 allocation. Every step of the derivation is shown in plain English on the
 profile page, and every input can be overridden.
 
@@ -78,7 +91,7 @@ single country, so no international gap can be found at all.
 
 | Family | What it looks for |
 | --- | --- |
-| Structure and horizon | volatility against the date the money is needed, cash drag, emergency buffer, bond duration, credit quality |
+| Structure and horizon | volatility against the date the money is needed, cash drag, emergency buffer, bond duration, credit quality, inflation protection |
 | Allocation | growth share, and region, sector and size weights against the reference |
 | Concentration | single-company weight counted through funds, effective holdings, top-ten weight |
 | Duplication | funds holding substantially the same thing, and the fee difference between them |
@@ -238,7 +251,7 @@ reading `src/lib/state/store.tsx`.
 npm test
 ```
 
-87 tests across eight suites:
+107 tests across eight suites:
 
 - **exposure** — normalisation invariants, aggregation, cash handling, duration weighting, look-through addition
 - **portfolio** — the paste parser's sizing rules, FX conversion, cross-account merging, ticker aliases, unresolved holdings

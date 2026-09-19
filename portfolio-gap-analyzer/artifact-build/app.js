@@ -16,7 +16,7 @@
   var DEFAULT_PROFILE = {
     baseCurrency: "USD", homeRegion: "us", goal: "retirement", horizonYears: 22,
     riskTolerance: 3, monthlyContribution: 800, emergencyFundMonths: 4,
-    monthlyEssentialSpend: 2800, incomeNeedRate: 0, taxWrapper: "mixed", homeBiasAllowancePp: 0
+    monthlyEssentialSpend: 2800, incomeNeedRate: 0, taxWrapper: "mixed", homeBiasAllowancePp: 0, inflationConcern: 1
   };
 
   var state = {
@@ -527,6 +527,9 @@
           '<div class="btnrow" style="justify-content:center;margin-top:16px"><button class="btn sec" data-act="sample">Load the example portfolio</button></div></div>');
   }
 
+  var TOLERANCE_ALLOWS = { 1: "25%", 2: "42%", 3: "60%", 4: "78%", 5: "92%" };
+  var BINDING_COPY = { tolerance: "your risk tolerance", capacity: "your circumstances", horizon: "the horizon" };
+
   var TOLERANCE = {
     1: "A fall of 10% would worry me enough to want out.",
     2: "I could sit through a 15% fall, but not comfortably.",
@@ -619,16 +622,35 @@
       '<section class="card pad"><h2 class="sec-title">Tolerance for a bad year</h2>' +
       '<p class="sub" style="margin-top:4px">How you would react, as opposed to what you could withstand.</p>' +
       '<input type="range" id="tol" data-act="tol" min="1" max="5" step="1" value="' + p.riskTolerance + '" aria-label="Risk tolerance 1 to 5">' +
-      '<p style="font-size:13px;color:var(--muted);margin-top:8px"><strong style="color:var(--ink)">' + p.riskTolerance + " of 5.</strong> " + esc(TOLERANCE[p.riskTolerance]) + "</p>" +
+      '<p style="font-size:13px;color:var(--muted);margin-top:8px"><strong style="color:var(--ink)">' + p.riskTolerance + " of 5.</strong> " + esc(TOLERANCE[p.riskTolerance]) + ' <span style="color:var(--faint)">Allows up to ' + TOLERANCE_ALLOWS[p.riskTolerance] + " in growth assets.</span></p>" +
       '<div style="margin-top:16px"><span class="field-k">Deliberate home-country tilt: ' + p.homeBiasAllowancePp + " points</span>" +
       '<span class="field-h">Extra weight to your own market, above its share of global market value. Zero means the reference uses global weights exactly.</span>' +
       '<input type="range" id="tilt" data-act="tilt" min="0" max="50" step="5" value="' + p.homeBiasAllowancePp + '"></div></section>' +
+
+      '<section class="card pad"><h2 class="sec-title">Inflation</h2>' +
+      '<p class="sub" style="margin-top:4px">What the defensive sleeve should defend against. This changes what the bonds are, not how many there are.</p>' +
+      '<div class="grid3" style="margin-top:14px;gap:8px">' +
+      G.INFLATION_STANCES.map(function (st) {
+        var on = p.inflationConcern === st.id;
+        return '<button data-act="infl" data-infl="' + st.id + '" aria-pressed="' + on + '" ' +
+          'style="text-align:left;border-radius:8px;padding:12px;background:' + (on ? "var(--accent-soft)" : "transparent") +
+          ";border:1px solid " + (on ? "var(--accent)" : "var(--line)") + '">' +
+          '<span style="display:block;font-size:13px;font-weight:600">' + esc(st.label) + "</span>" +
+          '<span style="display:block;font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.4">' + esc(st.blurb) + "</span></button>";
+      }).join("") + "</div>" +
+      '<p class="sub" style="margin-top:12px">' + esc((G.INFLATION_STANCES[p.inflationConcern] || G.INFLATION_STANCES[0]).detail) + "</p></section>" +
       "</div>" +
 
       '<div class="stack">' +
       '<section class="card pad"><h2 class="sec-title">The model in four numbers</h2>' +
       '<p class="sub" style="margin-top:4px">What the choices above add up to.</p>' +
-      '<div class="grid2" style="margin-top:16px;gap:12px">' +
+      '<div style="margin-top:14px;border-radius:8px;background:var(--surface-2);padding:12px 14px">' +
+      '<span style="font-size:17px;font-weight:600">' + esc(ref.riskProfileLabel) + "</span>" +
+      '<span class="num" style="font-size:13px;color:var(--muted);margin-left:10px">' +
+      pct(ref.inputs.growthShare, 0) + " growth / " + pct(1 - ref.inputs.growthShare, 0) + " defensive</span>" +
+      '<div style="font-size:12px;color:var(--muted);margin-top:4px">Set by ' + esc(BINDING_COPY[ref.bindingConstraint] || "the tightest limit") +
+      " — the tightest of the three limits. Raising the other two would not move it.</div></div>" +
+      '<div class="grid2" style="margin-top:14px;gap:12px">' +
       '<div><div class="stat-k">Growth assets</div><div class="stat-v">' + pct(ref.inputs.growthShare) + "</div></div>" +
       '<div><div class="stat-k">Risk capacity</div><div class="stat-v">' + Math.round(ref.inputs.riskCapacityScore * 100) + "/100</div></div>" +
       '<div><div class="stat-k">Bond duration</div><div class="stat-v">' + ref.targetDuration.toFixed(1) + "y</div></div>" +
@@ -967,6 +989,7 @@
     }
     else if (act === "ovrreset") { state.growthOverride = null; save(); render(); }
     else if (act === "preset") { state.presetId = el.getAttribute("data-preset"); save(); render(); }
+    else if (act === "infl") { setProfile({ inflationConcern: Number(el.getAttribute("data-infl")) }); }
     else if (act === "bondreset") { state.bondShare = null; save(); render(); }
     else if (act === "projreset") { state.projReturn = null; save(); render(); }
     else if (act === "projtable") { state.showProjTable = !state.showProjTable; render(); }
