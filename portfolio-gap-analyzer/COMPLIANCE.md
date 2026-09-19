@@ -39,6 +39,12 @@ about what anyone should own. It lets the tool say "you differ from this index
 here" without ever asserting that the index is the right holding for this
 person.
 
+The reference portfolio is also the product's landing tab, ahead of any holdings
+entry. That is an educational decision before it is a compliance one, but it
+helps both: the reader meets the yardstick, its construction and its blind spots
+before they see a single number about their own money, which makes it much
+harder to mistake the comparison for a verdict.
+
 Because the choice changes what counts as a gap, the tool states the
 consequence of each one before the user commits to it: choosing MSCI World
 means emerging-market holdings read as an overweight rather than as a gap,

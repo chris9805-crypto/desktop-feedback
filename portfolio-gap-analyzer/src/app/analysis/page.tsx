@@ -5,7 +5,6 @@ import { useState } from "react";
 import { DisclaimerFooter } from "@/components/Disclaimer";
 import { ExposureExplorer } from "@/components/ExposureExplorer";
 import { FindingCard } from "@/components/FindingCard";
-import { ProjectionPanel } from "@/components/Projection";
 import { MiniBar, StackedBar } from "@/components/charts";
 import { Button, Callout, Card, EmptyState, Pill, SectionHeading, Stat, StatGrid } from "@/components/ui";
 import { ASSET_CLASSES } from "@/lib/engine/types";
@@ -13,7 +12,7 @@ import { formatCurrency, formatPercent, label } from "@/lib/format";
 import { useStore } from "@/lib/state/store";
 
 export default function AnalysisPage() {
-  const { state, report, hasHoldings, loading, loadSample, setProjectionReturn } = useStore();
+  const { report, hasHoldings, loading, loadSample } = useStore();
   const [showCaveats, setShowCaveats] = useState(false);
   const [showRest, setShowRest] = useState(false);
   const currency = report.portfolio.baseCurrency;
@@ -35,8 +34,11 @@ export default function AnalysisPage() {
           </>
         }
       >
-        The gap report compares what you hold against a reference model built from your own answers. Add some holdings
-        first, or load the example to see what it produces.
+        The gap report compares what you hold against the reference portfolio. If you have not looked at that yet,{" "}
+        <Link href="/reference" className="text-[var(--accent-text)] hover:underline">
+          start there
+        </Link>{" "}
+        — it is the thing your holdings get measured against. Otherwise add some holdings, or load the example.
       </EmptyState>
     );
   }
@@ -67,7 +69,7 @@ export default function AnalysisPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary" href="/profile">
+          <Button variant="secondary" href="/reference">
             Adjust the reference
           </Button>
           <Button variant="secondary" href="/portfolio">
@@ -150,11 +152,21 @@ export default function AnalysisPage() {
         )}
       </section>
 
-      <ProjectionPanel
-        report={report}
-        realReturn={state.projectionOverrides.realReturn ?? null}
-        onReturnChange={setProjectionReturn}
-      />
+      <Card className="flex flex-wrap items-center justify-between gap-4 p-5">
+        <div className="max-w-xl">
+          <h2 className="text-[15px] font-semibold text-[var(--text)]">
+            What range has the {reference.presetLabel} reference mix historically produced?
+          </h2>
+          <p className="mt-1 text-[13px] leading-relaxed text-[var(--text-muted)]">
+            The projection sits with the reference portfolio, because it illustrates that mix rather than the holdings
+            you own. Over {profile.horizonYears} years it spans {formatCurrency(report.projection.final.p10, currency)} to{" "}
+            {formatCurrency(report.projection.final.p90, currency)} in today&apos;s money.
+          </p>
+        </div>
+        <Button variant="secondary" href="/reference">
+          See the projection
+        </Button>
+      </Card>
 
       <Card className="p-5">
         <SectionHeading
@@ -219,8 +231,8 @@ export default function AnalysisPage() {
             ))}
           </ol>
           <div className="mt-4">
-            <Link href="/profile" className="text-[12px] font-medium text-[var(--accent-text)] hover:underline">
-              Change the inputs behind this model →
+            <Link href="/reference" className="text-[12px] font-medium text-[var(--accent-text)] hover:underline">
+              Change the index and the inputs behind this model →
             </Link>
           </div>
         </Card>

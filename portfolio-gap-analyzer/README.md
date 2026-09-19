@@ -44,6 +44,17 @@ None of this is visible from a brokerage statement, because a statement lists
 positions and these are properties of the *combination*. Gapline computes the
 combination.
 
+## The flow
+
+The tool opens on the **reference portfolio**, not on a form. That ordering is
+deliberate: every "gap" it later reports is a difference from that model, so
+the model is the thing worth understanding first. The landing tab explains what
+a reference portfolio is, lets you pick the index behind it, lays out what it
+holds region by region and sector by sector, shows the range it has
+historically produced, and only then hands you over to enter your own holdings.
+
+Reference portfolio → Holdings → Gap report, with Research and Learn alongside.
+
 ## What it does
 
 **Maps the portfolio.** Holdings are resolved against a security master and
@@ -77,7 +88,9 @@ single country, so no international gap can be found at all.
 | Currency | exposure against the currency the money will be spent in |
 | Company quality | leverage and valuation across directly held shares |
 
-**Shows the range the reference has historically produced.** A 2,000-path Monte
+**Shows the range the reference has historically produced.** This sits on the
+reference tab rather than the gap report, because it illustrates that mix and
+not the holdings you own. A 2,000-path Monte
 Carlo over the chosen index's long-run real return, reported as a 10th-to-90th
 percentile band in today's money. It is an illustration, never a forecast: the
 return assumption sits in a slider beside the chart, the model's own limits
@@ -119,6 +132,7 @@ src/
     chart.ts         Fan chart geometry, shared by both renderers
   components/        UI primitives, charts, finding cards
   app/               Next.js App Router pages
+                     reference/ is the landing tab: the model, then the inputs behind it
   test/              Vitest suites
 ```
 

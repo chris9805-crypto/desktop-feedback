@@ -20,7 +20,7 @@
   };
 
   var state = {
-    view: "report", holdings: SAMPLE.slice(), cash: 8000, isSample: true,
+    view: "reference", holdings: SAMPLE.slice(), cash: 8000, isSample: true,
     profile: Object.assign({}, DEFAULT_PROFILE),
     growthOverride: null, accepted: false,
     presetId: "msciWorld", bondShare: null, projReturn: null, showRest: false,
@@ -358,7 +358,13 @@
         : '<div class="note" style="margin-top:14px"><strong>Nothing crossed a materiality threshold.</strong> That means no gap was large enough to report — not that the portfolio is right for you, which is a question this tool does not answer.</div>') +
       "</section>" +
 
-      projectionPanel(r) +
+      '<section class="card pad" style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between">' +
+      '<div style="max-width:34rem"><h2 class="sec-title">What range has the ' + esc(r.reference.presetLabel) +
+      ' reference mix historically produced?</h2>' +
+      '<p class="sub" style="margin-top:4px">The projection sits with the reference portfolio, because it illustrates that mix rather than the holdings you own. Over ' +
+      r.profile.horizonYears + " years it spans " + cur(r.projection.final.p10) + " to " + cur(r.projection.final.p90) +
+      ' in today\u2019s money.</p></div>' +
+      '<button class="btn sec" data-act="go" data-view="reference">See the projection</button></section>' +
 
       '<section class="card pad"><h2 class="sec-title">Exposure, dimension by dimension</h2>' +
       '<p class="sub" style="margin-top:4px">The same portfolio, sliced different ways, each against the corresponding reference weight.</p>' +
@@ -396,7 +402,7 @@
         return '<li style="display:flex;gap:11px;font-size:12.5px;color:var(--muted);line-height:1.55">' +
           '<span class="num" style="color:var(--accent-ink);font-weight:500;flex:none">' + String(i + 1).padStart(2, "0") + "</span>" + esc(line) + "</li>";
       }).join("") + "</ol>" +
-      '<p style="margin-top:14px"><button class="row-link" data-act="go" data-view="situation" style="color:var(--accent-ink);font-size:12.5px;font-weight:600;text-decoration:none">Change the inputs behind this model →</button></p></section>' +
+      '<p style="margin-top:14px"><button class="row-link" data-act="go" data-view="reference" style="color:var(--accent-ink);font-size:12.5px;font-weight:600;text-decoration:none">Change the inputs behind this model →</button></p></section>' +
       "</div>" +
 
       '<section class="card pad"><h2 class="sec-title">What this analysis could not see</h2>' +
@@ -497,8 +503,9 @@
     5: "A 50% fall would not change what I do."
   };
 
-  function viewSituation() {
+  function viewReference() {
     var r = report(), p = state.profile, ref = r.reference;
+    var hasHoldings = r.portfolio.positions.length > 0;
     var slices = G.ASSET_CLASSES.filter(function (k) { return ref.assetClass[k] > 0.001; })
       .map(function (k) { return { label: lab(k), value: ref.assetClass[k] }; });
     function sel(id, act, value, opts) {
@@ -526,8 +533,21 @@
         pct(ps.realReturn) + " · volatility " + pct(ps.volatility) + "</span></button>";
     }).join("");
 
-    return '<header><h1 style="font-size:22px">Your situation</h1>' +
-      '<p class="lede" style="margin-top:6px">These answers build the reference model your portfolio is compared against. They are not a suitability assessment — they are inputs to an arithmetic model whose every step is shown alongside.</p></header>' +
+    var sleeveRegion = G.normaliseSleeve(ref.region, G.REGIONS);
+    var sleeveSector = G.normaliseSleeve(ref.sector, G.SECTORS);
+    var sleeveSize = G.normaliseSleeve(ref.size, G.SIZE_BUCKETS);
+    var regionSlices = G.REGIONS.filter(function (k) { return sleeveRegion[k] > 0.005; })
+      .map(function (k) { return { label: lab(k), value: sleeveRegion[k] }; });
+    var sectorSlices = G.SECTORS.filter(function (k) { return sleeveSector[k] > 0.005; })
+      .map(function (k) { return { label: lab(k), value: sleeveSector[k] }; })
+      .sort(function (a, b) { return b.value - a.value; });
+    var sizeSlices = G.SIZE_BUCKETS.filter(function (k) { return sleeveSize[k] > 0.005; })
+      .map(function (k) { return { label: lab(k), value: sleeveSize[k] }; });
+
+    return '<header><p class="eyebrow" style="color:var(--accent-ink)">Start here</p>' +
+      '<h1 style="font-size:24px;margin-top:8px">The reference portfolio</h1>' +
+      '<p class="lede" style="margin-top:12px">Before looking at what you hold, it is worth knowing what you are holding it <em>against</em>. A reference portfolio is a transparent, boring, fully specified mix — an index for the equity side and a bond sleeve sized to your horizon. Everything this tool later calls a \u201cgap\u201d is just a difference between your portfolio and this one.</p>' +
+      '<p class="lede" style="margin-top:10px">It is not a target and nobody is recommending it. Its job is to be a fixed, visible yardstick, so that a difference becomes a decision you can examine rather than a drift you never noticed. Every number below is derived from inputs you control, and the derivation is printed in full.</p></header>' +
 
       '<section class="card pad"><h2 class="sec-title">The index your portfolio is compared against</h2>' +
       '<p class="sub" style="margin-top:4px">This decides what counts as a gap. Pick the one that matches how you think about your portfolio — the report rebuilds around it.</p>' +
@@ -535,9 +555,21 @@
       '<div class="note warn" style="margin-top:16px"><strong>What choosing ' + esc(ref.presetLabel) +
       " means for your report</strong><br>" + esc(ref.indexNote) + "</div></section>" +
 
+      '<section class="card pad"><h2 class="sec-title">What the ' + esc(ref.presetLabel) + ' reference portfolio holds</h2>' +
+      '<p class="sub" style="margin-top:4px">The whole model, laid out. Adjust anything below and these move with it.</p>' +
+      '<div style="margin-top:18px"><div class="eyebrow">Across the whole portfolio</div>' +
+      '<div style="margin-top:10px">' + stackedBar(slices) + "</div></div>" +
+      '<div class="cols" style="margin-top:20px;padding-top:18px;border-top:1px solid var(--line)">' +
+      '<div><div class="eyebrow">Equity sleeve by region</div><div style="margin-top:10px">' + stackedBar(regionSlices) + "</div></div>" +
+      '<div><div class="eyebrow">Equity sleeve by company size</div><div style="margin-top:10px">' + stackedBar(sizeSlices) + "</div></div>" +
+      "</div>" +
+      '<div style="margin-top:20px;padding-top:18px;border-top:1px solid var(--line)"><div class="eyebrow">Equity sleeve by sector</div>' +
+      '<div style="margin-top:10px">' + stackedBar(sectorSlices) + "</div></div></section>" +
+
       '<div class="cols">' +
       '<div class="stack">' +
       '<section class="card pad"><h2 class="sec-title">The goal and its date</h2>' +
+      '<p class="sub" style="margin-top:4px">These size the bond sleeve and the cash floor. They do not touch the index you picked above.</p>' +
       '<div class="grid2" style="margin-top:12px">' +
       '<label class="field"><span class="field-k">What the money is for</span>' + sel("goal", "goal", p.goal, ["retirement", "houseDeposit", "educationFund", "incomeNow", "generalGrowth"]) + "</label>" +
       numField("horizon", "horizon", "Years until you need it", "The single largest input", p.horizonYears, 1, 50) +
@@ -564,10 +596,9 @@
       "</div>" +
 
       '<div class="stack">' +
-      '<section class="card pad"><h2 class="sec-title">The reference model these answers produce</h2>' +
-      '<p class="sub" style="margin-top:4px">A comparison baseline, not a target anyone is setting for you.</p>' +
-      '<div style="margin-top:14px">' + stackedBar(slices) + "</div>" +
-      '<div class="grid2" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line);gap:12px">' +
+      '<section class="card pad"><h2 class="sec-title">The model in four numbers</h2>' +
+      '<p class="sub" style="margin-top:4px">What the choices above add up to. A comparison baseline, not a target anyone is setting for you.</p>' +
+      '<div class="grid2" style="margin-top:16px;gap:12px">' +
       '<div><div class="stat-k">Growth assets</div><div class="stat-v">' + pct(ref.inputs.growthShare) + "</div></div>" +
       '<div><div class="stat-k">Risk capacity</div><div class="stat-v">' + Math.round(ref.inputs.riskCapacityScore * 100) + "/100</div></div>" +
       '<div><div class="stat-k">Bond duration</div><div class="stat-v">' + ref.targetDuration.toFixed(1) + "y</div></div>" +
@@ -590,10 +621,21 @@
       pct(ref.inputs.growthShare) + " growth · " + pct(ref.assetClass.cash) + " cash</span>" +
       (state.bondShare != null ? '<button class="btn ghost" data-act="bondreset">Back to the glidepath</button>' : "") + "</div></section>" +
 
-      '<div class="note"><strong>Why a market-anchored reference.</strong> The equity side uses global market-capitalisation weights. That is not a view about what anyone should hold — it is what all investors collectively do hold, which makes it the one benchmark that requires no forecast to justify. Differences from it are positions you have taken, deliberately or otherwise.</div>' +
-      '<div class="btnrow"><button class="btn" data-act="go" data-view="report">See the gap report</button>' +
-      '<button class="btn sec" data-act="go" data-view="holdings">Edit holdings</button></div>' +
-      "</div></div>";
+      '<div class="note"><strong>Why an index, rather than someone\u2019s opinion.</strong> An index is maintained by someone else, published, and observable. That is the whole appeal: comparing your portfolio with one requires no forecast and no view about what anyone ought to hold. Differences from it are positions you have taken, deliberately or otherwise — and the point of the exercise is to find out which.</div>' +
+      "</div></div>" +
+
+      projectionPanel(r) +
+
+      '<section class="card pad" style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between">' +
+      '<div style="max-width:34rem"><h2 class="sec-title">' +
+      (hasHoldings ? "Now see where your portfolio differs" : "Next: add what you actually hold") + "</h2>" +
+      '<p class="sub" style="margin-top:4px">' + (hasHoldings
+        ? "Your holdings are already loaded. The gap report measures them against the reference above, and ranks the differences by how much of the portfolio each one touches."
+        : "Paste a list or add positions one at a time. Nothing is uploaded — the whole comparison runs in this browser.") + "</p></div>" +
+      '<div class="btnrow"><button class="btn" data-act="go" data-view="' + (hasHoldings ? "report" : "holdings") + '">' +
+      (hasHoldings ? "See the gap report" : "Add your holdings") + "</button>" +
+      (hasHoldings ? '<button class="btn sec" data-act="go" data-view="holdings">Edit holdings</button>' : "") +
+      "</div></section>";
   }
 
   /* ---------------------------------------------------------- research */
@@ -798,7 +840,7 @@
 
   /* ------------------------------------------------------------ shell */
 
-  var VIEWS = [["report", "Gap report"], ["holdings", "Holdings"], ["situation", "Your situation"], ["research", "Research"], ["learn", "Learn"]];
+  var VIEWS = [["reference", "Reference portfolio"], ["holdings", "Holdings"], ["report", "Gap report"], ["research", "Research"], ["learn", "Learn"]];
 
   function gate() {
     if (state.accepted) return "";
@@ -830,7 +872,7 @@
 
   function body() {
     if (state.view === "holdings") return viewHoldings();
-    if (state.view === "situation") return viewSituation();
+    if (state.view === "reference") return viewReference();
     if (state.view === "research") return viewResearch();
     if (state.view === "learn") return viewLearn();
     return viewReport();

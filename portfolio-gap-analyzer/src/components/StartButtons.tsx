@@ -10,9 +10,12 @@ export function StartButtons() {
 
   return (
     <div className="flex flex-wrap gap-3">
-      <Button href="/portfolio">{hasHoldings ? "Edit your holdings" : "Enter your holdings"}</Button>
+      <Button href="/reference">Start with the reference portfolio</Button>
+      <Button variant="secondary" href="/portfolio">
+        {hasHoldings ? "Edit your holdings" : "Enter your holdings"}
+      </Button>
       <Button
-        variant="secondary"
+        variant="ghost"
         onClick={() => {
           loadSample();
           router.push("/analysis");

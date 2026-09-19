@@ -1,15 +1,18 @@
 "use client";
 
 import { DisclaimerFooter } from "@/components/Disclaimer";
+import { ProjectionPanel } from "@/components/Projection";
 import { StackedBar } from "@/components/charts";
+import { normaliseSleeve } from "@/lib/engine/exposure";
 import { Button, Callout, Card, Field, Pill, SectionHeading, inputClass } from "@/components/ui";
 import { PRESET_LIST, type ReferencePresetId } from "@/lib/engine/presets";
-import { ASSET_CLASSES, type Goal, type Region, type TaxWrapper } from "@/lib/engine/types";
+import { ASSET_CLASSES, REGIONS, SECTORS, SIZE_BUCKETS, type Goal, type Region, type TaxWrapper } from "@/lib/engine/types";
 import { formatPercent, label } from "@/lib/format";
 import { useStore } from "@/lib/state/store";
 
 const GOALS: Goal[] = ["retirement", "houseDeposit", "educationFund", "incomeNow", "generalGrowth"];
-const REGIONS: Region[] = ["us", "uk", "europeExUk", "canada", "japan", "asiaPacificDeveloped", "emergingMarkets"];
+/** The regions offered as "where you will spend it", not the exposure buckets. */
+const HOME_REGIONS: Region[] = ["us", "uk", "europeExUk", "canada", "japan", "asiaPacificDeveloped", "emergingMarkets"];
 const WRAPPERS: TaxWrapper[] = ["taxAdvantaged", "taxable", "mixed"];
 
 const TOLERANCE_COPY: Record<number, string> = {
@@ -21,7 +24,7 @@ const TOLERANCE_COPY: Record<number, string> = {
 };
 
 export default function ProfilePage() {
-  const { state, report, setProfile, setReferenceOverrides } = useStore();
+  const { state, report, setProfile, setReferenceOverrides, setProjectionReturn, hasHoldings } = useStore();
   const profile = state.profile;
   const reference = report.reference;
 
@@ -30,14 +33,32 @@ export default function ProfilePage() {
     value: reference.assetClass[k],
   }));
 
+  // The equity sleeve's own shape, normalised so it reads as "of the shares
+  // this model holds" rather than as a share of the whole portfolio.
+  const equitySleeve = normaliseSleeve(reference.region, REGIONS);
+  const regionSlices = REGIONS.filter((k) => equitySleeve[k] > 0.005).map((k) => ({ label: label(k), value: equitySleeve[k] }));
+  const sectorSleeve = normaliseSleeve(reference.sector, SECTORS);
+  const sectorSlices = SECTORS.filter((k) => sectorSleeve[k] > 0.005)
+    .map((k) => ({ label: label(k), value: sectorSleeve[k] }))
+    .sort((a, b) => b.value - a.value);
+  const sizeSleeve = normaliseSleeve(reference.size, SIZE_BUCKETS);
+  const sizeSlices = SIZE_BUCKETS.filter((k) => sizeSleeve[k] > 0.005).map((k) => ({ label: label(k), value: sizeSleeve[k] }));
+
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-[22px] font-semibold tracking-tight text-[var(--text)]">Your situation</h1>
-        <p className="mt-2 max-w-2xl text-[13.5px] leading-relaxed text-[var(--text-muted)]">
-          These answers build the reference model your portfolio is compared against. They are not a suitability
-          assessment and nobody is judging them — they are the inputs to an arithmetic model whose every step is shown
-          on the right.
+        <p className="text-[12px] font-medium uppercase tracking-wider text-[var(--accent-text)]">Start here</p>
+        <h1 className="mt-2 text-[24px] font-semibold tracking-tight text-[var(--text)]">The reference portfolio</h1>
+        <p className="mt-3 max-w-2xl text-[14px] leading-relaxed text-[var(--text-muted)]">
+          Before looking at what you hold, it is worth knowing what you are holding it <em>against</em>. A reference
+          portfolio is a transparent, boring, fully specified mix — an index for the equity side and a bond sleeve sized
+          to your horizon. Everything this tool later calls a &ldquo;gap&rdquo; is just a difference between your
+          portfolio and this one.
+        </p>
+        <p className="mt-2.5 max-w-2xl text-[14px] leading-relaxed text-[var(--text-muted)]">
+          It is not a target and nobody is recommending it. Its job is to be a fixed, visible yardstick, so that a
+          difference becomes a decision you can examine rather than a drift you never noticed. Every number below is
+          derived from inputs you control, and the derivation is printed in full.
         </p>
       </div>
 
@@ -80,10 +101,48 @@ export default function ProfilePage() {
         </div>
       </Card>
 
+      <Card className="p-5">
+        <SectionHeading
+          title={`What the ${reference.presetLabel} reference portfolio holds`}
+          description="The whole model, laid out. Adjust anything below and these move with it."
+        />
+        <div className="space-y-6">
+          <div>
+            <div className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">Across the whole portfolio</div>
+            <div className="mt-2.5">
+              <StackedBar slices={assetSlices} />
+            </div>
+          </div>
+          <div className="grid gap-6 border-t border-[var(--border)] pt-5 lg:grid-cols-2">
+            <div>
+              <div className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">Equity sleeve by region</div>
+              <div className="mt-2.5">
+                <StackedBar slices={regionSlices} height={12} />
+              </div>
+            </div>
+            <div>
+              <div className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">Equity sleeve by company size</div>
+              <div className="mt-2.5">
+                <StackedBar slices={sizeSlices} height={12} />
+              </div>
+            </div>
+          </div>
+          <div className="border-t border-[var(--border)] pt-5">
+            <div className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">Equity sleeve by sector</div>
+            <div className="mt-2.5">
+              <StackedBar slices={sectorSlices} height={12} />
+            </div>
+          </div>
+        </div>
+      </Card>
+
       <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
         <div className="space-y-6">
           <Card className="p-5">
-            <SectionHeading title="The goal and its date" />
+            <SectionHeading
+              title="The goal and its date"
+              description="These size the bond sleeve and the cash floor. They do not touch the index you picked above."
+            />
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="What is the money for">
                 <select
@@ -114,7 +173,7 @@ export default function ProfilePage() {
                   value={profile.homeRegion}
                   onChange={(event) => setProfile({ homeRegion: event.target.value as Region })}
                 >
-                  {REGIONS.map((region) => (
+                  {HOME_REGIONS.map((region) => (
                     <option key={region} value={region}>
                       {label(region)}
                     </option>
@@ -223,11 +282,10 @@ export default function ProfilePage() {
         <div className="space-y-6">
           <Card className="p-5">
             <SectionHeading
-              title="The reference model these answers produce"
-              description="This is what your portfolio gets compared against. It is a comparison baseline, not a target anyone is setting for you."
+              title="The model in four numbers"
+              description="What the choices above add up to. A comparison baseline, not a target anyone is setting for you."
             />
-            <StackedBar slices={assetSlices} />
-            <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-[var(--border)] pt-4">
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-3 border-t border-[var(--border)] pt-4">
               <div>
                 <dt className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">Growth assets</dt>
                 <dd className="tnum text-[16px] font-semibold text-[var(--text)]">
@@ -306,20 +364,42 @@ export default function ProfilePage() {
             </div>
           </Card>
 
-          <Callout title="Why a market-anchored reference">
-            The equity side of the model uses global market-capitalisation weights. That is not a view about what anyone
-            should hold — it is what all investors collectively do hold, which makes it the one benchmark that requires
-            no forecast to justify. Differences from it are positions you have taken, deliberately or otherwise.
+          <Callout title="Why an index, rather than someone's opinion">
+            An index is maintained by someone else, published, and observable. That is the whole appeal: comparing your
+            portfolio with one requires no forecast and no view about what anyone ought to hold. Differences from it are
+            positions you have taken, deliberately or otherwise — and the point of the exercise is to find out which.
           </Callout>
+        </div>
+      </div>
 
-          <div className="flex gap-2">
-            <Button href="/analysis">See the gap report</Button>
+      <ProjectionPanel
+        report={report}
+        realReturn={state.projectionOverrides.realReturn ?? null}
+        onReturnChange={setProjectionReturn}
+      />
+
+      <Card className="flex flex-wrap items-center justify-between gap-4 p-6">
+        <div className="max-w-xl">
+          <h2 className="text-[16px] font-semibold text-[var(--text)]">
+            {hasHoldings ? "Now see where your portfolio differs" : "Next: add what you actually hold"}
+          </h2>
+          <p className="mt-1.5 text-[13.5px] leading-relaxed text-[var(--text-muted)]">
+            {hasHoldings
+              ? "Your holdings are already loaded. The gap report measures them against the reference above, and ranks the differences by how much of the portfolio each one touches."
+              : "Paste a list or add positions one at a time. Nothing is uploaded — the whole comparison runs in this browser."}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button href={hasHoldings ? "/analysis" : "/portfolio"}>
+            {hasHoldings ? "See the gap report" : "Add your holdings"}
+          </Button>
+          {hasHoldings ? (
             <Button variant="secondary" href="/portfolio">
               Edit holdings
             </Button>
-          </div>
+          ) : null}
         </div>
-      </div>
+      </Card>
 
       <DisclaimerFooter />
     </div>
