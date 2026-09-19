@@ -26,6 +26,7 @@
     presetId: "msciWorld", bondShare: null, projReturn: null, showRest: false,
     openTerm: null, fee: { amount: 25000, monthly: 250, charge: 1.4, years: 25 },
     open: {}, expTab: "region", detail: null, article: null,
+    theme: "ai-infrastructure", picked: [], sleeve: 0.05, sleeveSaved: false,
     screen: { q: "", kind: "all", sector: "all", sort: "size", desc: true, limit: 30 }
   };
 
@@ -45,7 +46,8 @@
         holdings: state.holdings, cash: state.cash, isSample: state.isSample,
         profile: state.profile, growthOverride: state.growthOverride,
         accepted: state.accepted, view: state.view, screen: state.screen,
-        presetId: state.presetId, bondShare: state.bondShare, projReturn: state.projReturn, fee: state.fee
+        presetId: state.presetId, bondShare: state.bondShare, projReturn: state.projReturn, fee: state.fee,
+        theme: state.theme, picked: state.picked, sleeve: state.sleeve
       }));
     } catch (e) { /* nothing to do: the session still works, it just will not be remembered */ }
   }
@@ -61,6 +63,13 @@
   function cur(v, d) { return G.formatCurrency(v, state.profile.baseCurrency, d || 0); }
   var PALETTE = ["var(--c1)", "var(--c2)", "var(--c3)", "var(--c4)", "var(--c5)", "var(--c6)", "var(--c7)", "var(--c8)"];
 
+  function referenceOverrides() {
+    var overrides = { presetId: state.presetId };
+    if (state.bondShare != null) overrides.bondShare = state.bondShare;
+    else if (state.growthOverride != null) overrides.growthShare = state.growthOverride;
+    return overrides;
+  }
+
   var reportCache = { key: null, value: null };
   function report() {
     var key = JSON.stringify([state.holdings, state.cash, state.profile, state.growthOverride,
@@ -69,9 +78,7 @@
       var portfolio = G.buildPortfolio(state.holdings, {
         cash: state.cash, baseCurrency: state.profile.baseCurrency, totalValueHint: 0
       });
-      var overrides = { presetId: state.presetId };
-      if (state.bondShare != null) overrides.bondShare = state.bondShare;
-      else if (state.growthOverride != null) overrides.growthShare = state.growthOverride;
+      var overrides = referenceOverrides();
       var projOverrides = state.projReturn == null ? {} : { realReturn: state.projReturn };
       reportCache = {
         key: key,
@@ -967,6 +974,161 @@
       '<div class="note"><strong>Reading these numbers.</strong> Compare a company with its own sector first. Banks and insurers cannot be assessed on leverage ratios at all, since leverage is their business model. Utilities and REITs run high payout ratios and high debt by design. A negative book value usually reflects years of buybacks rather than distress.</div>';
   }
 
+  /* ------------------------------------------------------------ themes */
+
+  var SLEEVE_STEPS = [0.02, 0.05, 0.1, 0.15, 0.2];
+
+  function theme() {
+    return G.themeById(state.theme) || G.THEMES[0];
+  }
+
+  /** The number the theme ranked on, so the ordering on screen is legible. */
+  function rankLine(id, x) {
+    if (id === "dividend-growers") return x.kind === "stock" ? x.fundamentals.dividendGrowthStreakYears + "y of rises" : "Index rule";
+    if (id === "quality-compounders") return x.kind === "stock" ? pct(x.fundamentals.returnOnInvestedCapital) + " ROIC" : "Index rule";
+    if (id === "cybersecurity") return x.kind === "stock" ? pct(x.fundamentals.revenueCagr3y) + " revenue growth" : "Index rule";
+    if (id === "defensive-income") return pct(x.kind === "etf" ? x.yield : x.fundamentals.dividendYield) + " yield";
+    return pct(x.trailing.return12m, 1) + " over 12m";
+  }
+
+  function matchRow(x) {
+    var on = state.picked.indexOf(x.symbol) >= 0;
+    return '<label class="match' + (on ? " on" : "") + '">' +
+      '<input type="checkbox" data-act="pick" data-symbol="' + esc(x.symbol) + '"' + (on ? " checked" : "") + ">" +
+      '<span style="min-width:0;flex:1">' +
+      '<span class="match-top"><span class="sym" style="font-weight:600">' + esc(x.symbol) + "</span>" +
+      '<span class="sub" style="font-size:12.5px">' + esc(x.name) + "</span></span>" +
+      '<span class="match-meta"><span class="num">' + esc(rankLine(theme().id, x)) + "</span>" +
+      (x.kind === "etf" ? '<span class="num">' + pct(x.fund.expenseRatio, 2) + " charge</span>" : "<span>" + esc(lab(x.sector)) + "</span>") +
+      '<button class="row-link" data-act="detail" data-symbol="' + esc(x.symbol) + '" style="color:var(--accent-ink)">Details</button>' +
+      "</span></span></label>";
+  }
+
+  function deltaTile(k, before, after, fmt, worseWhenUp) {
+    var d = after - before;
+    var flat = Math.abs(d) < 1e-9;
+    var worse = worseWhenUp === false ? d < 0 : d > 0;
+    var colour = flat ? "var(--muted)" : worse ? "var(--over)" : "var(--under)";
+    return '<div class="stat"><div class="stat-k">' + esc(k) + "</div>" +
+      '<div class="delta"><span class="delta-was">' + esc(fmt(before)) + "</span>" +
+      '<span class="delta-now" style="color:' + colour + '">' + esc(fmt(after)) + "</span></div></div>";
+  }
+
+  function themeImpactPanel() {
+    var t = theme();
+    var r = report();
+    var invested = r.portfolio.positions.reduce(function (a, p) { return a + p.value; }, 0);
+
+    if (invested <= 0) {
+      return '<div class="note"><strong>Add your holdings to see the other half of this.</strong> A theme on its own is just a list. ' +
+        'The point of building one here is the line below it — enter what you hold and this page shows what the sleeve does to your ' +
+        term("concentration", "concentration") + ", sector mix and charges. " +
+        '<button class="row-link" data-act="go" data-view="holdings" style="color:var(--accent-ink)">Go to Holdings</button></div>';
+    }
+    if (!state.picked.length) {
+      if (state.sleeveSaved) {
+        return '<div class="note"><strong>Saved — your holdings now include the sleeve.</strong> Every other tab reflects it, and the Holdings tab is where to edit or undo it. ' +
+          '<button class="row-link" data-act="go" data-view="report" style="color:var(--accent-ink)">Open the full gap report</button>. ' +
+          "Picking again starts from the portfolio you now hold.</div>";
+      }
+      return '<div class="note"><strong>Pick a name or two above.</strong> Tick anything on either list and this page shows what that sleeve does to your existing gap report.</div>';
+    }
+
+    var im = G.themeImpact({
+      holdings: state.holdings, cash: state.cash, totalValueHint: 0,
+      profile: state.profile,
+      referenceOverrides: referenceOverrides(),
+      sleeve: { symbols: state.picked, share: state.sleeve }
+    });
+
+    function findingList(list, tone, word, empty, footnote) {
+      if (!list.length) return '<p class="sub" style="margin-top:8px">' + esc(empty) + "</p>";
+      return '<ul class="bullets" style="margin-top:8px;list-style:none;padding:0">' + list.map(function (f) {
+        return '<li style="margin-bottom:6px"><span class="pill ' + tone + '">' + word + "</span> " + esc(f.title) + "</li>";
+      }).join("") + "</ul>" +
+        (footnote ? '<p style="margin-top:8px;font-size:11.5px;line-height:1.45;color:var(--faint)">' + esc(footnote) + "</p>" : "");
+    }
+
+    return '<section class="card">' +
+      '<div style="padding:14px 18px;border-bottom:1px solid var(--line)">' +
+      '<h2 style="font-size:15px">What a ' + pct(state.sleeve, 0) + " " + esc(t.label) + " sleeve does to your portfolio</h2>" +
+      '<p class="sub" style="margin-top:4px">' + state.picked.length + " name" + (state.picked.length === 1 ? "" : "s") +
+      ", split evenly: " + esc(state.picked.join(", ")) + "</p></div>" +
+      '<div class="stats">' +
+      deltaTile("Top 10 names", im.before.topTenWeight, im.after.topTenWeight, function (v) { return pct(v); }) +
+      deltaTile("Effective names", im.before.effectiveNames, im.after.effectiveNames, function (v) { return v.toFixed(0); }, false) +
+      deltaTile("Ongoing charge", im.before.expenseRatio, im.after.expenseRatio, function (v) { return pct(v, 2); }) +
+      deltaTile("Modelled volatility", im.before.estimatedVolatility, im.after.estimatedVolatility, function (v) { return pct(v); }) +
+      "</div>" +
+      '<div class="pad" style="display:grid;gap:18px">' +
+      (im.sectorShifts.length
+        ? '<div><div class="eyebrow">Sector shift</div><dl style="margin:8px 0 0">' +
+          im.sectorShifts.slice(0, 4).map(function (s) {
+            return '<div class="kv"><dt>' + esc(lab(s.sector)) + '</dt><dd class="num">' + pct(s.before) + " → " + pct(s.after) +
+              ' <span style="color:' + (s.delta > 0 ? "var(--over)" : "var(--under)") + '">(' + pp(s.delta) + ")</span></dd></div>";
+          }).join("") + "</dl></div>"
+        : "") +
+      '<div class="grid2">' +
+      '<div><div class="eyebrow">New gaps flagged</div>' +
+      findingList(im.added, "over", "New", "Nothing new at this size. A bigger sleeve may change that.") + "</div>" +
+      '<div><div class="eyebrow">Gaps no longer flagged</div>' +
+      findingList(im.resolved, "under", "Cleared", "None.",
+        "A gap can drop off this list because the sleeve shrank the part of the portfolio it was about, not because anything was fixed.") + "</div>" +
+      "</div></div>" +
+      '<div class="btnrow" style="padding:14px 18px;border-top:1px solid var(--line);align-items:center">' +
+      '<button class="btn" data-act="applysleeve">Model this in my holdings</button>' +
+      '<button class="btn sec" data-act="go" data-view="report">Open the full gap report</button>' +
+      '<span class="sub">Writes the sleeve into your saved holdings so every other tab reflects it. Nothing leaves this browser.</span>' +
+      "</div></section>";
+  }
+
+  function viewThemes() {
+    var t = theme();
+    var m = G.matchesFor(t);
+    var r = report();
+    var invested = r.portfolio.positions.reduce(function (a, p) { return a + p.value; }, 0);
+
+    return '<header><h1 style="font-size:22px">Themes</h1>' +
+      '<p class="lede" style="margin-top:6px">Build a sleeve around an idea — then see what it does to the rest of your portfolio. ' +
+      'Every theme here is a <strong>rule</strong>, printed next to its results, not a list somebody picked.</p></header>' +
+
+      '<div class="grid3">' + G.THEMES.map(function (x) {
+        return '<button class="card pad theme-card' + (x.id === t.id ? " on" : "") + '" data-act="theme" data-theme="' + esc(x.id) + '"' +
+          ' aria-pressed="' + (x.id === t.id) + '" style="text-align:left;border-radius:var(--r)">' +
+          '<div style="font-size:13.5px;font-weight:600">' + esc(x.label) + "</div>" +
+          '<p class="sub" style="margin-top:4px;font-size:12px">' + esc(x.blurb) + "</p></button>";
+      }).join("") + "</div>" +
+
+      '<section class="card pad"><h2 class="sec-title">The rule behind ' + esc(t.label) + "</h2>" +
+      '<p style="font-size:13px;line-height:1.6;margin-top:8px">' + esc(t.criteria) + "</p>" +
+      '<div class="note warn" style="margin-top:14px"><strong>The case against.</strong> ' + esc(t.caution) + "</div></section>" +
+
+      '<div class="cols">' +
+      '<section class="card"><div class="match-head"><h2 style="font-size:13.5px">Funds <span class="sub">(' + m.funds.length + ')</span></h2>' +
+      '<span class="sub" style="font-size:11.5px">One line, many companies</span></div>' +
+      (m.funds.length ? m.funds.map(matchRow).join("") : '<p class="empty sub">No fund in the bundled universe passes this rule.</p>') +
+      "</section>" +
+      '<section class="card"><div class="match-head"><h2 style="font-size:13.5px">Companies <span class="sub">(' + m.stocks.length + ')</span></h2>' +
+      '<span class="sub" style="font-size:11.5px">One line, one business</span></div>' +
+      '<div class="match-list">' + m.stocks.map(matchRow).join("") + "</div></section>" +
+      "</div>" +
+
+      '<section class="card pad"><h2 class="sec-title">Sleeve size</h2>' +
+      '<p class="sub" style="margin-top:4px">Modelled as funded out of everything you already hold, scaled down evenly. Cash is left alone.</p>' +
+      '<div class="btnrow" style="margin-top:12px;align-items:center">' +
+      SLEEVE_STEPS.map(function (s) {
+        return '<button class="btn sec' + (state.sleeve === s ? " on" : "") + '" data-act="sleeve" data-share="' + s + '"' +
+          ' aria-pressed="' + (state.sleeve === s) + '">' + pct(s, 0) + "</button>";
+      }).join("") +
+      (invested > 0
+        ? '<span class="sub num" style="margin-left:auto">' + cur(invested * state.sleeve) + " of " + cur(invested) +
+          (state.picked.length > 1 ? " · " + cur((invested * state.sleeve) / state.picked.length) + " each" : "") + "</span>"
+        : "") +
+      "</div></section>" +
+
+      themeImpactPanel();
+  }
+
   /* ------------------------------------------------------------- learn */
 
   var TOPICS = ["Risk", "Diversification", "Cost", "Income", "Company analysis"];
@@ -1008,7 +1170,7 @@
 
   /* ------------------------------------------------------------ shell */
 
-  var VIEWS = [["reference", "Reference portfolio"], ["holdings", "Holdings"], ["report", "Gap report"], ["research", "Research"], ["learn", "Learn"]];
+  var VIEWS = [["reference", "Reference portfolio"], ["holdings", "Holdings"], ["report", "Gap report"], ["themes", "Themes"], ["research", "Research"], ["learn", "Learn"]];
 
   function gate() {
     if (state.accepted) return "";
@@ -1041,6 +1203,7 @@
   function body() {
     if (state.view === "holdings") return viewHoldings();
     if (state.view === "reference") return viewReference();
+    if (state.view === "themes") return viewThemes();
     if (state.view === "research") return viewResearch();
     if (state.view === "learn") return viewLearn();
     return viewReport();
@@ -1124,6 +1287,14 @@
     else if (act === "projreset") { state.projReturn = null; save(); render(); }
     else if (act === "projtable") { state.showProjTable = !state.showProjTable; render(); }
     else if (act === "showrest") { state.showRest = !state.showRest; render(); }
+    else if (act === "theme") { state.theme = el.getAttribute("data-theme"); state.picked = []; state.sleeveSaved = false; save(); render(); }
+    else if (act === "sleeve") { state.sleeve = Number(el.getAttribute("data-share")); state.sleeveSaved = false; save(); render(); }
+    else if (act === "applysleeve") {
+      var r = report();
+      var invested = r.portfolio.positions.reduce(function (a, p) { return a + p.value; }, 0);
+      state.holdings = G.applySleeve(state.holdings, invested, { symbols: state.picked, share: state.sleeve });
+      state.picked = []; state.isSample = false; state.sleeveSaved = true; save(); render();
+    }
   });
 
   app.addEventListener("input", function (event) {
@@ -1156,7 +1327,14 @@
     var el = event.target.closest("[data-act]");
     if (!el) return;
     var act = el.getAttribute("data-act");
-    if (act === "ccy") { setProfile({ baseCurrency: el.value }); }
+    if (act === "pick") {
+      var symbol = el.getAttribute("data-symbol");
+      state.picked = state.picked.indexOf(symbol) >= 0
+        ? state.picked.filter(function (s) { return s !== symbol; })
+        : state.picked.concat([symbol]);
+      state.sleeveSaved = false; save(); render();
+    }
+    else if (act === "ccy") { setProfile({ baseCurrency: el.value }); }
     else if (act === "goal") { setProfile({ goal: el.value }); }
     else if (act === "home") { setProfile({ homeRegion: el.value }); }
     else if (act === "wrap") { setProfile({ taxWrapper: el.value }); }

@@ -34,3 +34,5 @@ export {
   STYLE_BUCKETS,
   FACTORS,
 } from "@/lib/engine/types";
+export { THEMES, themeById, matchesFor } from "@/lib/engine/themes";
+export { themeImpact, applySleeve } from "@/lib/engine/theme-impact";

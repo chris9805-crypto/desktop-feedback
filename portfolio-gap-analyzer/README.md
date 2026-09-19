@@ -72,7 +72,8 @@ a reference portfolio is, lets you pick the index behind it, lays out what it
 holds region by region and sector by sector, shows the range it has
 historically produced, and only then hands you over to enter your own holdings.
 
-Reference portfolio → Holdings → Gap report, with Research and Learn alongside.
+Reference portfolio → Holdings → Gap report, with Themes, Research and Learn
+alongside.
 
 ## What it does
 
@@ -134,6 +135,29 @@ findings, which is more than anyone acts on. The five largest are shown up
 front; the rest sit one click away rather than being dropped, because a lower
 rank is not the same as unimportant.
 
+**Builds thematic sleeves, and prices what they cost you.** AI infrastructure,
+dividend growers, cybersecurity, energy transition, quality compounders,
+defensive income. Each theme is a **rule over the same universe the screener
+uses**, printed above its results — not a basket somebody vetted — and each
+carries the argument against itself, because thematic funds are reliably most
+popular after the theme has already run.
+
+The part that makes it more than a thematic screener is underneath: tick some
+names, set a sleeve size, and the page re-runs the whole analysis with the
+sleeve funded pro-rata out of what is already held, then shows the difference —
+top-ten weight, effective holdings, ongoing charge, modelled volatility, the
+sectors that moved, and which gap findings the sleeve would introduce or clear.
+A 5% AI sleeve that raises the tech weight 2pp and costs 1bp is a different
+proposition from a 15% one that cuts effective holdings from 23 to 16, and the
+page says which one you are looking at. Findings that drop off carry a note
+saying a gap can disappear because the sleeve diluted it rather than because it
+was fixed.
+
+Funds are matched by looking through to their disclosed holdings, not by sector
+weight alone: a cybersecurity fund is 88% information technology, so a bare
+"60% tech" rule would pull it into the AI-infrastructure list where it does not
+belong.
+
 **Research, sortable.** Every column heading sorts the table — size, yield,
 ongoing charge, 12-month return, and the quality, growth and valuation scores.
 Numeric columns default to highest-first, and rows where a column does not
@@ -161,6 +185,8 @@ src/
       projection.ts  Monte Carlo range for the reference mix
       factors.ts     Factor loadings derived from published metrics
       scores.ts      Composite research scores
+      themes.ts      Thematic screens: the rule, and the case against it
+      theme-impact.ts  What a thematic sleeve does to the gap report
       implement.ts   Exposure screener and implementation routes
       gaps/          The nine detector families
       analyse.ts     Entry point: portfolio + profile -> report
@@ -171,6 +197,7 @@ src/
   components/        UI primitives, charts, finding cards
   app/               Next.js App Router pages
                      reference/ is the landing tab: the model, then the inputs behind it
+                     themes/ builds a sleeve and diffs the report against it
   test/              Vitest suites
 ```
 

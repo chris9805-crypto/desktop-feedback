@@ -21,7 +21,7 @@ const VERSION = "v1";
 const CACHE = `gapline-${VERSION}`;
 
 /** The routes that make up the core flow, precached so a cold start works offline. */
-const CORE_ROUTES = ["/", "/reference", "/portfolio", "/analysis", "/research", "/learn"];
+const CORE_ROUTES = ["/", "/reference", "/portfolio", "/analysis", "/themes", "/research", "/learn"];
 const CORE_ASSETS = ["/manifest.webmanifest", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (event) => {

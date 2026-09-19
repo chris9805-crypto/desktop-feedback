@@ -7,6 +7,7 @@ const LINKS = [
   { href: "/reference", label: "Reference portfolio" },
   { href: "/portfolio", label: "Holdings" },
   { href: "/analysis", label: "Gap report" },
+  { href: "/themes", label: "Themes" },
   { href: "/research", label: "Research" },
   { href: "/learn", label: "Learn" },
 ];

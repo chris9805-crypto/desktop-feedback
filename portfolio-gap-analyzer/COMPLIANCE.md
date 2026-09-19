@@ -169,6 +169,37 @@ printed with the findings rather than hidden in a legal page.
 
 A reader cannot judge a finding without knowing what was excluded from it.
 
+### 6b. Thematic sleeves are screens, and they argue against themselves
+
+The themes tab is the most advice-adjacent feature in the product. "Here are
+the AI stocks" is a model portfolio somebody vetted, which is exactly what this
+tool must not produce. Four constraints keep it a research feature:
+
+- **A theme is a rule, not a list.** Every entry in `src/lib/engine/themes.ts`
+  is a predicate over the same universe the screener uses, and its `criteria`
+  string — the filter in plain English — is rendered above the results. A
+  reader disagrees with the rule rather than with a name on a list. Where a
+  sector weight alone would be misleading, the rule looks through to the fund's
+  disclosed holdings and says so.
+- **Every theme carries its own counter-argument.** The `caution` field is
+  required, is specific to that theme, and is rendered as prominently as the
+  results. Thematic funds are reliably most popular after the theme has already
+  run, and a page that helps someone concentrate had better say so.
+- **The output is a measured consequence, not an endorsement.** Picking names
+  does not produce a shortlist; it produces a diff of the existing gap report —
+  concentration, effective holdings, cost, modelled volatility, sector shift,
+  and the findings the sleeve would introduce. The feature's own framing is
+  what the sleeve *costs*, not what it might earn. No expected return is shown
+  for a theme, and themes are never ranked against one another.
+- **A cleared finding is not presented as an improvement.** A gap can drop off
+  the list because the sleeve diluted the part of the portfolio it concerned.
+  The panel says this in as many words rather than letting a "Cleared" pill
+  imply a fix.
+
+The tests in `src/test/themes.test.ts` assert that every theme states both its
+criteria and its caution at substantive length, so a theme cannot be added
+without both.
+
 ### 7. Nothing leaves the browser
 
 The engine is pure TypeScript and runs client-side against a bundled dataset.
@@ -223,6 +254,10 @@ into something needing a licence, or into something it should not be:
   (currency, listing country, wrapper eligibility) — for example filtering by
   what the tool thinks would suit the user.
 - Adding an overall portfolio score or grade.
+- Turning a theme into a curated list: hand-picking its members, dropping the
+  criteria or the caution, ranking themes against each other, attaching an
+  expected return to one, or presenting the sleeve diff as an improvement
+  rather than as a consequence.
 - Sending holdings to a server, which changes both the privacy story and the
   regulatory posture.
 - Calculating tax outcomes rather than flagging tax as a consideration.
