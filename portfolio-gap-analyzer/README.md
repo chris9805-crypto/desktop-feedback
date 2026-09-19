@@ -165,6 +165,22 @@ There is no native app. The engine is a pure function with no dependency on
 React, the DOM or the network, so the analysis would port to React Native
 unchanged if that were ever wanted; only the UI layer would be rewritten.
 
+## The single-page artifact build
+
+`npm run build:artifact` produces `artifact-build/gapline.html`: the whole tool
+as one self-contained 236KB page, no framework and no network.
+
+It exists because a Next.js static export cannot be published as a claude.ai
+Artifact — artifact pages are served from a subpath and must reference their
+files relatively, while Next emits root-absolute asset paths. Rather than
+reimplement anything, `entry.ts` re-exports the engine, esbuild bundles it into
+one IIFE, and `app.js` is a vanilla-JS interface over the same functions the
+Next app calls. Analysis logic has exactly one home, so this build inherits
+every fix made to it.
+
+What it trades away against the Next app: no service worker, so no home-screen
+install; and one URL instead of a route per page.
+
 ## Privacy
 
 Holdings and the investor profile never leave the browser. The engine runs
