@@ -21,16 +21,13 @@ function mean(values: number[]): number {
  * Turn a company's published metrics into factor loadings on the same 0-1
  * scale the fund breakdowns use, so a directly held stock and a factor ETF can
  * be added together in one exposure vector.
- *
- * Momentum is deliberately absent: it needs a trailing return series, which the
- * bundled dataset does not carry. `analysePortfolio` reports that as a coverage
- * caveat rather than silently scoring it as zero.
  */
 export function deriveFactorTilts(input: {
   marketCapUsd: number;
   valuation: Valuation;
   fundamentals: Fundamentals;
   volatility3y: number;
+  trailing: { return3m: number; return12m: number };
 }): Partial<Record<Factor, number>> {
   const { valuation: v, fundamentals: f } = input;
 
@@ -48,9 +45,17 @@ export function deriveFactorTilts(input: {
     scale(f.freeCashFlowMargin, 0, 0.3),
   ]);
 
+  // Twelve-month return carries most of the weight, with the most recent
+  // quarter included so a name that has just rolled over scores lower than one
+  // still climbing.
+  const momentum = mean([
+    scale(input.trailing.return12m, -0.15, 0.45),
+    scale(input.trailing.return3m, -0.06, 0.1),
+  ]);
+
   const smallSize = inverseScale(Math.log10(Math.max(input.marketCapUsd, 1e8)), 9, 12.5);
   const lowVolatility = inverseScale(input.volatility3y, 0.1, 0.45);
   const dividendYield = scale(f.dividendYield, 0.005, 0.055);
 
-  return { value, quality, smallSize, lowVolatility, dividendYield };
+  return { value, quality, momentum, smallSize, lowVolatility, dividendYield };
 }

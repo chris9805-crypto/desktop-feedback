@@ -9,6 +9,7 @@ import type {
   Valuation,
 } from "@/lib/engine/types";
 import { deriveFactorTilts } from "@/lib/engine/factors";
+import { trailingFor } from "./trailing";
 
 /**
  * Fundamentals column order.
@@ -101,6 +102,7 @@ function stock(row: StockRow): StockSecurity {
   const fundamentals = toFundamentals(row.f);
   const valuation = toValuation(row.v);
   const marketCapUsd = row.mcap * 1e9;
+  const trailing = trailingFor(row.s);
   return {
     kind: "stock",
     symbol: row.s,
@@ -110,6 +112,7 @@ function stock(row: StockRow): StockSecurity {
     price: row.price,
     volatility3y: row.vol,
     beta: row.beta,
+    trailing,
     sector: row.sector,
     industry: row.industry,
     region: row.region,
@@ -118,7 +121,7 @@ function stock(row: StockRow): StockSecurity {
     marketCapUsd,
     fundamentals,
     valuation,
-    factorTilts: deriveFactorTilts({ marketCapUsd, valuation, fundamentals, volatility3y: row.vol }),
+    factorTilts: deriveFactorTilts({ marketCapUsd, valuation, fundamentals, volatility3y: row.vol, trailing }),
     description: row.about,
   };
 }

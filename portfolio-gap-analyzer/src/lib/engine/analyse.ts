@@ -36,10 +36,6 @@ function buildCaveats(portfolio: Portfolio, metrics: ReturnType<typeof computeMe
     );
   }
 
-  caveats.push(
-    "Momentum is not scored for directly held shares — it needs a return series this build does not carry.",
-  );
-
   if (metrics.estimatedVolatility > 0) {
     caveats.push(
       `Volatility of ${formatPercent(metrics.estimatedVolatility)} comes from a single-factor model on past three-year figures. Past volatility is a poor guide to the size of a crisis, and correlations converge exactly when you need them not to.`,

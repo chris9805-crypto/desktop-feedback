@@ -134,6 +134,12 @@ findings, which is more than anyone acts on. The five largest are shown up
 front; the rest sit one click away rather than being dropped, because a lower
 rank is not the same as unimportant.
 
+**Research, sortable.** Every column heading sorts the table — size, yield,
+ongoing charge, 12-month return, and the quality, growth and valuation scores.
+Numeric columns default to highest-first, and rows where a column does not
+apply (a company has no ongoing charge, a fund has no quality score) show a
+dash and sink to the bottom on either direction rather than jumping to the top.
+
 **Explains and offers routes.** Each finding carries its evidence, an
 explanation of what the measure captures, a link to a longer article, and the
 routes available for closing the gap — including deciding the gap was
@@ -158,7 +164,7 @@ src/
       implement.ts   Exposure screener and implementation routes
       gaps/          The nine detector families
       analyse.ts     Entry point: portfolio + profile -> report
-    data/            Security master, FX, provider seam
+    data/            Security master, trailing returns, FX, provider seam
     content/         Education articles and the plain-English glossary
     state/           Client store (localStorage)
     chart.ts         Fan chart and pie geometry, shared by both renderers
@@ -270,7 +276,7 @@ reading `src/lib/state/store.tsx`.
 npm test
 ```
 
-114 tests across nine suites:
+120 tests across ten suites:
 
 - **exposure** — normalisation invariants, aggregation, cash handling, duration weighting, look-through addition
 - **portfolio** — the paste parser's sizing rules, FX conversion, cross-account merging, ticker aliases, unresolved holdings
@@ -278,6 +284,7 @@ npm test
 - **overlap** — same-index funds score as duplicates; a Nasdaq-100 fund does not score as a duplicate of an S&P 500 fund
 - **gaps** — scenario portfolios produce the expected findings, ranking is ordered, no instrument is suggested that is already held, and a portfolio near its reference produces no manufactured findings
 - **projection** — determinism, ordered percentiles, bands that widen with horizon and narrow with bonds
+- **factors** — momentum ordering, bounds, and the recent-quarter penalty
 - **fees** — a percentage converted to money, compounding counted, contributions included
 - **pwa** — the manifest carries what installability needs, every icon file exists, and the worker's caching rules hold
 - **compliance** — advisory language is absent from both source and generated report text; findings carry evidence, reasoning and screen criteria
@@ -289,8 +296,8 @@ Stated plainly, because the report states them too:
 - The bundled dataset is illustrative, not live.
 - Fund look-through uses disclosed top holdings, so single-name concentration
   through funds is an estimate and a slight understatement.
-- Momentum is not scored for directly held shares — it needs a trailing return
-  series the dataset does not carry.
+- Trailing returns are illustrative like the rest of the dataset, so the
+  momentum column and the momentum factor loading are only as real as that.
 - The volatility model uses past three-year volatility and beta. Past volatility
   is a poor guide to the size of a crisis, and correlations move toward one when
   diversification is most needed.

@@ -1,7 +1,8 @@
 import type { EtfSecurity } from "@/lib/engine/types";
 import * as B from "./blends";
+import { trailingFor } from "./trailing";
 
-type EtfInit = Omit<EtfSecurity, "kind" | "fund" | "breakdown"> & {
+type EtfInit = Omit<EtfSecurity, "kind" | "fund" | "breakdown" | "trailing"> & {
   fund: Partial<EtfSecurity["fund"]> & Pick<EtfSecurity["fund"], "expenseRatio" | "aumUsd" | "indexName">;
   breakdown: Partial<EtfSecurity["breakdown"]>;
 };
@@ -9,6 +10,8 @@ type EtfInit = Omit<EtfSecurity, "kind" | "fund" | "breakdown"> & {
 function etf(init: EtfInit): EtfSecurity {
   return {
     kind: "etf",
+    // Returns live in their own table, so a live feed replaces one file.
+    trailing: trailingFor(init.symbol),
     ...init,
     fund: {
       inceptionYear: 2010,

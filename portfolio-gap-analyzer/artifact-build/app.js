@@ -26,7 +26,7 @@
     presetId: "msciWorld", bondShare: null, projReturn: null, showRest: false,
     openTerm: null, fee: { amount: 25000, monthly: 250, charge: 1.4, years: 25 },
     open: {}, expTab: "region", detail: null, article: null,
-    screen: { q: "", kind: "all", sector: "all", sort: "size", limit: 30 }
+    screen: { q: "", kind: "all", sector: "all", sort: "size", desc: true, limit: 30 }
   };
 
   try {
@@ -381,6 +381,23 @@
     return keys.map(function (k) { return { label: lab(k), current: c[k] || 0, reference: ref[k] || 0 }; })
       .sort(function (a, b) { return b.current - a.current; });
   }
+
+  /**
+   * Research table columns. `numeric` columns default to highest-first, which
+   * is what someone means by "sort by yield". Columns that do not apply to a
+   * row show a dash and sort that row to the bottom either way.
+   */
+  var COLUMNS = [
+    { id: "name", label: "Instrument", numeric: false },
+    { id: null, label: "Type" },
+    { id: "size", label: "Size", align: "right" },
+    { id: "yield", label: "Yield", align: "right" },
+    { id: "cost", label: "Charge", align: "right" },
+    { id: "momentum", label: "12m return", align: "right" },
+    { id: "quality", label: "Quality", align: "right" },
+    { id: "growth", label: "Growth", align: "right" },
+    { id: "value", label: "Valuation", align: "right" },
+  ];
 
   var EXP_TABS = [
     ["region", "Geography", "As a share of your equity and property sleeve, so the comparison is not distorted by how much you hold in bonds."],
@@ -773,13 +790,28 @@
     });
     function yieldOf(x) { return x.kind === "etf" ? x.yield : x.fundamentals.dividendYield; }
     function sizeOf(x) { return x.kind === "etf" ? x.fund.aumUsd : x.marketCapUsd; }
+    // The value a column sorts on, or null where the column does not apply.
+    function sortValue(x, key) {
+      if (key === "size") return sizeOf(x);
+      if (key === "yield") return yieldOf(x);
+      if (key === "momentum") return x.trailing.return12m;
+      if (key === "cost") return x.kind === "etf" ? x.fund.expenseRatio : null;
+      if (key === "quality") return x.kind === "stock" ? G.allScores(x).quality.score : null;
+      if (key === "growth") return x.kind === "stock" ? G.allScores(x).growth.score : null;
+      if (key === "value") return x.kind === "stock" ? G.allScores(x).valuation.score : null;
+      return null;
+    }
     rows.sort(function (a, b) {
-      if (s.sort === "name") return a.symbol.localeCompare(b.symbol);
-      if (s.sort === "yield") return yieldOf(b) - yieldOf(a);
-      if (s.sort === "cost") return (a.kind === "etf" ? a.fund.expenseRatio : 1) - (b.kind === "etf" ? b.fund.expenseRatio : 1);
-      if (s.sort === "quality") return (b.kind === "stock" ? G.allScores(b).quality.score : -1) - (a.kind === "stock" ? G.allScores(a).quality.score : -1);
-      if (s.sort === "value") return (b.kind === "stock" ? G.allScores(b).valuation.score : -1) - (a.kind === "stock" ? G.allScores(a).valuation.score : -1);
-      return sizeOf(b) - sizeOf(a);
+      if (s.sort === "name") {
+        var order = a.symbol.localeCompare(b.symbol);
+        return s.desc ? -order : order;
+      }
+      var av = sortValue(a, s.sort), bv = sortValue(b, s.sort);
+      // Rows where the column does not apply sink to the bottom either way.
+      if (av === null && bv === null) return a.symbol.localeCompare(b.symbol);
+      if (av === null) return 1;
+      if (bv === null) return -1;
+      return s.desc ? bv - av : av - bv;
     });
     var visible = rows.slice(0, s.limit);
 
@@ -798,14 +830,26 @@
       '<option value="all">Any</option>' + G.SECTORS.map(function (k) {
         return '<option value="' + k + '"' + (s.sector === k ? " selected" : "") + ">" + esc(lab(k)) + "</option>";
       }).join("") + "</select></label>" +
-      '<label class="field"><span class="field-k">Sort by</span><select id="ssort" data-act="ssort">' +
-      [["size", "Size"], ["name", "Name"], ["yield", "Yield"], ["cost", "Ongoing charge"], ["quality", "Quality score"], ["value", "Valuation score"]].map(function (o) {
-        return '<option value="' + o[0] + '"' + (s.sort === o[0] ? " selected" : "") + ">" + o[1] + "</option>";
-      }).join("") + "</select></label></div></section>" +
+      '<label class="field"><span class="field-k">Sorting</span><span class="field-h">Click any column heading below</span>' +
+      '<div style="margin-top:6px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid var(--line-strong);border-radius:8px">' +
+      "<span>" + esc((COLUMNS.filter(function (c) { return c.id === s.sort; })[0] || { label: "Size" }).label) + "</span>" +
+      '<button class="row-link" data-act="sdir" style="font-size:12px;color:var(--accent-ink);text-decoration:none">' +
+      (s.desc ? "Highest first" : "Lowest first") + "</button></div></label></div></section>" +
 
       '<section class="card"><div style="padding:11px 16px;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--muted)">' +
       "Showing " + visible.length + " of " + rows.length + " result" + (rows.length === 1 ? "" : "s") + ", from " + G.SECURITIES.length + " instruments</div>" +
-      '<div class="scroll"><table class="data"><thead><tr><th>Instrument</th><th>Type</th><th class="r">Size</th><th class="r">Yield</th><th class="r">Charge</th><th class="r">Quality</th><th class="r">Valuation</th></tr></thead><tbody>' +
+      '<div class="scroll"><table class="data"><thead><tr>' +
+      COLUMNS.map(function (c) {
+        var active = c.id && c.id === s.sort;
+        var cls = c.align === "right" ? ' class="r"' : "";
+        if (!c.id) return "<th" + cls + ">" + esc(c.label) + "</th>";
+        return "<th" + cls + (active ? ' aria-sort="' + (s.desc ? "descending" : "ascending") + '"' : "") + ">" +
+          '<button class="row-link" data-act="sortcol" data-col="' + c.id + '" data-numeric="' + (c.numeric !== false) +
+          '" style="text-decoration:none;text-transform:uppercase;letter-spacing:.06em;font-size:10.5px;' +
+          (active ? "color:var(--accent-ink)" : "color:inherit") + '">' + esc(c.label) +
+          '<span aria-hidden="true" style="margin-left:4px;' + (active ? "" : "opacity:0") + '">' +
+          (s.desc ? "\u25be" : "\u25b4") + "</span></button></th>";
+      }).join("") + "</tr></thead><tbody>" +
       visible.map(function (x) {
         return "<tr><td><button class=\"row-link sym\" data-act=\"detail\" data-symbol=\"" + esc(x.symbol) + '">' + esc(x.symbol) + "</button>" +
           '<div style="font-size:12px;color:var(--muted)">' + esc(x.name) + "</div></td>" +
@@ -813,7 +857,10 @@
           '<td class="r num" style="color:var(--muted)">' + G.formatCompactCurrency(sizeOf(x), "USD") + "</td>" +
           '<td class="r num">' + pct(yieldOf(x)) + "</td>" +
           '<td class="r num">' + (x.kind === "etf" ? pct(x.fund.expenseRatio, 2) : "—") + "</td>" +
+          '<td class="r num" style="color:' + (x.trailing.return12m >= 0 ? "var(--under)" : "var(--over)") + '">' +
+          pct(x.trailing.return12m, 1) + "</td>" +
           '<td class="r num">' + (x.kind === "stock" ? G.allScores(x).quality.score : "—") + "</td>" +
+          '<td class="r num">' + (x.kind === "stock" ? G.allScores(x).growth.score : "—") + "</td>" +
           '<td class="r num">' + (x.kind === "stock" ? G.allScores(x).valuation.score : "—") + "</td></tr>";
       }).join("") + "</tbody></table></div>" +
       (rows.length === 0 ? '<p class="empty sub">Nothing matches those filters. Widen one of them.</p>' : "") +
@@ -1032,6 +1079,14 @@
     else if (act === "article") { state.view = "learn"; state.article = el.getAttribute("data-slug"); window.scrollTo(0, 0); render(); }
     else if (act === "learnback") { state.article = null; render(); }
     else if (act === "more") { state.screen.limit += 30; render(); }
+    else if (act === "sortcol") {
+      var col = el.getAttribute("data-col");
+      if (state.screen.sort === col) state.screen.desc = !state.screen.desc;
+      else { state.screen.sort = col; state.screen.desc = el.getAttribute("data-numeric") !== "false"; }
+      state.screen.limit = 30;
+      save(); render();
+    }
+    else if (act === "sdir") { state.screen.desc = !state.screen.desc; save(); render(); }
     else if (act === "sample") { state.holdings = SAMPLE.slice(); state.cash = 8000; state.isSample = true; state.view = "report"; save(); render(); }
     else if (act === "clear") { state.holdings = []; state.cash = 0; state.isSample = false; save(); render(); }
     else if (act === "remove") {

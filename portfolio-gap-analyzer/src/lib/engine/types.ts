@@ -186,6 +186,8 @@ interface SecurityCommon {
   /** Trailing 3-year annualised standard deviation, decimal. */
   volatility3y: number;
   beta: number;
+  /** Trailing total returns, used for momentum. */
+  trailing: { return3m: number; return12m: number };
 }
 
 export interface StockSecurity extends SecurityCommon {

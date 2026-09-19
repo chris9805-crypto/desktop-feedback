@@ -6,7 +6,7 @@ import { DisclaimerFooter } from "@/components/Disclaimer";
 import { FeeCheck } from "@/components/FeeCheck";
 import { Button, Card, Field, Pill, SectionHeading, inputClass } from "@/components/ui";
 import { SECURITIES } from "@/lib/data/securities";
-import { qualityScore, valuationScore } from "@/lib/engine/scores";
+import { growthScore, qualityScore, valuationScore } from "@/lib/engine/scores";
 import { SECTORS, type Sector, type Security } from "@/lib/engine/types";
 import { formatCompactCurrency, formatPercent, label } from "@/lib/format";
 
@@ -14,15 +14,25 @@ import { formatCompactCurrency, formatPercent, label } from "@/lib/format";
 const PAGE_SIZE = 30;
 
 type Kind = "all" | "etf" | "stock";
-type SortKey = "name" | "cost" | "yield" | "size" | "quality" | "value";
+type SortKey = "name" | "cost" | "yield" | "size" | "quality" | "value" | "growth" | "momentum";
 
-const SORTS: { id: SortKey; label: string; appliesTo: Kind }[] = [
-  { id: "name", label: "Name", appliesTo: "all" },
-  { id: "size", label: "Size", appliesTo: "all" },
-  { id: "yield", label: "Yield", appliesTo: "all" },
-  { id: "cost", label: "Ongoing charge", appliesTo: "etf" },
-  { id: "quality", label: "Quality score", appliesTo: "stock" },
-  { id: "value", label: "Valuation score", appliesTo: "stock" },
+/**
+ * The table's columns, each sortable. `numeric` columns default to
+ * highest-first, because that is what someone means by "sort by yield".
+ * `missing` is what a column reads when it does not apply — ETFs have no
+ * quality score, companies have no ongoing charge — and those rows always sort
+ * to the bottom rather than jumping to the top on an ascending sort.
+ */
+const COLUMNS: { id: SortKey | null; label: string; align?: "right"; numeric?: boolean }[] = [
+  { id: "name", label: "Instrument" },
+  { id: null, label: "Type" },
+  { id: "size", label: "Size", align: "right", numeric: true },
+  { id: "yield", label: "Yield", align: "right", numeric: true },
+  { id: "cost", label: "Charge", align: "right" },
+  { id: "momentum", label: "12m return", align: "right", numeric: true },
+  { id: "quality", label: "Quality", align: "right", numeric: true },
+  { id: "growth", label: "Growth", align: "right", numeric: true },
+  { id: "value", label: "Valuation", align: "right", numeric: true },
 ];
 
 function yieldOf(security: Security): number {
@@ -33,11 +43,34 @@ function sizeOf(security: Security): number {
   return security.kind === "etf" ? security.fund.aumUsd : security.marketCapUsd;
 }
 
+/** The value a column sorts on, or null where the column does not apply. */
+function sortValue(s: Security, key: SortKey): number | null {
+  switch (key) {
+    case "size":
+      return sizeOf(s);
+    case "yield":
+      return yieldOf(s);
+    case "momentum":
+      return s.trailing.return12m;
+    case "cost":
+      return s.kind === "etf" ? s.fund.expenseRatio : null;
+    case "quality":
+      return s.kind === "stock" ? qualityScore(s).score : null;
+    case "growth":
+      return s.kind === "stock" ? growthScore(s).score : null;
+    case "value":
+      return s.kind === "stock" ? valuationScore(s).score : null;
+    default:
+      return null;
+  }
+}
+
 export default function ResearchPage() {
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState<Kind>("all");
   const [sector, setSector] = useState<Sector | "all">("all");
   const [sort, setSort] = useState<SortKey>("size");
+  const [descending, setDescending] = useState(true);
   const [maxCost, setMaxCost] = useState(100);
   const [limit, setLimit] = useState(PAGE_SIZE);
 
@@ -53,22 +86,19 @@ export default function ResearchPage() {
       if (security.kind === "etf" && security.fund.expenseRatio * 10000 > maxCost) return false;
       return true;
     }).sort((a, b) => {
-      switch (sort) {
-        case "name":
-          return a.symbol.localeCompare(b.symbol);
-        case "yield":
-          return yieldOf(b) - yieldOf(a);
-        case "cost":
-          return (a.kind === "etf" ? a.fund.expenseRatio : 1) - (b.kind === "etf" ? b.fund.expenseRatio : 1);
-        case "quality":
-          return (b.kind === "stock" ? qualityScore(b).score : -1) - (a.kind === "stock" ? qualityScore(a).score : -1);
-        case "value":
-          return (b.kind === "stock" ? valuationScore(b).score : -1) - (a.kind === "stock" ? valuationScore(a).score : -1);
-        default:
-          return sizeOf(b) - sizeOf(a);
+      if (sort === "name") {
+        const order = a.symbol.localeCompare(b.symbol);
+        return descending ? -order : order;
       }
+      const av = sortValue(a, sort);
+      const bv = sortValue(b, sort);
+      // Rows where the column does not apply sink to the bottom either way.
+      if (av === null && bv === null) return a.symbol.localeCompare(b.symbol);
+      if (av === null) return 1;
+      if (bv === null) return -1;
+      return descending ? bv - av : av - bv;
     });
-  }, [query, kind, sector, sort, maxCost]);
+  }, [query, kind, sector, sort, descending, maxCost]);
 
   const visible = rows.slice(0, limit);
 
@@ -116,14 +146,17 @@ export default function ResearchPage() {
               ))}
             </select>
           </Field>
-          <Field label="Sort by">
-            <select className={inputClass} value={sort} onChange={(event) => { setSort(event.target.value as SortKey); setLimit(PAGE_SIZE); }}>
-              {SORTS.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+          <Field label="Sorting" hint="Click any column heading in the table below">
+            <div className={`${inputClass} flex items-center justify-between gap-2`}>
+              <span>{COLUMNS.find((c) => c.id === sort)?.label ?? "Size"}</span>
+              <button
+                type="button"
+                onClick={() => setDescending((value) => !value)}
+                className="text-[12px] text-[var(--accent-text)] hover:underline"
+              >
+                {descending ? "Highest first" : "Lowest first"}
+              </button>
+            </div>
           </Field>
         </div>
         {kind !== "stock" ? (
@@ -152,13 +185,42 @@ export default function ResearchPage() {
           <table className="w-full text-[13px]">
             <thead>
               <tr className="border-b border-[var(--border)] text-left text-[11px] uppercase tracking-wide text-[var(--text-faint)]">
-                <th className="px-5 py-2.5 font-medium">Instrument</th>
-                <th className="px-3 py-2.5 font-medium">Type</th>
-                <th className="px-3 py-2.5 text-right font-medium">Size</th>
-                <th className="px-3 py-2.5 text-right font-medium">Yield</th>
-                <th className="px-3 py-2.5 text-right font-medium">Charge</th>
-                <th className="px-3 py-2.5 text-right font-medium">Quality</th>
-                <th className="px-5 py-2.5 text-right font-medium">Valuation</th>
+                {COLUMNS.map((column, index) => {
+                  const active = column.id !== null && column.id === sort;
+                  const padding = index === 0 ? "px-5" : index === COLUMNS.length - 1 ? "px-5" : "px-3";
+                  return (
+                    <th
+                      key={column.label}
+                      scope="col"
+                      aria-sort={active ? (descending ? "descending" : "ascending") : undefined}
+                      className={`${padding} py-2.5 font-medium ${column.align === "right" ? "text-right" : ""}`}
+                    >
+                      {column.id === null ? (
+                        column.label
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (active) setDescending((value) => !value);
+                            else {
+                              setSort(column.id as SortKey);
+                              setDescending(column.numeric !== false);
+                            }
+                            setLimit(PAGE_SIZE);
+                          }}
+                          className={`inline-flex items-center gap-1 uppercase tracking-wide hover:text-[var(--text)] ${
+                            active ? "text-[var(--accent-text)]" : ""
+                          }`}
+                        >
+                          {column.label}
+                          <span aria-hidden="true" className={active ? "" : "opacity-0"}>
+                            {descending ? "▾" : "▴"}
+                          </span>
+                        </button>
+                      )}
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border)]">
@@ -182,8 +244,17 @@ export default function ResearchPage() {
                   <td className="tnum px-3 py-2.5 text-right">
                     {security.kind === "etf" ? formatPercent(security.fund.expenseRatio, 2) : "—"}
                   </td>
+                  <td
+                    className="tnum px-3 py-2.5 text-right"
+                    style={{ color: security.trailing.return12m >= 0 ? "var(--under)" : "var(--over)" }}
+                  >
+                    {formatPercent(security.trailing.return12m, 1)}
+                  </td>
                   <td className="tnum px-3 py-2.5 text-right">
                     {security.kind === "stock" ? qualityScore(security).score : "—"}
+                  </td>
+                  <td className="tnum px-3 py-2.5 text-right">
+                    {security.kind === "stock" ? growthScore(security).score : "—"}
                   </td>
                   <td className="tnum px-5 py-2.5 text-right">
                     {security.kind === "stock" ? valuationScore(security).score : "—"}
