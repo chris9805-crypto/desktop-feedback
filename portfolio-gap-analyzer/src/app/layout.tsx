@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { DisclaimerGate } from "@/components/Disclaimer";
 import { Nav } from "@/components/Nav";
+import { TermBar } from "@/components/Term";
 import { ServiceWorkerRegistration } from "@/components/ServiceWorker";
 import { StoreProvider } from "@/lib/state/store";
 import "./globals.css";
@@ -42,6 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <DisclaimerGate />
           <Nav />
           <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
+          <TermBar />
         </StoreProvider>
       </body>
     </html>

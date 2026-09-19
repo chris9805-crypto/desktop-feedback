@@ -10,6 +10,84 @@ export interface Article {
 
 export const ARTICLES: Article[] = [
   {
+    slug: "starting-from-nothing",
+    title: "Where to start when you own nothing",
+    summary: "The order that matters, and why the first three steps have nothing to do with picking investments.",
+    topic: "Risk",
+    readingMinutes: 5,
+    keyPoints: [
+      "Expensive debt and a cash buffer come before investing, because both beat any likely investment return.",
+      "The account you invest through often matters more than what you put in it.",
+      "One broad, cheap fund is a complete answer. Complexity is optional and mostly optional in the wrong direction.",
+    ],
+    sections: [
+      {
+        heading: "Three things before you invest a penny",
+        paragraphs: [
+          "Clear expensive debt first. Credit card interest at 20% is a guaranteed 20% loss; no investment offers a reliable 20% gain. Paying it down is the highest-certainty return available to anyone.",
+          "Then build a cash buffer — three to six months of essential spending, somewhere you can reach same-day. Without it, the first unexpected bill forces you to sell investments, and the moments you need money unexpectedly are exactly the moments markets are down.",
+          "Then check whether your employer matches pension contributions. If they do and you are not taking it, that is free money being left behind, at a rate no fund will match.",
+        ],
+      },
+      {
+        heading: "The account comes before the investment",
+        paragraphs: [
+          "Most countries have accounts with tax advantages attached: an ISA in the UK, a 401(k) or IRA in the US, and equivalents elsewhere. The same fund held inside one of these and outside it can produce noticeably different outcomes over decades, purely because of tax.",
+          "This is unglamorous and it is usually worth more than any amount of fund selection. Sort the wrapper first.",
+        ],
+      },
+      {
+        heading: "Then: one fund is a complete answer",
+        paragraphs: [
+          "A single global index fund holds thousands of companies across dozens of countries. That is a genuinely complete equity portfolio — not a starter version of one. Plenty of people hold nothing else for thirty years and do perfectly well.",
+          "What that fund does not give you is the steadier part. If you will need the money within a decade, or you know you would panic in a deep fall, some of it belongs in bonds or cash instead. That split — how much in shares, how much in the steadier stuff — is the decision that matters. Which particular fund you use barely registers next to it.",
+        ],
+      },
+      {
+        heading: "What not to worry about yet",
+        paragraphs: [
+          "Timing the market. Picking sectors. Individual shares. Anything described as an opportunity that needs a decision this week. None of these are where outcomes are decided, and all of them are where beginners are most often sold something.",
+          "The things that do decide outcomes are dull: how much you put in, how long you leave it, how much you pay in charges, and whether you sell during a fall.",
+        ],
+      },
+    ],
+  },
+  {
+    slug: "what-a-percent-costs",
+    title: "What 1% a year actually costs",
+    summary: "The least intuitive number in finance, converted into money.",
+    topic: "Cost",
+    readingMinutes: 3,
+    keyPoints: [
+      "A percentage charge is small in year one and enormous over a lifetime, because each year's charge also stops earning.",
+      "Fund charge, platform fee and adviser fee stack, and are usually quoted separately.",
+      "The charge is certain. The thing it is supposed to buy is not.",
+    ],
+    sections: [
+      {
+        heading: "The arithmetic nobody shows you",
+        paragraphs: [
+          "£25,000 invested for 25 years at 5% a year before charges. At 0.15% — a plain index fund — you finish with roughly £80,000. At 1.4%, a fairly ordinary figure for an advised product with a platform fee on top, you finish with roughly £60,000.",
+          "The £20,000 difference is not the fees. It is the fees plus everything those fees would have earned had they stayed invested. That second part is most of it, and it is the part the percentage hides.",
+        ],
+      },
+      {
+        heading: "Ask for the total",
+        paragraphs: [
+          "Charges are usually presented one at a time: the fund's own charge, the platform's fee for holding it, and the adviser's fee for choosing it. Each sounds modest. Added together they are the number that matters, and it is the number least often stated in one piece.",
+          "The question to ask, in these words: what is the total percentage I will pay each year, including everything?",
+        ],
+      },
+      {
+        heading: "What a charge can legitimately buy",
+        paragraphs: [
+          "This is not an argument that every fee is wasted. Advice on tax, on how much to save, on what to do when a parent dies or a marriage ends — those are real services, and a person doing them well can be worth paying.",
+          "But be clear about which thing you are buying. Paying a percentage of your assets every year, forever, for fund selection is a different proposition from paying for advice on your circumstances. The first is the part this arithmetic is about.",
+        ],
+      },
+    ],
+  },
+  {
     slug: "risk-capacity",
     title: "Risk capacity is not risk tolerance",
     summary: "One is about your circumstances and one is about your feelings. Only one of them can be overruled by a bad year.",

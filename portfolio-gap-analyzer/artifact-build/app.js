@@ -24,6 +24,7 @@
     profile: Object.assign({}, DEFAULT_PROFILE),
     growthOverride: null, accepted: false,
     presetId: "msciWorld", bondShare: null, projReturn: null, showRest: false,
+    openTerm: null, fee: { amount: 25000, monthly: 250, charge: 1.4, years: 25 },
     open: {}, expTab: "region", detail: null, article: null,
     screen: { q: "", kind: "all", sector: "all", sort: "size", limit: 30 }
   };
@@ -44,7 +45,7 @@
         holdings: state.holdings, cash: state.cash, isSample: state.isSample,
         profile: state.profile, growthOverride: state.growthOverride,
         accepted: state.accepted, view: state.view, screen: state.screen,
-        presetId: state.presetId, bondShare: state.bondShare, projReturn: state.projReturn
+        presetId: state.presetId, bondShare: state.bondShare, projReturn: state.projReturn, fee: state.fee
       }));
     } catch (e) { /* nothing to do: the session still works, it just will not be remembered */ }
   }
@@ -288,6 +289,70 @@
 
       '<div class="note warn" style="margin-top:16px"><strong>How to read this, and how not to</strong>' +
       '<ul class="bullets" style="margin-top:6px">' + pj.notes.map(function (n) { return "<li>" + esc(n) + "</li>"; }).join("") +
+      "</ul></div></section>";
+  }
+
+
+  /**
+   * A term of art with a plain definition one tap away. The definition opens in
+   * a bar at the foot of the page rather than a floating tooltip: hover does
+   * not exist on a phone, and a bar always has room.
+   */
+  function term(key, label) {
+    if (!G.GLOSSARY[key]) return esc(label);
+    return '<button class="term" data-act="term" data-term="' + esc(key) + '" aria-expanded="' +
+      (state.openTerm === key) + '">' + esc(label) + "</button>";
+  }
+
+  function termBar() {
+    var entry = state.openTerm && G.GLOSSARY[state.openTerm];
+    if (!entry) return "";
+    return '<div class="termbar" role="status"><div class="termbar-inner">' +
+      '<div style="min-width:0;flex:1">' +
+      '<div style="font-size:13px;font-weight:600">' + esc(entry.term) + "</div>" +
+      '<p style="margin-top:4px;font-size:13px;line-height:1.6;color:var(--muted)">' + esc(entry.short) + "</p>" +
+      (entry.note ? '<p style="margin-top:6px;font-size:12.5px;line-height:1.6;color:var(--faint)">' + esc(entry.note) + "</p>" : "") +
+      "</div>" +
+      '<button class="btn ghost" data-act="termclose" aria-label="Close definition">Close</button>' +
+      "</div></div>";
+  }
+
+  /**
+   * Turns a quoted charge into money. Aimed at someone who has been shown a
+   * product and cannot tell whether 1.4% a year is normal.
+   */
+  function feeCheck() {
+    var f = state.fee;
+    var r = G.compareFees({
+      amount: f.amount, monthlyContribution: f.monthly,
+      offeredCharge: f.charge / 100, years: f.years,
+    });
+    function num(id, act, label, hint, value, extra) {
+      return '<label class="field"><span class="field-k">' + esc(label) + "</span>" +
+        '<span class="field-h">' + esc(hint) + "</span>" +
+        '<input type="number" id="' + id + '" data-act="' + act + '" value="' + value + '" ' + (extra || "") + "></label>";
+    }
+    return '<section class="card pad"><h2 class="sec-title">Been offered something? Check what the charge costs</h2>' +
+      '<p class="sub" style="margin-top:4px">Funds and advisers quote fees as a percentage, which is the hardest possible unit to judge. This converts one into money.</p>' +
+      '<div class="grid4" style="margin-top:14px">' +
+      num("fa", "feeamount", "Amount (" + state.profile.baseCurrency + ")", "What you would put in now", f.amount, 'min="0"') +
+      num("fm", "feemonthly", "Added each month", "Leave at 0 for a lump sum", f.monthly, 'min="0"') +
+      num("fc", "feecharge", "Their annual charge (%)", "Add platform and adviser fees too", f.charge, 'min="0" max="10" step="0.05"') +
+      num("fy", "feeyears", "Years invested", "Until you need the money", f.years, 'min="1" max="50"') +
+      "</div>" +
+      '<div class="grid3" style="margin-top:20px;padding-top:18px;border-top:1px solid var(--line)">' +
+      '<div><div class="stat-k">At ' + pct(f.charge / 100, 2) + ' a year</div><div class="stat-v t-over">' + cur(r.offered.endValue) + "</div></div>" +
+      '<div><div class="stat-k">At 0.15% — a plain ' + term("indexFund", "index fund") + '</div><div class="stat-v t-under">' + cur(r.lowCost.endValue) + "</div></div>" +
+      '<div><div class="stat-k">Difference</div><div class="stat-v">' + cur(r.difference) + "</div>" +
+      '<div class="stat-d">' + pct(r.shareOfOutcome, 0) + " of what you would otherwise have</div></div>" +
+      "</div>" +
+      '<p class="sub" style="margin-top:14px">The charge looks like ' + cur(r.firstYearCharge) + " in the first year. Over " +
+      f.years + " years, the gap is " + cur(r.difference) + " — because each year\u2019s charge also stops earning for every year after it.</p>" +
+      '<div class="note warn" style="margin-top:14px"><strong>What this does and does not tell you</strong>' +
+      '<ul class="bullets" style="margin-top:6px">' +
+      "<li>It shows the cost of a charge, not whether the product is any good. Some charges buy something; most of this one\u2019s cost is certain either way.</li>" +
+      "<li>Both sides assume the same 5% return before charges, so only the fee differs. Real returns will not be 5%.</li>" +
+      "<li>Ask what the <em>total</em> is: fund charge, platform fee and adviser fee stack, and are often quoted separately.</li>" +
       "</ul></div></section>";
   }
 
@@ -581,11 +646,13 @@
 
     return '<header><p class="eyebrow" style="color:var(--accent-ink)">Start here</p>' +
       '<h1 style="font-size:24px;margin-top:8px">The reference portfolio</h1>' +
-      '<p class="lede" style="margin-top:12px">Know what you are measuring against before you measure. A reference portfolio is a plain, fully specified mix — an index for the equity side, a bond sleeve sized to your horizon. Every \u201cgap\u201d this tool reports is just a difference from it.</p>' +
-      '<p class="lede" style="margin-top:10px">It is a yardstick, not a target, and nobody is recommending it. Every number below comes from inputs you control, and the working is shown.</p></header>' +
+      '<p class="lede" style="margin-top:12px">Before you look at what you own, it helps to have something to compare it against. This page builds that: a plain, fully described mix of ' + term("share", "shares") + ' and ' + term("bond", "bonds") + ', sized to how long your money has and how much of a fall you could live with.</p>' +
+      '<p class="lede" style="margin-top:10px">It is a ' + term("benchmark", "yardstick") + ', not a target, and nobody is recommending it. Everything below comes from answers you give, and you can see the working.</p></header>' +
+      (hasHoldings ? "" :
+        '<div class="note accent"><strong>New to this, and don\u2019t own anything yet?</strong><br>You are in the right place — nothing on this page needs you to own a single thing. Answer the questions, watch the mix change, and use it to judge anything you get offered. Words with a <span style="border-bottom:1px dotted var(--faint)">dotted underline</span> have a plain definition one tap away.</div>') +
 
       '<section class="card pad"><h2 class="sec-title">The index your portfolio is compared against</h2>' +
-      '<p class="sub" style="margin-top:4px">This decides what counts as a gap. The report rebuilds around it.</p>' +
+      '<p class="sub" style="margin-top:4px">A published list of companies to compare against. Not sure? The first one is the broadest well-known choice.</p>' +
       '<div class="grid3" style="margin-top:14px">' + presetCards + "</div>" +
       '<div class="note warn" style="margin-top:16px"><strong>What choosing ' + esc(ref.presetLabel) +
       " means for your report</strong><br>" + esc(ref.indexNote) + "</div></section>" +
@@ -601,25 +668,25 @@
 
       '<div class="cols">' +
       '<div class="stack">' +
-      '<section class="card pad"><h2 class="sec-title">The goal and its date</h2>' +
+      '<section class="card pad"><h2 class="sec-title">What the money is for, and when</h2>' +
       '<p class="sub" style="margin-top:4px">These size the bond sleeve and the cash floor, not the index.</p>' +
       '<div class="grid2" style="margin-top:12px">' +
       '<label class="field"><span class="field-k">What the money is for</span>' + sel("goal", "goal", p.goal, ["retirement", "houseDeposit", "educationFund", "incomeNow", "generalGrowth"]) + "</label>" +
-      numField("horizon", "horizon", "Years until you need it", "The single largest input", p.horizonYears, 1, 50) +
+      numField("horizon", "horizon", "Years until you need it", "The single most important answer on this page", p.horizonYears, 1, 50) +
       '<label class="field"><span class="field-k">Where you will spend it</span>' + sel("home", "home", p.homeRegion, ["us", "uk", "europeExUk", "canada", "japan", "asiaPacificDeveloped", "emergingMarkets"]) + "</label>" +
       '<label class="field"><span class="field-k">Account type</span><span class="field-h">Affects how tax is discussed, never calculated</span>' + sel("wrap", "wrap", p.taxWrapper, ["taxAdvantaged", "taxable", "mixed"]) + "</label>" +
       "</div></section>" +
 
-      '<section class="card pad"><h2 class="sec-title">Capacity for a bad year</h2>' +
-      '<p class="sub" style="margin-top:4px">Circumstances, not feelings — what the plan can absorb without breaking.</p>' +
+      '<section class="card pad"><h2 class="sec-title">What a bad year would do to you</h2>' +
+      '<p class="sub" style="margin-top:4px">Not how you feel — what your situation could absorb without the plan breaking.</p>' +
       '<div class="grid2" style="margin-top:12px">' +
       numField("contrib", "contrib", "Monthly contribution", "New money each month", p.monthlyContribution, 0, 1000000) +
       numField("spend", "spend", "Essential monthly spending", "What you would need if you cut back", p.monthlyEssentialSpend, 0, 1000000) +
-      numField("buffer", "buffer", "Emergency buffer", "Months held outside the portfolio", p.emergencyFundMonths, 0, 24) +
-      numField("draw", "draw", "Annual withdrawal rate", "Percent drawn each year, 0 if none", Math.round(p.incomeNeedRate * 1000) / 10, 0, 15, "0.5") +
+      numField("buffer", "buffer", "Emergency buffer", "Months of spending you keep in cash, outside all this", p.emergencyFundMonths, 0, 24) +
+      numField("draw", "draw", "Annual withdrawal rate", "Percent you take out each year to live on. 0 if saving.", Math.round(p.incomeNeedRate * 1000) / 10, 0, 15, "0.5") +
       "</div></section>" +
 
-      '<section class="card pad"><h2 class="sec-title">Tolerance for a bad year</h2>' +
+      '<section class="card pad"><h2 class="sec-title">How you would react to a bad year</h2>' +
       '<p class="sub" style="margin-top:4px">How you would react, as opposed to what you could withstand.</p>' +
       '<input type="range" id="tol" data-act="tol" min="1" max="5" step="1" value="' + p.riskTolerance + '" aria-label="Risk tolerance 1 to 5">' +
       '<p style="font-size:13px;color:var(--muted);margin-top:8px"><strong style="color:var(--ink)">' + p.riskTolerance + " of 5.</strong> " + esc(TOLERANCE[p.riskTolerance]) + ' <span style="color:var(--faint)">Allows up to ' + TOLERANCE_ALLOWS[p.riskTolerance] + " in growth assets.</span></p>" +
@@ -628,7 +695,7 @@
       '<input type="range" id="tilt" data-act="tilt" min="0" max="50" step="5" value="' + p.homeBiasAllowancePp + '"></div></section>' +
 
       '<section class="card pad"><h2 class="sec-title">Inflation</h2>' +
-      '<p class="sub" style="margin-top:4px">What the defensive sleeve should defend against. This changes what the bonds are, not how many there are.</p>' +
+      '<p class="sub" style="margin-top:4px">Rising prices eat what your money can buy. This changes what your bonds are, not how many you hold.</p>' +
       '<div class="grid3" style="margin-top:14px;gap:8px">' +
       G.INFLATION_STANCES.map(function (st) {
         var on = p.inflationConcern === st.id;
@@ -718,6 +785,8 @@
 
     return '<header><h1 style="font-size:22px">Research</h1>' +
       '<p class="lede" style="margin-top:6px">Filter the bundled universe. Scores are arithmetic summaries of published metrics, shown with their inputs.</p></header>' +
+
+      feeCheck() +
 
       '<section class="card pad"><div class="grid4">' +
       '<label class="field"><span class="field-k">Search</span><input type="text" id="sq" data-act="sq" value="' + esc(s.q) + '" placeholder="Ticker or name"></label>' +
@@ -919,7 +988,7 @@
       '<span class="topbar-note">Research and education — not financial advice</span>' +
       "</div></div><main><div class=\"stack\">" + inner + "</div>" +
       '<p class="foot">Research and education, not financial advice. No personal recommendations; instrument lists are screening results shown with their criteria. Figures are illustrative sample data, not live market data. Tax depends on your own circumstances. For advice on your situation, speak to someone licensed to give it.</p>' +
-      "</main>" + gate();
+      "</main>" + termBar() + gate();
   }
 
   function body() {
@@ -990,6 +1059,12 @@
     else if (act === "ovrreset") { state.growthOverride = null; save(); render(); }
     else if (act === "preset") { state.presetId = el.getAttribute("data-preset"); save(); render(); }
     else if (act === "infl") { setProfile({ inflationConcern: Number(el.getAttribute("data-infl")) }); }
+    else if (act === "term") {
+      var key = el.getAttribute("data-term");
+      state.openTerm = state.openTerm === key ? null : key;
+      render();
+    }
+    else if (act === "termclose") { state.openTerm = null; render(); }
     else if (act === "bondreset") { state.bondShare = null; save(); render(); }
     else if (act === "projreset") { state.projReturn = null; save(); render(); }
     else if (act === "projtable") { state.showProjTable = !state.showProjTable; render(); }
@@ -1016,6 +1091,10 @@
     else if (act === "ovr") { state.growthOverride = num / 100; save(); render(); }
     else if (act === "bond") { state.bondShare = num / 100; save(); render(); }
     else if (act === "projret") { state.projReturn = num / 100; save(); render(); }
+    else if (act === "feeamount") { state.fee = Object.assign({}, state.fee, { amount: Math.max(0, num || 0) }); save(); render(); }
+    else if (act === "feemonthly") { state.fee = Object.assign({}, state.fee, { monthly: Math.max(0, num || 0) }); save(); render(); }
+    else if (act === "feecharge") { state.fee = Object.assign({}, state.fee, { charge: Math.max(0, num || 0) }); save(); render(); }
+    else if (act === "feeyears") { state.fee = Object.assign({}, state.fee, { years: Math.max(1, num || 1) }); save(); render(); }
   });
 
   app.addEventListener("change", function (event) {

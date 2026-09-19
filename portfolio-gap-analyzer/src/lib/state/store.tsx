@@ -74,6 +74,9 @@ export const SAMPLE_STATE: AppState = {
 
 interface StoreValue {
   state: AppState;
+  /** Glossary key whose definition is currently showing, if any. */
+  openTerm: string | null;
+  setOpenTerm: (key: string | null) => void;
   report: AnalysisReport;
   hasHoldings: boolean;
   /** True until localStorage has been read, so the UI can avoid a hydration flash. */
@@ -113,6 +116,8 @@ function readStored(): AppState | null {
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(EMPTY_STATE);
   const [loading, setLoading] = useState(true);
+  // Deliberately not persisted: a definition is a momentary thing.
+  const [openTerm, setOpenTerm] = useState<string | null>(null);
 
   useEffect(() => {
     setState(readStored() ?? EMPTY_STATE);
@@ -148,6 +153,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       state,
       report,
       loading,
+      openTerm,
+      setOpenTerm,
       hasHoldings: state.holdings.length > 0,
       setHoldings: (holdings) => patch({ holdings }),
       setCash: (cash) => patch({ cash }),
@@ -159,7 +166,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       loadSample: () => setState((prev) => ({ ...SAMPLE_STATE, disclaimerAccepted: prev.disclaimerAccepted })),
       reset: () => setState((prev) => ({ ...EMPTY_STATE, disclaimerAccepted: prev.disclaimerAccepted })),
     }),
-    [state, report, loading, patch],
+    [state, report, loading, openTerm, patch],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

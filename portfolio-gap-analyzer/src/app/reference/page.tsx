@@ -2,6 +2,7 @@
 
 import { DisclaimerFooter } from "@/components/Disclaimer";
 import { ProjectionPanel } from "@/components/Projection";
+import { Term } from "@/components/Term";
 import { PieChart } from "@/components/charts";
 import { normaliseSleeve } from "@/lib/engine/exposure";
 import { Button, Callout, Card, Field, Pill, SectionHeading, inputClass } from "@/components/ui";
@@ -59,20 +60,28 @@ export default function ProfilePage() {
         <p className="text-[12px] font-medium uppercase tracking-wider text-[var(--accent-text)]">Start here</p>
         <h1 className="mt-2 text-[24px] font-semibold tracking-tight text-[var(--text)]">The reference portfolio</h1>
         <p className="mt-3 max-w-2xl text-[14px] leading-relaxed text-[var(--text-muted)]">
-          Know what you are measuring against before you measure. A reference portfolio is a plain, fully specified
-          mix — an index for the equity side, a bond sleeve sized to your horizon. Every &ldquo;gap&rdquo; this tool
-          reports is just a difference from it.
+          Before you look at what you own, it helps to have something to compare it against. This page builds that: a
+          plain, fully described mix of <Term k="share">shares</Term> and <Term k="bond">bonds</Term>, sized to how
+          long your money has and how much of a fall you could live with.
         </p>
         <p className="mt-2.5 max-w-2xl text-[14px] leading-relaxed text-[var(--text-muted)]">
-          It is a yardstick, not a target, and nobody is recommending it. Every number below comes from inputs you
-          control, and the working is shown.
+          It is a <Term k="benchmark">yardstick</Term>, not a target, and nobody is recommending it. Everything below
+          comes from answers you give, and you can see the working.
         </p>
+        {!hasHoldings ? (
+          <Callout tone="accent" title="New to this, and don't own anything yet?">
+            You are in the right place — nothing on this page needs you to own a single thing. Answer the questions,
+            watch the mix change, and use it to judge anything you get offered. Words with a{" "}
+            <span className="border-b border-dotted border-[var(--text-faint)]">dotted underline</span> have a plain
+            definition one tap away.
+          </Callout>
+        ) : null}
       </div>
 
       <Card className="p-5">
         <SectionHeading
           title="The index your portfolio is compared against"
-          description="This decides what counts as a gap. The report rebuilds around it."
+          description="A published list of companies to compare against. Not sure? The first one is the broadest well-known choice."
         />
         <div className="grid gap-3 sm:grid-cols-3">
           {PRESET_LIST.map((preset) => {
@@ -125,7 +134,7 @@ export default function ProfilePage() {
         <div className="space-y-6">
           <Card className="p-5">
             <SectionHeading
-              title="The goal and its date"
+              title="What the money is for, and when"
               description="These size the bond sleeve and the cash floor, not the index."
             />
             <div className="grid gap-4 sm:grid-cols-2">
@@ -183,8 +192,8 @@ export default function ProfilePage() {
 
           <Card className="p-5">
             <SectionHeading
-              title="Capacity for a bad year"
-              description="Circumstances, not feelings — what the plan can absorb without breaking."
+              title="What a bad year would do to you"
+              description="Not how you feel — what your situation could absorb without the plan breaking."
             />
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Monthly contribution" hint="New money arriving each month">
@@ -205,7 +214,7 @@ export default function ProfilePage() {
                   onChange={(event) => setProfile({ monthlyEssentialSpend: Math.max(0, Number(event.target.value) || 0) })}
                 />
               </Field>
-              <Field label="Emergency buffer" hint="Months of essential spending held outside the portfolio">
+              <Field label="Emergency buffer" hint="Months of essential spending you keep in cash, outside all this">
                 <input
                   className={inputClass}
                   type="number"
@@ -215,7 +224,7 @@ export default function ProfilePage() {
                   onChange={(event) => setProfile({ emergencyFundMonths: Math.max(0, Number(event.target.value) || 0) })}
                 />
               </Field>
-              <Field label="Annual withdrawal rate" hint="Percent of the portfolio you draw each year, 0 if none">
+              <Field label="Annual withdrawal rate" hint="Percent you take out each year to live on. 0 if you are still saving.">
                 <input
                   className={inputClass}
                   type="number"
@@ -230,7 +239,7 @@ export default function ProfilePage() {
           </Card>
 
           <Card className="p-5">
-            <SectionHeading title="Tolerance for a bad year" description="How you would react, as opposed to what you could withstand." />
+            <SectionHeading title="How you would react to a bad year" description="How you would react, as opposed to what you could withstand." />
             <input
               type="range"
               min={1}
@@ -269,7 +278,7 @@ export default function ProfilePage() {
           <Card className="p-5">
             <SectionHeading
               title="Inflation"
-              description="What the defensive sleeve should defend against. This changes what the bonds are, not how many there are."
+              description="Rising prices eat what your money can buy. This changes what your bonds are, not how many you hold."
             />
             <div className="grid gap-2 sm:grid-cols-3">
               {INFLATION_STANCES.map((stance) => {

@@ -13,6 +13,8 @@ export {
 } from "@/lib/data/securities";
 export { DATASET_META } from "@/lib/data/dataset-meta";
 export { ARTICLES, getArticle } from "@/lib/content/education";
+export { GLOSSARY } from "@/lib/content/glossary";
+export { compareFees } from "@/lib/engine/fees";
 export { DETECTORS } from "@/lib/engine/gaps";
 export { PRESET_LIST, PRESETS, DEFAULT_PRESET, INFLATION_STANCES } from "@/lib/engine/presets";
 export { buildFanChart, buildPie } from "@/lib/chart";

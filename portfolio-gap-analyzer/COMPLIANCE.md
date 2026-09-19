@@ -132,6 +132,21 @@ funded out of bonds, which makes the sleeve a weaker equity cushion, and they
 have produced close to zero real return over long periods. A hedge whose
 downside is not stated alongside it is being sold rather than explained.
 
+### 4d. The fee checker compares a cost, not a product
+
+Converting a quoted charge into money is arithmetic, and the tool does only
+that. It states in the panel that it shows the cost of a charge and not whether
+the product is any good, holds the assumed return identical on both sides so
+only the fee differs, and names the benchmark it compares against. It does not
+tell anyone to leave their adviser, and the accompanying article says plainly
+that advice on tax and circumstances is a real service worth paying for — the
+arithmetic is about paying a percentage of assets annually for fund selection,
+which is a different proposition.
+
+A tool that showed the same number while implying the product was a rip-off
+would be giving a recommendation about a specific product. This one hands over
+the figure and stops.
+
 ### 5. Composite scores are summaries, shown with their inputs
 
 The research scores (quality, financial strength, growth, valuation, dividend

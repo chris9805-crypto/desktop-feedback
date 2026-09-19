@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { DisclaimerFooter } from "@/components/Disclaimer";
+import { FeeCheck } from "@/components/FeeCheck";
 import { Button, Card, Field, Pill, SectionHeading, inputClass } from "@/components/ui";
 import { SECURITIES } from "@/lib/data/securities";
 import { qualityScore, valuationScore } from "@/lib/engine/scores";
@@ -80,6 +81,8 @@ export default function ResearchPage() {
           shown next to the inputs that produced them — they rank companies on a fixed scale, and nothing more than that.
         </p>
       </div>
+
+      <FeeCheck currency="USD" />
 
       <Card className="p-5">
         <SectionHeading title="Filters" />

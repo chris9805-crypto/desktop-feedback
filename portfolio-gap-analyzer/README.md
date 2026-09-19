@@ -44,6 +44,25 @@ None of this is visible from a brokerage statement, because a statement lists
 positions and these are properties of the *combination*. Gapline computes the
 combination.
 
+## Written for people with no finance background
+
+Two things follow from that, and they shape the product rather than decorating it.
+
+**Vocabulary is opt-in.** Terms of art carry a dotted underline; tapping one
+opens a plain definition in a bar at the foot of the page — a bar rather than a
+hover tooltip, because hover does not exist on a phone. The rule for writing a
+definition: explain it to someone who has never bought an investment, without
+using another term from the glossary unexplained.
+
+**You do not need to own anything.** The landing tab is fully useful with an
+empty portfolio: answer four plain questions and watch a sensible mix assemble
+itself. Someone who does not know where to start has somewhere to start.
+
+**And a fee checker**, because "don't blindly buy what your bank sells" is a
+cost-literacy problem. Enter what you have been quoted and it converts the
+percentage into money against a plain index portfolio. It says nothing about
+whether the product is good — only what its charge costs.
+
 ## The flow
 
 The tool opens on the **reference portfolio**, not on a form. That ordering is
@@ -140,7 +159,7 @@ src/
       gaps/          The nine detector families
       analyse.ts     Entry point: portfolio + profile -> report
     data/            Security master, FX, provider seam
-    content/         Education articles
+    content/         Education articles and the plain-English glossary
     state/           Client store (localStorage)
     chart.ts         Fan chart and pie geometry, shared by both renderers
   components/        UI primitives, charts, finding cards
@@ -251,7 +270,7 @@ reading `src/lib/state/store.tsx`.
 npm test
 ```
 
-107 tests across eight suites:
+114 tests across nine suites:
 
 - **exposure** — normalisation invariants, aggregation, cash handling, duration weighting, look-through addition
 - **portfolio** — the paste parser's sizing rules, FX conversion, cross-account merging, ticker aliases, unresolved holdings
@@ -259,6 +278,7 @@ npm test
 - **overlap** — same-index funds score as duplicates; a Nasdaq-100 fund does not score as a duplicate of an S&P 500 fund
 - **gaps** — scenario portfolios produce the expected findings, ranking is ordered, no instrument is suggested that is already held, and a portfolio near its reference produces no manufactured findings
 - **projection** — determinism, ordered percentiles, bands that widen with horizon and narrow with bonds
+- **fees** — a percentage converted to money, compounding counted, contributions included
 - **pwa** — the manifest carries what installability needs, every icon file exists, and the worker's caching rules hold
 - **compliance** — advisory language is absent from both source and generated report text; findings carry evidence, reasoning and screen criteria
 
