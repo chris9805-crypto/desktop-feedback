@@ -66,6 +66,13 @@ Note that enabling Pages makes the app itself publicly readable. Your training
 data is unaffected: it never leaves your phone, so there is nothing on the
 server to expose.
 
+Two static pages go up alongside it and are linked from Settings — a
+[privacy policy](privacy.html) and a [support page](support.html) covering
+installing, backing up, moving phones, and the health disclaimer. Both are in
+the offline cache, so they work in the same basement the app does. If you hand
+the URL to anybody else, those are the pages that answer the questions you will
+otherwise get asked.
+
 ### 2. Same-WiFi, no setup
 
 On a computer on the same network:
@@ -820,14 +827,17 @@ js/
       cards.js       one-card-per-set logging
       review.js      the post-session flashcards
       ...            screens, the first-run walkthrough and Learn
+  version.js    one version number, pinned to package.json by a test
   store.js      state + localStorage persistence
+privacy.html, support.html   the pages Settings links to
 sw.js           offline cache
 manifest.webmanifest, icons/   home-screen install
-test/           368 tests: engine, program design audit, store, modes,
+test/           376 tests: engine, program design audit, store, modes,
                 weak-point detection, beginner layer, equipment adaptation,
                 offline shell, routing, records, plate maths, backup
                 prompting, the program and exercise editors, drop-set
-                accounting, windowed volume, movement figures, bundle, docs
+                accounting, windowed volume, movement figures, bundle, docs,
+                the shipping paperwork
 tools/          dev server, single-file bundler
 ```
 

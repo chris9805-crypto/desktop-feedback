@@ -12,6 +12,7 @@ import { PHASES, PHASE_ORDER } from '../../data/phases.js';
 import { downloadBackup, copyBackup, importButton } from '../backup.js';
 import { backupLine } from '../../engine/backup.js';
 import { BARS, DEFAULT_BAR, DEFAULT_PLATES } from '../../engine/plates.js';
+import { APP_VERSION } from '../../version.js';
 
 export function render(container) {
   clear(container);
@@ -381,6 +382,29 @@ export function render(container) {
       'Every one of those words is explained in plain English under ',
       h('a', { href: '#/learn' }, 'Learn'),
       ' — or tap any ', term('rir', 'underlined word'), ' anywhere in the app.'),
+  ));
+
+  /* --- the small print, reachable rather than hidden --------------------- */
+  wrap.append(h('div', { class: 'card' },
+    h('h3', {}, 'About IronBlock'),
+    h('p', { class: 'small secondary', style: 'margin-top:8px' },
+      'No account, no server, no analytics. Everything you log stays on this device, which '
+      + 'is why backups are yours to keep and why nobody can lose your data but you.'),
+    h('p', { class: 'small secondary' },
+      h('b', { style: 'color:var(--text-primary)' }, 'Not medical advice. '),
+      'The app suggests loads and sets from numbers you entered. It knows nothing about your '
+      + 'health, injuries or history. Talk to a doctor before starting a programme, and stop '
+      + 'if something hurts in a way ordinary training does not.'),
+    h('div', { class: 'row', style: 'margin-top:12px' },
+      h('a', { class: 'btn btn-sm', href: './privacy.html', target: '_blank', rel: 'noopener' }, 'Privacy'),
+      h('a', { class: 'btn btn-sm', href: './support.html', target: '_blank', rel: 'noopener' }, 'Help & FAQ'),
+      h('a', {
+        class: 'btn btn-sm', target: '_blank', rel: 'noopener',
+        href: 'https://github.com/chris9805-crypto/desktop-feedback/issues',
+      }, 'Report a bug'),
+    ),
+    h('p', { class: 'tiny muted', style: 'margin:12px 0 0' },
+      `Version ${APP_VERSION}`),
   ));
 
   container.append(wrap);

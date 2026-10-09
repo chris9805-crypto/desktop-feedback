@@ -191,6 +191,17 @@ function recommendation(container) {
         }, `Or ${alternative.name}`),
       ),
     ),
+    // Said once, on the way in. An app that prescribes loads to strangers owes
+    // them this, and burying it in a settings screen nobody opens is the same
+    // as not saying it.
+    h('div', { class: 'notice', style: 'margin-top:4px' },
+      h('b', {}, 'One thing first. '),
+      'This is a training log that does arithmetic on numbers you type in. It knows nothing '
+      + 'about your health or your injuries, and it is not medical advice. Talk to a doctor '
+      + 'before starting if you are new to this, coming back from injury, or managing any '
+      + 'condition \u2014 and if a suggested weight looks wrong for how you feel today, it is '
+      + 'wrong. Change it. ',
+      h('a', { href: './support.html', target: '_blank', rel: 'noopener' }, 'More')),
     h('div', { class: 'card' },
       h('h3', {}, 'What happens next'),
       h('ol', { class: 'cues', style: 'margin-top:10px' },

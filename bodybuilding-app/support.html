@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Support — IronBlock</title>
+  <meta name="description" content="Installing IronBlock, moving it to a new phone, and getting your training back if something goes wrong.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="icon" href="icons/icon-192.png" sizes="192x192">
+  <style>
+    .doc { max-width: 68ch; margin: 0 auto; padding: 28px 20px 64px; }
+    .doc h1 { margin-bottom: 6px; }
+    .doc h2 { margin: 30px 0 8px; font-size: 17px; }
+    .doc h3 { margin: 18px 0 4px; font-size: 15px; }
+    .doc p, .doc li { color: var(--text-secondary); }
+    .doc li { margin-bottom: 6px; }
+    .doc ol, .doc ul { padding-left: 20px; }
+    .doc .lede { font-size: 17px; color: var(--text-primary); }
+    .doc a { color: var(--accent); }
+    .back { display: inline-block; margin-bottom: 18px; font-size: 14px; }
+    .warn {
+      border-left: 3px solid var(--warning); background: var(--surface-2);
+      padding: 14px 16px; border-radius: var(--radius-sm); margin: 20px 0;
+    }
+    .warn p:last-child { margin-bottom: 0; }
+    .warn b { color: var(--text-primary); }
+  </style>
+</head>
+<body>
+  <main class="doc">
+    <a class="back" href="./index.html">← IronBlock</a>
+    <h1>Support</h1>
+
+    <p class="lede">IronBlock runs entirely on your device, with no account behind it. That
+      makes most problems something you can fix yourself in under a minute — and makes
+      backups the one thing worth being disciplined about.</p>
+
+    <h2 id="health">Before you train</h2>
+    <div class="warn">
+      <p><b>This app is not medical advice.</b> It is a training log that suggests loads and
+        set counts from numbers you have entered yourself. It knows nothing about your health,
+        your injuries, your medication or your history.</p>
+      <p>Talk to a doctor before starting a training programme, particularly if you are new to
+        lifting, returning from injury or illness, pregnant, or managing any medical condition.
+        Stop and get advice if something hurts in a way that is not ordinary training
+        discomfort. The numbers on the screen are a suggestion from a formula, not an
+        instruction, and you are the one holding the weight — if a prescription looks wrong
+        for how you feel today, it is wrong. Change it.</p>
+    </div>
+
+    <h2>Putting it on your phone</h2>
+    <h3>iPhone and iPad</h3>
+    <ol>
+      <li>Open the app in <b>Safari</b> (it must be Safari — Chrome on iOS cannot install it)</li>
+      <li>Tap the <b>Share</b> button, then <b>Add to Home Screen</b></li>
+      <li>Open it from the home-screen icon from then on</li>
+    </ol>
+    <p>This is not just a shortcut. Installed, it runs full screen, works with no signal, and —
+      importantly — its stored data is treated as something worth keeping. Left as an ordinary
+      Safari tab, iOS can clear the storage after about a week of not opening it.</p>
+
+    <h3>Android</h3>
+    <p>Chrome usually offers <b>Install app</b> on its own. If not: menu (⋮) → <b>Install app</b>
+      or <b>Add to Home screen</b>.</p>
+
+    <h2>Backups, and moving to a new phone</h2>
+    <p>There is no cloud copy. A backup is a file you keep.</p>
+    <ol>
+      <li>Settings → <b>Save a backup file</b> — you get a dated <code>.json</code></li>
+      <li>Put it somewhere that is not just this phone: email it to yourself, drop it in cloud
+        storage, anywhere</li>
+      <li>On the new device, install the app, then Settings → <b>Restore from a file</b> and
+        pick it. It tells you what is in the file before it overwrites anything</li>
+    </ol>
+    <p>The app will nag you about this once about five sessions have built up unsaved, or one
+      has sat unsaved for three weeks. The nag is the feature — please do not train it away.</p>
+
+    <h2>Something went wrong</h2>
+
+    <h3>My training has disappeared</h3>
+    <p>Check first that you are opening it the same way you logged it: the home-screen app and
+      a Safari tab can hold separate storage, and so do two different browsers. If you have a
+      backup file, Settings → Restore from a file. If you have not, the log is genuinely gone —
+      there is no server copy to recover, which is the cost of there being no server at all.</p>
+
+    <h3>It will not install, or the install option is missing</h3>
+    <p>On iOS the page must be open in Safari and loaded over <code>https</code>. In a private
+      window, Add to Home Screen is unavailable.</p>
+
+    <h3>It says storage is unavailable</h3>
+    <p>Private browsing, or a browser set to block site data. The app keeps working for the
+      session but will not remember anything after you close it. Use a normal window.</p>
+
+    <h3>The rest timer stops when I switch apps</h3>
+    <p>Known, and a real limitation of a web app: a backgrounded browser tab gets suspended, so
+      the countdown does not run reliably and will not notify you. Keep the screen on during
+      rest, or watch the clock.</p>
+
+    <h3>The weights it suggests look wrong</h3>
+    <p>The engine works from what you logged, so one mis-keyed set can skew the next session.
+      Progress → find the session → correct it, or tap <b>why?</b> on a set card to see exactly
+      what the suggestion was based on. Nothing is locked: change the weight on the card and the
+      app follows you.</p>
+
+    <h2>Reporting a bug or asking for something</h2>
+    <p><a href="https://github.com/chris9805-crypto/desktop-feedback/issues">Open an issue on
+      GitHub.</a> Say what you tapped, what you expected and what happened — and which phone and
+      browser, because most of the awkward ones are specific to a device.</p>
+    <p>Please do not paste your backup file into an issue: it is your whole training log and the
+      issue tracker is public.</p>
+
+    <h2>Privacy</h2>
+    <p>Nothing is collected, because there is nowhere to collect it to. The
+      <a href="./privacy.html">full policy</a> is one page and says so in more detail.</p>
+  </main>
+</body>
+</html>

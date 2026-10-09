@@ -15,10 +15,13 @@ const VERSION = 'ironblock-v1';
 const SHELL = [
   './',
   './index.html',
+  './privacy.html',
+  './support.html',
   './manifest.webmanifest',
   './css/app.css',
   './js/app.js',
   './js/store.js',
+  './js/version.js',
   './js/util/id.js',
   './js/util/route.js',
   './js/data/exercises.js',
