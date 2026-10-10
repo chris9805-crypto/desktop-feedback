@@ -224,8 +224,8 @@ export interface RangeBar {
 export interface RangeChart {
   bars: RangeBar[];
   ticks: { value: number; left: number; label: string }[];
-  /** Marker for money actually paid in, if it fits on the axis. */
-  contributed: { value: number; left: number } | null;
+  /** A reference line — the goal, or money paid in — if it fits on the axis. */
+  marker: { value: number; left: number } | null;
   maxX: number;
 }
 
@@ -240,9 +240,11 @@ export interface RangeChart {
 export function buildRangeChart(
   bands: { label: string; p10: number; p50: number; p90: number }[],
   currency: Currency = "USD",
-  contributed?: number,
+  marker?: number,
 ): RangeChart {
-  const peak = Math.max(1, ...bands.map((b) => b.p90));
+  // The marker is part of the comparison, so the axis has to reach it even
+  // when every band falls short — which is exactly the case worth seeing.
+  const peak = Math.max(1, marker ?? 0, ...bands.map((b) => b.p90));
   const maxX = niceCeiling(peak);
   const pctFor = (value: number) => (Math.max(0, Math.min(maxX, value)) / maxX) * 100;
 
@@ -268,10 +270,7 @@ export function buildRangeChart(
   return {
     bars,
     ticks,
-    contributed:
-      contributed !== undefined && contributed > 0 && contributed <= maxX
-        ? { value: contributed, left: pctFor(contributed) }
-        : null,
+    marker: marker !== undefined && marker > 0 && marker <= maxX ? { value: marker, left: pctFor(marker) } : null,
     maxX,
   };
 }

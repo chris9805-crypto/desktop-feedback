@@ -1,83 +1,92 @@
 "use client";
 
-import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { FeeGapChart, RangeChart } from "@/components/PrimerCharts";
 import { StartButtons } from "@/components/StartButtons";
-import { Term } from "@/components/Term";
 import { Callout, Card, Field, inputClass } from "@/components/ui";
 import { DATASET_META } from "@/lib/data/dataset-meta";
-import { allocationIllustration, feeIllustration } from "@/lib/engine/primer";
+import { feeIllustration, goalPlan } from "@/lib/engine/primer";
 import { formatCurrency, formatPercent } from "@/lib/format";
 import { useStore } from "@/lib/state/store";
 
 /**
- * The first screen, and deliberately not a feature tour.
+ * The first screen: one question, worked backwards.
  *
- * Someone arriving here usually wants to know which fund to buy. That is the
- * last question. Two things are settled before any ticker matters — how much
- * sits in shares, and what the holding costs each year — and both are
- * arithmetic that can be drawn rather than asserted. So the page opens with
- * them, on the reader's own numbers, and only then offers the rest of the tool.
+ * An earlier version of this page put two illustrations side by side — what a
+ * share/bond split does to the range, and what a charge costs over time — and
+ * asked the reader to hold both at once before they had a reason to care about
+ * either. Starting from a goal collapses them into a single answer: the monthly
+ * payment falls as the share in shares rises, and rises again with the charge.
+ * Same two lessons, one table, and a question someone with no background can
+ * answer about themselves.
  */
 export default function HomePage() {
   const { state, setPrimer } = useStore();
-  const { amount, monthlyContribution, years } = state.primer;
+  const { goal, years, startingAmount } = state.primer;
   const currency = state.profile.baseCurrency;
+  const [showDetail, setShowDetail] = useState(false);
 
-  const allocation = useMemo(
-    () => allocationIllustration({ amount, monthlyContribution, years }),
-    [amount, monthlyContribution, years],
+  const plan = useMemo(() => goalPlan({ goal, years, startingAmount }), [goal, years, startingAmount]);
+  // The fee chart follows the plan that needs the least each month: same
+  // payment, two charges, so the gap is the charge and nothing else.
+  const lead = plan.leastPerMonth;
+  const fees = useMemo(
+    () =>
+      feeIllustration({
+        amount: startingAmount,
+        monthlyContribution: lead.monthly,
+        years,
+        growth: lead.realReturn,
+        lowCharge: plan.lowCharge,
+        highCharge: plan.highCharge,
+      }),
+    [startingAmount, lead.monthly, lead.realReturn, years, plan.lowCharge, plan.highCharge],
   );
-  const fees = useMemo(() => feeIllustration({ amount, monthlyContribution, years }), [amount, monthlyContribution, years]);
 
   const money = (value: number) => formatCurrency(value, currency);
-  const safest = allocation.bands[0]!;
-  const boldest = allocation.bands[allocation.bands.length - 1]!;
-  // The mix with the best worst-case, which is usually not the boldest one.
-  const bestFloor = allocation.bands.reduce((best, band) => (band.p10 > best.p10 ? band : best));
+  /**
+   * Simulated outcomes carry no precision worth printing. "$55,264" invites a
+   * reader to believe the last three digits; "$55,300" says the same thing
+   * without the false promise.
+   */
+  const roughly = (value: number) => {
+    const step = value >= 10000 ? 100 : 10;
+    return money(Math.round(value / step) * step);
+  };
+  const shortBy = plan.goal - lead.highChargeOutcome;
+  const everyoneThere = plan.mixes.every((mix) => mix.alreadyThere);
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-10">
       <section className="pt-3">
         <p className="text-[12px] font-medium uppercase tracking-wider text-[var(--accent-text)]">
           Research and education for stock and ETF investors
         </p>
-        <h1 className="mt-3 max-w-3xl text-[30px] font-semibold leading-[1.15] tracking-tight text-[var(--text)] sm:text-[36px]">
-          Two decisions matter more than which fund you buy.
+        <h1 className="mt-3 max-w-2xl text-[30px] font-semibold leading-[1.15] tracking-tight text-[var(--text)] sm:text-[36px]">
+          Start with what you want, not with what to buy.
         </h1>
         <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-[var(--text-muted)]">
-          How much sits in shares, and what you pay to hold it. Both are settled before any ticker matters, and both are
-          just arithmetic. Here they are on your numbers.
+          Tell it the number you have in mind. It works backwards to what that takes each month — and shows the two
+          things that change the answer most.
         </p>
       </section>
 
       <Card className="p-5">
         <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="Starting with">
+          <Field label="I want to have">
             <input
               className={inputClass}
               type="number"
               min={0}
-              step={1000}
-              value={amount}
-              onChange={(event) => setPrimer({ amount: Math.max(0, Number(event.target.value) || 0) })}
+              step={10000}
+              value={goal}
+              onChange={(event) => setPrimer({ goal: Math.max(0, Number(event.target.value) || 0) })}
             />
           </Field>
-          <Field label="Adding each month">
-            <input
-              className={inputClass}
-              type="number"
-              min={0}
-              step={50}
-              value={monthlyContribution}
-              onChange={(event) => setPrimer({ monthlyContribution: Math.max(0, Number(event.target.value) || 0) })}
-            />
-          </Field>
-          <Field label={`For ${years} years`}>
+          <Field label={`In ${years} years`}>
             <input
               type="range"
-              min={5}
+              min={3}
               max={45}
               step={1}
               value={years}
@@ -85,113 +94,181 @@ export default function HomePage() {
               className="mt-2 w-full accent-[var(--accent)]"
             />
           </Field>
+          <Field label="Starting with">
+            <input
+              className={inputClass}
+              type="number"
+              min={0}
+              step={1000}
+              value={startingAmount}
+              onChange={(event) => setPrimer({ startingAmount: Math.max(0, Number(event.target.value) || 0) })}
+            />
+          </Field>
         </div>
-        <p className="mt-3 text-[12px] text-[var(--text-faint)]">
-          {money(allocation.contributed)} of your own money goes in over {years} years. Everything below is in
-          today&apos;s money, so a figure means what it would buy today.
-        </p>
       </Card>
 
       <section>
-        <div className="flex items-baseline gap-3">
-          <span className="tnum text-[13px] font-semibold text-[var(--accent-text)]">01</span>
-          <h2 className="text-[20px] font-semibold tracking-tight text-[var(--text)]">
-            How much you put in shares sets the range
-          </h2>
-        </div>
+        <h2 className="text-[20px] font-semibold tracking-tight text-[var(--text)]">
+          What it takes to get to {money(plan.goal)}
+        </h2>
         <p className="mt-2 max-w-2xl text-[13.5px] leading-relaxed text-[var(--text-muted)]">
-          Shares have paid more than bonds over long periods, and moved far more along the way. That trade — not the
-          choice between two similar funds — is what decides the spread of where you end up.
+          The answer depends on how much of your money sits in shares. Shares have paid more than bonds over long
+          periods, so they ask less of you each month — and move far more along the way.
         </p>
 
-        <Card className="mt-5 p-5">
-          <RangeChart bands={allocation.bands} currency={currency} contributed={allocation.contributed} />
-        </Card>
+        {everyoneThere ? (
+          <Callout title="You are already there" tone="accent">
+            On these assumptions {money(startingAmount)} grows past {money(plan.goal)} within {years} years on its own,
+            whichever mix it sits in. Try a bigger number, a shorter time, or a smaller starting sum.
+          </Callout>
+        ) : (
+          <Card className="mt-5 overflow-hidden">
+            {/* Not a <table>: at phone width three columns squeezed the labels
+                into six-line wraps. The rows stack instead, and each figure
+                carries its own caption once the header row is gone. */}
+            <div className="hidden border-b border-[var(--border)] px-5 py-3 text-[11px] uppercase tracking-wide text-[var(--text-faint)] sm:flex">
+              <span className="flex-1">How it is invested</span>
+              <span className="w-36 text-right">Put aside each month</span>
+              <span className="w-44 text-right">In a bad run, you land near</span>
+            </div>
+            <ul className="divide-y divide-[var(--border)]">
+              {plan.mixes.map((mix, index) => (
+                <li key={mix.id} className="px-5 py-3.5 sm:flex sm:items-center">
+                  <div className="flex-1">
+                    <span className="flex items-center gap-2.5 text-[14px] font-medium text-[var(--text)]">
+                      <span
+                        className="inline-block h-2.5 w-2.5 shrink-0 rounded-[3px]"
+                        style={{ background: `var(--chart-${index + 1})` }}
+                        aria-hidden="true"
+                      />
+                      {mix.label}
+                    </span>
+                    <span className="mt-0.5 block pl-5 text-[11.5px] text-[var(--text-faint)]">
+                      has grown {formatPercent(mix.realReturn, 1)} a year above inflation
+                    </span>
+                  </div>
+                  <div className="mt-2.5 flex items-baseline gap-8 pl-5 sm:mt-0 sm:gap-0 sm:pl-0">
+                    <div className="sm:w-36 sm:text-right">
+                      <div className="text-[11px] uppercase tracking-wide text-[var(--text-faint)] sm:hidden">
+                        Each month
+                      </div>
+                      <div className="tnum text-[18px] font-semibold text-[var(--text)]">
+                        {mix.alreadyThere ? "nothing" : money(mix.monthly)}
+                      </div>
+                    </div>
+                    <div className="sm:w-44 sm:text-right">
+                      <div className="text-[11px] uppercase tracking-wide text-[var(--text-faint)] sm:hidden">
+                        In a bad run
+                      </div>
+                      <div className="tnum text-[14px] text-[var(--text-muted)]">{roughly(mix.p10)}</div>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <p className="border-t border-[var(--border)] px-5 py-3 text-[11.5px] leading-relaxed text-[var(--text-faint)]">
+              &ldquo;A bad run&rdquo; is the 10th percentile of 2,000 simulated runs: one run in ten did worse than
+              that. Figures are in today&apos;s money and rounded.
+            </p>
+          </Card>
+        )}
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <Callout title="What more shares bought" tone="accent">
-            The middle outcome went from {money(safest.p50)} with no shares to {money(boldest.p50)} with nothing else —
-            about {allocation.medianMultiple.toFixed(1)}× on the same {money(allocation.contributed)} paid in.
+          <Callout title="Why the monthly figure falls" tone="accent">
+            {money(plan.mostPerMonth.monthly)} a month with {plan.mostPerMonth.label.toLowerCase()},{" "}
+            {money(lead.monthly)} with {lead.label.toLowerCase()}. More in shares means the money is expected to do more
+            of the work, so less has to come from you.
           </Callout>
-          <Callout title="What it cost" tone="warn">
-            All shares also had the worst bad case: the lowest tenth of outcomes landed at {money(boldest.p10)}, against{" "}
-            {money(bestFloor.p10)} for {bestFloor.label.toLowerCase()}. A rough bad year runs to{" "}
-            {formatPercent(Math.abs(boldest.roughBadYear), 0)} against {formatPercent(Math.abs(safest.roughBadYear), 0)}.
+          <Callout title="Why that is not simply better" tone="warn">
+            The last column is the catch. In a poor run {lead.label.toLowerCase()} lands near {roughly(lead.p10)}, against{" "}
+            {roughly(plan.mostPerMonth.p10)} for {plan.mostPerMonth.label.toLowerCase()} — so the plan that asks least of
+            you is also the one that can miss by most.
           </Callout>
         </div>
 
-        <p className="mt-4 max-w-3xl text-[13px] leading-relaxed text-[var(--text-muted)]">
-          There is no mix that wins on both. Which one fits depends on when you need the money and what you would do in
-          a bad year — which is what the{" "}
-          <Link href="/reference" className="font-medium text-[var(--accent-text)] hover:underline">
-            reference portfolio
-          </Link>{" "}
-          works out from your own answers, rather than guessing at it here.
-        </p>
-      </section>
-
-      <section>
-        <div className="flex items-baseline gap-3">
-          <span className="tnum text-[13px] font-semibold text-[var(--accent-text)]">02</span>
-          <h2 className="text-[20px] font-semibold tracking-tight text-[var(--text)]">
-            What you pay comes out of the same money
-          </h2>
-        </div>
-        <p className="mt-2 max-w-2xl text-[13.5px] leading-relaxed text-[var(--text-muted)]">
-          A charge is quoted as a small percentage a year. It is paid on everything you hold, every year, and each
-          year&apos;s charge also gives up whatever that money would have earned afterwards.
-        </p>
-
-        <Card className="mt-5 p-5">
-          <FeeGapChart points={fees.points} currency={currency} difference={fees.difference} />
+        <Card className="mt-4 p-5">
+          <h3 className="text-[14px] font-semibold text-[var(--text)]">
+            And all of that assumed a cheap fund. Here is what a dear one does.
+          </h3>
+          <p className="mt-2 max-w-3xl text-[13px] leading-relaxed text-[var(--text-muted)]">
+            Every figure above assumes you pay {formatPercent(plan.lowCharge, 2)} a year to hold the investment. Plenty
+            of products charge {formatPercent(plan.highCharge, 2)}. The money comes out of the same pot, every year, so
+            the goal needs more from you.
+          </p>
+          <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            <div>
+              <div className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">Same plan, dearer fund</div>
+              <div className="tnum mt-1 text-[19px] font-semibold text-[var(--over)]">
+                {money(lead.monthlyHighCharge)} a month
+              </div>
+              <p className="mt-1.5 text-[12px] leading-snug text-[var(--text-muted)]">
+                instead of {money(lead.monthly)}, to reach the same {money(plan.goal)} with{" "}
+                {lead.label.toLowerCase()}.
+              </p>
+            </div>
+            <div>
+              <div className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">Over {years} years</div>
+              <div className="tnum mt-1 text-[19px] font-semibold text-[var(--over)]">{money(plan.feeCostOverTerm)}</div>
+              <p className="mt-1.5 text-[12px] leading-snug text-[var(--text-muted)]">
+                extra out of your own pocket, for the same goal and the same mix.
+              </p>
+            </div>
+            <div>
+              <div className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">Or, if you do not add it</div>
+              <div className="tnum mt-1 text-[19px] font-semibold text-[var(--over)]">
+                {roughly(shortBy)} short
+              </div>
+              <p className="mt-1.5 text-[12px] leading-snug text-[var(--text-muted)]">
+                Keep paying {money(lead.monthly)} and the dearer charge leaves you at {roughly(lead.highChargeOutcome)}.
+              </p>
+            </div>
+          </div>
         </Card>
 
-        <div className="mt-4 grid gap-4 sm:grid-cols-3">
-          <Card className="p-4">
-            <div className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">The quoted number</div>
-            <div className="tnum mt-1 text-[19px] font-semibold text-[var(--text)]">{money(fees.firstYearCharge)}</div>
-            <p className="mt-1.5 text-[12px] leading-snug text-[var(--text-muted)]">
-              {formatPercent(fees.highCharge, 2)} on {money(amount)} in the first year. It sounds small because it is
-              small — once.
-            </p>
-          </Card>
-          <Card className="p-4">
-            <div className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">What it costs by year {years}</div>
-            <div className="tnum mt-1 text-[19px] font-semibold text-[var(--over)]">{money(fees.difference)}</div>
-            <p className="mt-1.5 text-[12px] leading-snug text-[var(--text-muted)]">
-              {formatPercent(fees.shareOfOutcome, 0)} of what the cheaper version ends with, gone to the difference
-              between {formatPercent(fees.highCharge, 2)} and {formatPercent(fees.lowCharge, 2)}.
-            </p>
-          </Card>
-          <Card className="p-4">
-            <div className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">Put another way</div>
-            <div className="tnum mt-1 text-[19px] font-semibold text-[var(--text)]">
-              {fees.contributionYears === null ? "—" : `${fees.contributionYears.toFixed(0)} years`}
-            </div>
-            <p className="mt-1.5 text-[12px] leading-snug text-[var(--text-muted)]">
-              {fees.contributionYears === null
-                ? "Add a monthly amount above to see the gap in years of contributions."
-                : `of your ${money(monthlyContribution * 12)} a year, to cover the same gap.`}
-            </p>
-          </Card>
+        <Callout title="Read these as a direction, not a plan">
+          Every figure here is arithmetic on long-run averages, in today&apos;s money. Real returns do not arrive
+          evenly, and a plan sized on an average lands under it about half the time — on these assumptions,{" "}
+          {formatPercent(lead.shortfall, 0)} of simulated runs for {lead.label.toLowerCase()} finished below{" "}
+          {money(plan.goal)}. The point is the comparison between the rows, not any one number.
+        </Callout>
+
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={() => setShowDetail((value) => !value)}
+            aria-expanded={showDetail}
+            className="text-[13px] font-medium text-[var(--accent-text)] hover:underline"
+          >
+            {showDetail ? "Hide the detail" : "Show the detail behind these numbers"} {showDetail ? "↑" : "↓"}
+          </button>
         </div>
 
-        <p className="mt-4 max-w-3xl text-[13px] leading-relaxed text-[var(--text-muted)]">
-          Both lines assume the same {formatPercent(fees.growth, 0)} return before charges — the only difference is the{" "}
-          <Term k="ongoingCharge">ongoing charge</Term>. A higher charge can still be worth paying; the point is to know
-          what is being paid for.{" "}
-          <Link href="/research" className="font-medium text-[var(--accent-text)] hover:underline">
-            Check a charge you have been quoted
-          </Link>
-          .
-        </p>
+        {showDetail ? (
+          <div className="mt-4 space-y-5">
+            <Card className="p-5">
+              <h3 className="text-[14px] font-semibold text-[var(--text)]">Where each plan actually lands</h3>
+              <p className="mt-1.5 mb-4 max-w-2xl text-[12.5px] leading-relaxed text-[var(--text-muted)]">
+                Each mix paying its own monthly figure, run 2,000 times. The line is the {money(plan.goal)} goal.
+              </p>
+              <RangeChart bands={plan.mixes} currency={currency} marker={plan.goal} markerLabel="goal" />
+            </Card>
+            <Card className="p-5">
+              <h3 className="text-[14px] font-semibold text-[var(--text)]">
+                The same {money(lead.monthly)} a month, under both charges
+              </h3>
+              <p className="mt-1.5 mb-4 max-w-2xl text-[12.5px] leading-relaxed text-[var(--text-muted)]">
+                Identical payments and identical returns. The shaded wedge is the charge, and it widens because each
+                year&apos;s charge also gives up what that money would have earned afterwards. The cheap path finishes
+                a little above {money(plan.goal)} because the monthly figure is rounded up.
+              </p>
+              <FeeGapChart points={fees.points} currency={currency} difference={fees.difference} />
+            </Card>
+          </div>
+        ) : null}
       </section>
 
       <section>
-        <div className="flex items-baseline gap-3">
-          <span className="tnum text-[13px] font-semibold text-[var(--accent-text)]">03</span>
-          <h2 className="text-[20px] font-semibold tracking-tight text-[var(--text)]">Then, which holdings</h2>
-        </div>
+        <h2 className="text-[20px] font-semibold tracking-tight text-[var(--text)]">Then, which holdings</h2>
         <p className="mt-2 max-w-2xl text-[13.5px] leading-relaxed text-[var(--text-muted)]">
           Once the mix and the cost are settled, the rest is checking what you own against them. Gapline builds a
           reference from your answers, compares your holdings with it, and shows the arithmetic behind every difference.
@@ -215,8 +292,8 @@ export default function HomePage() {
         <Card className="p-5">
           <h3 className="text-[14px] font-semibold text-[var(--text)]">Not a forecast</h3>
           <p className="mt-2 text-[13px] leading-relaxed text-[var(--text-muted)]">
-            The illustrations above are long-run averages run through a simulation, not a view on what happens next. No
-            price targets, no ratings. Assumed rates are labelled wherever they are used.
+            The figures above are long-run averages run through a simulation, not a view on what happens next. No price
+            targets, no ratings. Assumed rates are labelled wherever they are used.
           </p>
         </Card>
       </section>

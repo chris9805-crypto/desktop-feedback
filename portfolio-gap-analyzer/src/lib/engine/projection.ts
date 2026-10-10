@@ -76,13 +76,11 @@ export interface SimulationInput {
  * set of assumptions. Callers with a `ReferenceModel` go through
  * `buildProjection` below, which adds the notes a reader needs.
  */
-export function simulateOutcomes(input: SimulationInput): ProjectionPoint[] {
-  const { realReturn, volatility, startValue, annualContribution } = input;
-  const years = Math.max(1, Math.round(input.years));
-
-  const random = mulberry32(hashSeed([realReturn, volatility, years, startValue, annualContribution]));
+/** Seeded standard normals, so the same inputs always draw the same paths. */
+function makeGaussian(seed: number): () => number {
+  const random = mulberry32(seed);
   let spare: number | null = null;
-  const gaussian = () => {
+  return () => {
     if (spare !== null) {
       const value = spare;
       spare = null;
@@ -98,6 +96,13 @@ export function simulateOutcomes(input: SimulationInput): ProjectionPoint[] {
     spare = radius * Math.sin(theta);
     return radius * Math.cos(theta);
   };
+}
+
+export function simulateOutcomes(input: SimulationInput): ProjectionPoint[] {
+  const { realReturn, volatility, startValue, annualContribution } = input;
+  const years = Math.max(1, Math.round(input.years));
+
+  const gaussian = makeGaussian(hashSeed([realReturn, volatility, years, startValue, annualContribution]));
 
   const byYear: number[][] = Array.from({ length: years + 1 }, () => []);
   for (let path = 0; path < PATHS; path++) {
@@ -121,6 +126,32 @@ export function simulateOutcomes(input: SimulationInput): ProjectionPoint[] {
       contributed: startValue + annualContribution * year,
     };
   });
+}
+
+/**
+ * The share of simulated paths that finish below a target.
+ *
+ * A plan sized on an average return reaches its goal on an average run, and
+ * says nothing about the others. This counts them: it is the number that stops
+ * "put aside this much and you get there" from being read as a promise, and it
+ * is the honest counterweight to a bolder mix asking for less money each month.
+ */
+export function shortfallRate(input: SimulationInput, target: number): number {
+  const { realReturn, volatility, startValue, annualContribution } = input;
+  const years = Math.max(1, Math.round(input.years));
+  if (target <= 0) return 0;
+
+  const gaussian = makeGaussian(hashSeed([realReturn, volatility, years, startValue, annualContribution, target]));
+
+  let short = 0;
+  for (let path = 0; path < PATHS; path++) {
+    let value = startValue;
+    for (let year = 1; year <= years; year++) {
+      value = Math.max(0, value * (1 + realReturn + volatility * gaussian()) + annualContribution);
+    }
+    if (value < target) short++;
+  }
+  return short / PATHS;
 }
 
 /**

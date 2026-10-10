@@ -1,5 +1,5 @@
 import { DEFAULT_PRESET, PRESETS, SLEEVE_ASSUMPTIONS, type ReferencePresetId } from "./presets";
-import { simulateOutcomes } from "./projection";
+import { shortfallRate, simulateOutcomes } from "./projection";
 
 /**
  * The two things to understand before picking anything.
@@ -17,37 +17,6 @@ import { simulateOutcomes } from "./projection";
  * that the primer cannot quietly carry a softer set of assumptions.
  */
 
-export interface AllocationBand {
-  id: string;
-  /** Plain words. Someone who has never bought an investment reads these. */
-  label: string;
-  /** Share in shares, 0-1. */
-  equityShare: number;
-  realReturn: number;
-  volatility: number;
-  /** Outcome percentiles in today's money at the end of the horizon. */
-  p10: number;
-  p50: number;
-  p90: number;
-  /**
-   * A rough bad-year fall: two standard deviations below the mean return,
-   * which is about a one-in-forty year. Stated as an order of magnitude.
-   */
-  roughBadYear: number;
-}
-
-export interface AllocationIllustration {
-  bands: AllocationBand[];
-  amount: number;
-  monthlyContribution: number;
-  years: number;
-  /** Total actually paid in, so the bands can be read against it. */
-  contributed: number;
-  /** How much wider the all-shares middle outcome is than the no-shares one. */
-  medianMultiple: number;
-  presetLabel: string;
-}
-
 const MIXES: { id: string; label: string; equityShare: number }[] = [
   { id: "none", label: "No shares at all", equityShare: 0 },
   { id: "third", label: "A third in shares", equityShare: 0.33 },
@@ -55,22 +24,98 @@ const MIXES: { id: string; label: string; equityShare: number }[] = [
   { id: "all", label: "All in shares", equityShare: 1 },
 ];
 
-export interface AllocationInput {
-  amount?: number;
-  monthlyContribution?: number;
+export interface GoalMix {
+  id: string;
+  /** Plain words. Someone who has never bought an investment reads these. */
+  label: string;
+  /** Share in shares, 0-1. */
+  equityShare: number;
+  /** Long-run real return before any charge. */
+  realReturn: number;
+  volatility: number;
+  /** Put aside this much a month to reach the goal on an average run. */
+  monthly: number;
+  /** The same sum under the dearer charge. */
+  monthlyHighCharge: number;
+  /** What the dearer charge adds to the monthly figure. */
+  monthlyExtra: number;
+  /** Where the cheap-charge monthly actually lands if the charge is the dear one. */
+  highChargeOutcome: number;
+  /** Outcomes when paying `monthly` at the low charge, in today's money. */
+  p10: number;
+  p50: number;
+  p90: number;
+  /** Share of simulated runs that finished below the goal. */
+  shortfall: number;
+  /** The starting sum alone already gets there; nothing monthly is needed. */
+  alreadyThere: boolean;
+}
+
+export interface GoalPlan {
+  goal: number;
+  years: number;
+  startingAmount: number;
+  lowCharge: number;
+  highCharge: number;
+  mixes: GoalMix[];
+  /** Cheapest and dearest monthly across the mixes, for the headline line. */
+  mostPerMonth: GoalMix;
+  leastPerMonth: GoalMix;
+  /** What the dearer charge costs over the whole term on the boldest mix. */
+  feeCostOverTerm: number;
+}
+
+export interface GoalInput {
+  goal?: number;
   years?: number;
+  startingAmount?: number;
+  lowCharge?: number;
+  highCharge?: number;
   presetId?: string;
 }
 
-export function allocationIllustration(input: AllocationInput = {}): AllocationIllustration {
-  const amount = Math.max(0, input.amount ?? 10000);
-  const monthlyContribution = Math.max(0, input.monthlyContribution ?? 300);
-  const years = Math.min(50, Math.max(1, Math.round(input.years ?? 30)));
+/**
+ * The monthly payment that reaches `goal`, given a starting sum and a rate.
+ *
+ * Standard future-value algebra rearranged for the payment, with year-end
+ * contributions to match the simulator. A zero or negative result means the
+ * starting sum gets there on its own.
+ */
+function monthlyFor(goal: number, startingAmount: number, rate: number, years: number): number {
+  const grown = startingAmount * (1 + rate) ** years;
+  const shortBy = goal - grown;
+  if (shortBy <= 0) return 0;
+  // At a rate of zero the annuity factor collapses to the number of years.
+  const factor = Math.abs(rate) < 1e-9 ? years : ((1 + rate) ** years - 1) / rate;
+  return shortBy / factor / 12;
+}
+
+/** Round up to something a person would actually set up a standing order for. */
+function roundMonthly(value: number): number {
+  if (value <= 0) return 0;
+  const step = value < 200 ? 5 : value < 1000 ? 10 : 50;
+  return Math.ceil(value / step) * step;
+}
+
+/**
+ * Work backwards from the goal.
+ *
+ * Asking "what might happen to my money" needs someone to already have money
+ * and a mix in mind. Asking "I want this much, by then" needs neither, and the
+ * answer carries both lessons at once: the monthly payment falls as the share
+ * in shares rises, and rises again with the charge. One question, and the two
+ * decisions that matter are visible in the same table.
+ */
+export function goalPlan(input: GoalInput = {}): GoalPlan {
+  const goal = Math.max(0, input.goal ?? 100000);
+  const years = Math.min(50, Math.max(1, Math.round(input.years ?? 20)));
+  const startingAmount = Math.max(0, input.startingAmount ?? 5000);
+  const lowCharge = Math.max(0, input.lowCharge ?? 0.0015);
+  const highCharge = Math.max(0, input.highCharge ?? 0.015);
   const preset = PRESETS[(input.presetId ?? DEFAULT_PRESET) as ReferencePresetId] ?? PRESETS[DEFAULT_PRESET];
   const { bonds, equityBondCorrelation } = SLEEVE_ASSUMPTIONS;
-  const annualContribution = monthlyContribution * 12;
 
-  const bands = MIXES.map((mix) => {
+  const mixes = MIXES.map((mix) => {
     const e = mix.equityShare;
     const b = 1 - e;
     const realReturn = e * preset.realReturn + b * bonds.realReturn;
@@ -79,32 +124,52 @@ export function allocationIllustration(input: AllocationInput = {}): AllocationI
         (b * bonds.volatility) ** 2 +
         2 * e * b * preset.volatility * bonds.volatility * equityBondCorrelation,
     );
-    const points = simulateOutcomes({ realReturn, volatility, years, startValue: amount, annualContribution });
-    const final = points[points.length - 1]!;
+
+    const net = realReturn - lowCharge;
+    const netHigh = realReturn - highCharge;
+    const monthly = roundMonthly(monthlyFor(goal, startingAmount, net, years));
+    const monthlyHighCharge = roundMonthly(monthlyFor(goal, startingAmount, netHigh, years));
+
+    // Where the cheap plan's payment lands if the charge turns out to be the
+    // dear one: the same effort, a worse result, which is the fee lesson.
+    let highChargeOutcome = startingAmount;
+    for (let year = 0; year < years; year++) highChargeOutcome = highChargeOutcome * (1 + netHigh) + monthly * 12;
+
+    const simulation = { realReturn: net, volatility, years, startValue: startingAmount, annualContribution: monthly * 12 };
+    const final = simulateOutcomes(simulation)[years]!;
+
     return {
       id: mix.id,
       label: mix.label,
       equityShare: e,
       realReturn,
       volatility,
+      monthly,
+      monthlyHighCharge,
+      monthlyExtra: monthlyHighCharge - monthly,
+      highChargeOutcome,
       p10: final.p10,
       p50: final.p50,
       p90: final.p90,
-      roughBadYear: realReturn - 2 * volatility,
+      shortfall: shortfallRate(simulation, goal),
+      alreadyThere: monthly === 0,
     };
   });
 
-  const lowest = bands[0]!;
-  const highest = bands[bands.length - 1]!;
+  const sorted = [...mixes].sort((a, b) => a.monthly - b.monthly);
+  const leastPerMonth = sorted[0]!;
+  const mostPerMonth = sorted[sorted.length - 1]!;
 
   return {
-    bands,
-    amount,
-    monthlyContribution,
+    goal,
     years,
-    contributed: amount + annualContribution * years,
-    medianMultiple: lowest.p50 > 0 ? highest.p50 / lowest.p50 : 0,
-    presetLabel: preset.label,
+    startingAmount,
+    lowCharge,
+    highCharge,
+    mixes,
+    leastPerMonth,
+    mostPerMonth,
+    feeCostOverTerm: leastPerMonth.monthlyExtra * 12 * years,
   };
 }
 

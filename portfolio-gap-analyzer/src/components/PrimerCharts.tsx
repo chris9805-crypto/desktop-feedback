@@ -1,7 +1,7 @@
 "use client";
 
 import { buildRangeChart, buildTwoLineChart } from "@/lib/chart";
-import type { AllocationBand, FeePoint } from "@/lib/engine/primer";
+import type { FeePoint, GoalMix } from "@/lib/engine/primer";
 import type { Currency } from "@/lib/engine/types";
 import { formatCurrency } from "@/lib/format";
 
@@ -15,13 +15,15 @@ import { formatCurrency } from "@/lib/format";
 export function RangeChart({
   bands,
   currency,
-  contributed,
+  marker,
+  markerLabel,
 }: {
-  bands: AllocationBand[];
+  bands: GoalMix[];
   currency: Currency;
-  contributed: number;
+  marker?: number;
+  markerLabel?: string;
 }) {
-  const chart = buildRangeChart(bands, currency, contributed);
+  const chart = buildRangeChart(bands, currency, marker);
   const money = (value: number) => formatCurrency(value, currency);
 
   return (
@@ -56,10 +58,10 @@ export function RangeChart({
                 className="absolute inset-y-[-2px] w-[3px] rounded-full"
                 style={{ left: `calc(${bar.medianLeft}% - 1.5px)`, background: `var(--chart-${index + 1})` }}
               />
-              {chart.contributed ? (
+              {chart.marker ? (
                 <span
-                  className="absolute inset-y-[-3px] w-px bg-[var(--text)] opacity-50"
-                  style={{ left: `${chart.contributed.left}%` }}
+                  className="absolute inset-y-[-3px] w-px bg-[var(--text)] opacity-55"
+                  style={{ left: `${chart.marker.left}%` }}
                   aria-hidden="true"
                 />
               ) : null}
@@ -86,7 +88,7 @@ export function RangeChart({
 
       <figcaption className="mt-3 text-[11.5px] leading-relaxed text-[var(--text-faint)]">
         Each bar is the middle 80% of 2,000 simulated outcomes; the notch is the middle one.
-        {chart.contributed ? " The thin line is the " + money(chart.contributed.value) + " paid in." : ""} In
+        {chart.marker ? ` The thin line is the ${money(chart.marker.value)} ${markerLabel ?? "mark"}.` : ""} In
         today&apos;s money. An illustration of long-run averages, not a forecast — real returns do not arrive evenly.
       </figcaption>
     </figure>

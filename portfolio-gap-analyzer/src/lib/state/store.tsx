@@ -27,8 +27,8 @@ export interface AppState {
   projectionOverrides: { realReturn?: number };
   /** Set once the user has acknowledged what this tool is and is not. */
   disclaimerAccepted: boolean;
-  /** The sum the opening illustrations are drawn on. Exploratory, not a profile. */
-  primer: { amount: number; monthlyContribution: number; years: number };
+  /** The goal the opening page works backwards from. Exploratory, not a profile. */
+  primer: { goal: number; years: number; startingAmount: number };
 }
 
 export const DEFAULT_PROFILE: InvestorProfile = {
@@ -66,7 +66,7 @@ export const EMPTY_STATE: AppState = {
   referenceOverrides: {},
   projectionOverrides: {},
   disclaimerAccepted: false,
-  primer: { amount: 10000, monthlyContribution: 300, years: 30 },
+  primer: { goal: 100000, years: 20, startingAmount: 5000 },
 };
 
 export const SAMPLE_STATE: AppState = {

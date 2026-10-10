@@ -77,27 +77,34 @@ alongside.
 
 ## What it does
 
-**Opens with the two decisions that come first.** Someone arriving usually wants
-to know which fund to buy. That is the last question. The landing tab settles
-the two that come before it, drawn on the reader's own starting sum, monthly
-amount and horizon:
+**Opens by working backwards from a goal.** Someone arriving usually wants to
+know which fund to buy. That is the last question. The landing tab asks one
+thing instead — *I want to have X, in N years, starting with Y* — and answers
+it four times, once per share/bond mix:
 
-*How much sits in shares* — the same money run through four mixes, from none in
-shares to all of it, each shown as the middle 80% of 2,000 simulated outcomes
-with the median notched. On the defaults it makes the trade visible rather than
-asserted: all-shares roughly **1.6× the middle outcome** of no-shares, and also
-the **worst tenth of outcomes** of any mix on the board — below the two
-intermediate mixes, and barely above the money paid in. No mix wins on both,
-which is the entire lesson.
+| How it is invested | Put aside each month | In a bad run, you land near |
+| --- | --- | --- |
+| No shares at all | $340 | $80,600 |
+| A third in shares | $300 | $79,000 |
+| Two-thirds in shares | $260 | $67,700 |
+| All in shares | $230 | $55,300 |
 
-*What the holding costs* — two compounding paths under a 1.50% and a 0.15%
-charge, with the widening gap shaded. A charge quoted as **$150 in year one**
-comes to **$60,605 over 30 years**, 22% of what the cheaper version ends with,
-or about 17 years of contributions. The shape is the argument: each year's
-charge also gives up everything that money would have earned afterwards.
+Both decisions that matter are in that one table. The monthly figure falls as
+the share in shares rises, because the money is expected to do more of the
+work — and the last column is what that costs: the plan that asks least of you
+is also the one that can miss by most. Neither column wins.
 
-Both run the same simulator and the same compounding as the rest of the tool, so
-the primer cannot carry a quieter set of assumptions than the pages it leads to.
+Then the charge, in the same terms: those figures assume 0.15% a year, and at
+1.50% the same goal needs **$270 a month instead of $230** — $9,600 more out
+of pocket over 20 years, or **$12,000 short** of the goal if the payment does
+not go up. A charge expressed as a monthly payment is harder to wave away than
+one expressed as a percentage.
+
+Underneath, a disclosure holds the detail: where each plan actually lands
+against the goal line, and the two compounding paths with the charge shaded
+between them. The payment is sized on an average return, so roughly half of
+simulated runs finish below the goal — the page says that in as many words
+rather than letting the table read as a promise.
 
 **Maps the portfolio.** Holdings are resolved against a security master and
 normalised into exposure across asset class, region, sector, size, style,
@@ -205,7 +212,7 @@ src/
       reference.ts   The index-anchored reference model
       presets.ts     MSCI World / S&P 500 / global all-cap index definitions
       projection.ts  Monte Carlo range for the reference mix
-      primer.ts      The opening allocation and fee illustrations
+      primer.ts      The opening goal-seek and fee illustration
       factors.ts     Factor loadings derived from published metrics
       scores.ts      Composite research scores
       themes.ts      Thematic screens: the rule, and the case against it
@@ -219,7 +226,7 @@ src/
     chart.ts         Fan, pie, range and two-line geometry, shared by both renderers
   components/        UI primitives, charts, finding cards
   app/               Next.js App Router pages
-                     page.tsx is the landing tab: allocation and cost, before any ticker
+                     page.tsx is the landing tab: a goal, worked backwards
                      reference/ the model, then the inputs behind it
                      themes/ builds a sleeve and diffs the report against it
   test/              Vitest suites

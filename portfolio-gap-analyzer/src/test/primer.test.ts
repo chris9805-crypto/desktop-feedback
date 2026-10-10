@@ -1,47 +1,97 @@
 import { describe, expect, it } from "vitest";
 import { buildRangeChart, buildTwoLineChart } from "@/lib/chart";
-import { allocationIllustration, feeIllustration } from "@/lib/engine/primer";
+import { feeIllustration, goalPlan } from "@/lib/engine/primer";
 
-describe("allocation illustration", () => {
-  const result = allocationIllustration();
+describe("goal plan", () => {
+  const plan = goalPlan();
 
-  it("runs the mixes the primer claims to show", () => {
-    expect(result.bands.map((b) => b.equityShare)).toEqual([0, 0.33, 0.67, 1]);
+  it("works backwards to a monthly payment for each mix", () => {
+    expect(plan.mixes.map((m) => m.equityShare)).toEqual([0, 0.33, 0.67, 1]);
+    for (const mix of plan.mixes) expect(mix.monthly).toBeGreaterThan(0);
   });
 
-  it("puts more shares on a higher expected return and a wider range", () => {
-    for (let i = 1; i < result.bands.length; i++) {
-      const previous = result.bands[i - 1]!;
-      const band = result.bands[i]!;
-      expect(band.realReturn).toBeGreaterThan(previous.realReturn);
-      expect(band.volatility).toBeGreaterThan(previous.volatility);
-      expect(band.p90 - band.p10).toBeGreaterThan(previous.p90 - previous.p10);
+  it("asks less each month the more sits in shares", () => {
+    const monthlies = plan.mixes.map((m) => m.monthly);
+    for (let i = 1; i < monthlies.length; i++) expect(monthlies[i]!).toBeLessThan(monthlies[i - 1]!);
+    expect(plan.leastPerMonth.id).toBe("all");
+    expect(plan.mostPerMonth.id).toBe("none");
+  });
+
+  it("shows the trade: the plan that asks least can miss by most", () => {
+    expect(plan.leastPerMonth.p10).toBeLessThan(plan.mostPerMonth.p10);
+    expect(plan.leastPerMonth.p90).toBeGreaterThan(plan.mostPerMonth.p90);
+  });
+
+  it("lands the middle outcome near the goal, which is what the payment was sized for", () => {
+    for (const mix of plan.mixes) {
+      expect(mix.p50).toBeGreaterThan(plan.goal * 0.85);
+      expect(mix.p50).toBeLessThan(plan.goal * 1.15);
     }
   });
 
-  it("shows the trade rather than a free lunch: the riskiest mix has the worst bad case", () => {
-    const [none, , , all] = result.bands;
-    expect(all!.roughBadYear).toBeLessThan(none!.roughBadYear);
-    expect(all!.p50).toBeGreaterThan(none!.p50);
+  it("reports a shortfall rate near a coin flip rather than implying the goal is reached", () => {
+    for (const mix of plan.mixes) {
+      expect(mix.shortfall).toBeGreaterThan(0.3);
+      expect(mix.shortfall).toBeLessThan(0.75);
+    }
   });
 
-  it("is deterministic, so the illustration does not change between renders", () => {
-    expect(allocationIllustration().bands.map((b) => b.p50)).toEqual(result.bands.map((b) => b.p50));
+  it("needs more each month under the dearer charge", () => {
+    for (const mix of plan.mixes) {
+      expect(mix.monthlyHighCharge).toBeGreaterThan(mix.monthly);
+      expect(mix.monthlyExtra).toBe(mix.monthlyHighCharge - mix.monthly);
+    }
+    expect(plan.feeCostOverTerm).toBeCloseTo(plan.leastPerMonth.monthlyExtra * 12 * plan.years, 6);
   });
 
-  it("reports what was actually paid in, so a band can be read against it", () => {
-    expect(result.contributed).toBe(10000 + 300 * 12 * 30);
+  it("falls short of the goal if the dearer charge is paid without raising the payment", () => {
+    for (const mix of plan.mixes) expect(mix.highChargeOutcome).toBeLessThan(plan.goal);
   });
 
-  it("scales with the amount asked for", () => {
-    const bigger = allocationIllustration({ amount: 100000, monthlyContribution: 0, years: 20 });
-    expect(bigger.bands[3]!.p50).toBeGreaterThan(100000);
-    expect(bigger.contributed).toBe(100000);
+  it("rounds the payment to a figure someone would set up a standing order for", () => {
+    for (const mix of plan.mixes) expect(mix.monthly % 5).toBe(0);
+    expect(goalPlan({ goal: 5000000, years: 20, startingAmount: 0 }).mixes[0]!.monthly % 50).toBe(0);
+  });
+
+  it("says so when the starting sum already gets there on its own", () => {
+    const rich = goalPlan({ goal: 20000, years: 30, startingAmount: 40000 });
+    for (const mix of rich.mixes) {
+      expect(mix.alreadyThere).toBe(true);
+      expect(mix.monthly).toBe(0);
+    }
+  });
+
+  it("is deterministic, so the answer does not move between renders", () => {
+    expect(goalPlan().mixes.map((m) => [m.monthly, m.p10, m.shortfall])).toEqual(
+      plan.mixes.map((m) => [m.monthly, m.p10, m.shortfall]),
+    );
+  });
+
+  it("scales with the goal", () => {
+    const bigger = goalPlan({ goal: 500000, years: 20, startingAmount: 5000 });
+    expect(bigger.leastPerMonth.monthly).toBeGreaterThan(plan.leastPerMonth.monthly * 4);
   });
 });
 
 describe("fee illustration", () => {
   const result = feeIllustration();
+
+  it("agrees with the goal plan it is drawn from", () => {
+    const plan = goalPlan();
+    const lead = plan.leastPerMonth;
+    const fees = feeIllustration({
+      amount: plan.startingAmount,
+      monthlyContribution: lead.monthly,
+      years: plan.years,
+      growth: lead.realReturn,
+      lowCharge: plan.lowCharge,
+      highCharge: plan.highCharge,
+    });
+    // Same recurrence on both sides, so these are the same number twice.
+    expect(fees.highEnd).toBeCloseTo(lead.highChargeOutcome, 4);
+    // The payment was rounded up, so the cheap path clears the goal.
+    expect(fees.lowEnd).toBeGreaterThanOrEqual(plan.goal);
+  });
 
   it("costs more the longer it runs, and by more than the headline charge", () => {
     // 1.35pp a year over 30 years is far more than 1.35% of the outcome.
@@ -78,10 +128,10 @@ describe("fee illustration", () => {
 });
 
 describe("range chart geometry", () => {
-  const illustration = allocationIllustration();
-  const chart = buildRangeChart(illustration.bands, "USD", illustration.contributed);
+  const plan = goalPlan();
+  const chart = buildRangeChart(plan.mixes, "USD", plan.goal);
 
-  it("draws one bar per band, inside the plot", () => {
+  it("draws one bar per mix, inside the plot", () => {
     expect(chart.bars).toHaveLength(4);
     for (const bar of chart.bars) {
       expect(bar.left).toBeGreaterThanOrEqual(0);
@@ -96,14 +146,17 @@ describe("range chart geometry", () => {
     for (let i = 1; i < widths.length; i++) expect(widths[i]!).toBeGreaterThan(widths[i - 1]!);
   });
 
-  it("marks what was paid in when it fits on the axis", () => {
-    expect(chart.contributed).not.toBeNull();
-    expect(chart.contributed!.left).toBeGreaterThan(0);
-    expect(chart.contributed!.left).toBeLessThan(100);
+  it("marks the goal", () => {
+    expect(chart.marker).not.toBeNull();
+    expect(chart.marker!.value).toBe(plan.goal);
+    expect(chart.marker!.left).toBeGreaterThan(0);
+    expect(chart.marker!.left).toBeLessThanOrEqual(100);
   });
 
-  it("drops the paid-in marker rather than drawing it off the end", () => {
-    expect(buildRangeChart(illustration.bands, "USD", 9e12).contributed).toBeNull();
+  it("keeps the axis long enough to show a goal every band falls short of", () => {
+    const missed = buildRangeChart([{ label: "x", p10: 10, p50: 20, p90: 30 }], "USD", 1000);
+    expect(missed.marker).not.toBeNull();
+    expect(missed.maxX).toBeGreaterThanOrEqual(1000);
   });
 
   it("labels the axis without a repeated value", () => {

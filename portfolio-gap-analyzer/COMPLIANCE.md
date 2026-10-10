@@ -118,31 +118,35 @@ The words "forecast", "prediction", "expected value" and "projection of your
 portfolio" are avoided in the copy; the feature is described as an illustration
 of a historical range.
 
-### 4b2. The opening illustrations describe arithmetic, not anyone's portfolio
+### 4b2. The opening page answers a question, and does not answer the next one
 
-The landing tab leads with two illustrations — what a share/bond split does to
-the range of outcomes, and what a charge costs over time — which puts the most
-persuasive figures in the product on the first screen a reader sees. Five things
-keep them on the research side:
+The landing tab works backwards from a goal to a monthly payment. That is the
+most advice-adjacent shape in the product — it looks like a plan — so six
+things keep it on the research side:
 
-- **They are hypothetical, and obviously so.** They run on a sum the reader
-  types in, not on their holdings, and the page says so. Nothing about them is
-  personalised, because nothing about them knows anything about the reader.
-- **The allocation figure is a range per mix, never a ranking of mixes.** Four
-  mixes are shown, each as a 10th-to-90th percentile band. No mix is marked
-  suitable, recommended or best, and the page states plainly that none of them
-  wins on both counts.
-- **The cost of more shares is given the same prominence as the benefit.** The
-  two callouts are the same size, and the one naming the worst case is computed
-  from the same run rather than written as boilerplate — including the mix with
-  the best floor, which on the defaults is not the boldest one.
-- **It reuses the real simulator.** `allocationIllustration` calls the same
-  `simulateOutcomes` as the reference projection. An opening illustration built
-  on its own, gentler arithmetic would be the obvious way for this page to drift,
-  so there is only one implementation.
-- **The fee comparison compares a cost, not a product.** It names no provider,
-  and the copy says in as many words that a higher charge can still be worth
-  paying — the point being to know what is paid, not to conclude anything.
+- **It is hypothetical, and obviously so.** It runs on a goal the reader types
+  in, not on their holdings or their circumstances. Nothing about it is
+  personalised, because nothing about it knows anything about the reader.
+- **Every mix is answered, and none is picked.** Four mixes get four payments.
+  No row is marked suitable, recommended or best, and the page never narrows
+  the four to one — which is the step that would make it advice. Choosing
+  between them needs the horizon and circumstances the reference model asks
+  for, and the page hands the reader there.
+- **The cost of each row sits in the row.** The column next to the payment is
+  the 10th percentile, so the mix asking least per month visibly carries the
+  worst bad case. A table of payments alone would read as "shares are cheaper";
+  the second column is what stops it.
+- **The payment is never presented as sufficient.** It is sized on an average
+  return, so about half of simulated runs finish below the goal. The page
+  states that with the computed figure rather than leaving the table to imply
+  a guarantee, and the detail view draws the goal line through every band.
+- **It reuses the real engine.** `goalPlan` sizes the payment with the same
+  return assumptions as the reference model and checks it with the same
+  `simulateOutcomes` as the projection. An opening page with its own, gentler
+  arithmetic would be the obvious way for this to drift.
+- **The fee comparison compares a cost, not a product.** It names no provider
+  and recommends no charge level; it converts a percentage into a monthly
+  payment and a shortfall, which is arithmetic the reader can check.
 
 ### 4c. The allocation is derived from stated constraints, and names which one bound
 
@@ -280,10 +284,11 @@ into something needing a licence, or into something it should not be:
   (currency, listing country, wrapper eligibility) — for example filtering by
   what the tool thinks would suit the user.
 - Adding an overall portfolio score or grade.
-- Turning the opening illustrations into a suggestion: marking one mix as
-  suitable, dropping the worst-case callout or shrinking it relative to the
-  benefit, running them on the reader's actual holdings, or giving them their
-  own arithmetic rather than the engine's.
+- Turning the opening page into a plan: narrowing its four mixes to one,
+  marking a row as suitable, dropping the bad-run column or the shortfall
+  figure, presenting the monthly payment as sufficient to reach the goal,
+  running it on the reader's actual holdings, or giving it its own arithmetic
+  rather than the engine's.
 - Turning a theme into a curated list: hand-picking its members, dropping the
   criteria or the caution, ranking themes against each other, attaching an
   expected return to one, or presenting the sleeve diff as an improvement

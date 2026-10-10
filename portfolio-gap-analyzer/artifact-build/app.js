@@ -27,7 +27,7 @@
     openTerm: null, fee: { amount: 25000, monthly: 250, charge: 1.4, years: 25 },
     open: {}, expTab: "region", detail: null, article: null,
     theme: "ai-infrastructure", picked: [], sleeve: 0.05, sleeveSaved: false,
-    primer: { amount: 10000, monthly: 300, years: 30 },
+    primer: { goal: 100000, years: 20, startingAmount: 5000 }, primerDetail: false,
     screen: { q: "", kind: "all", sector: "all", sort: "size", desc: true, limit: 30 }
   };
 
@@ -37,7 +37,7 @@
       state = Object.assign(state, saved);
       state.profile = Object.assign({}, DEFAULT_PROFILE, saved.profile || {});
       state.screen = Object.assign(state.screen, saved.screen || {});
-      state.primer = Object.assign({ amount: 10000, monthly: 300, years: 30 }, saved.primer || {});
+      state.primer = Object.assign({ goal: 100000, years: 20, startingAmount: 5000 }, saved.primer || {});
       state.open = {};
     }
   } catch (e) { /* private mode, or blocked site data: run without persistence */ }
@@ -632,28 +632,38 @@
   /* ------------------------------------------------------------ primer */
 
   /**
-   * The opening screen: the two decisions that come before any ticker.
+   * The first screen: one question, worked backwards.
    *
-   * The range chart is HTML rather than SVG on purpose. A fixed-viewBox SVG
-   * scales its own text down with the drawing, which at phone width took
-   * four-word labels down to about six pixels. The fee chart has to be SVG —
-   * it is a line chart — so it is drawn twice, once at each break-point's own
-   * geometry, and CSS shows whichever fits.
+   * Starting from a goal collapses the two decisions that come before any
+   * ticker into a single answer — the monthly payment falls as the share in
+   * shares rises, and rises again with the charge. The detail behind it sits
+   * behind a toggle, because a beginner needs the comparison before the
+   * machinery.
    */
   function primerInputs() {
     var p = state.primer;
     return '<section class="card pad"><div class="grid3">' +
+      '<label class="field"><span class="field-k">I want to have</span>' +
+      '<input id="pr-goal" type="number" min="0" step="10000" value="' + p.goal + '" data-act="prgoal"></label>' +
+      '<label class="field"><span class="field-k">In ' + p.years + ' years</span>' +
+      '<input id="pr-yrs" type="range" min="3" max="45" step="1" value="' + p.years + '" data-act="pryrs"></label>' +
       '<label class="field"><span class="field-k">Starting with</span>' +
-      '<input id="pr-amt" type="number" min="0" step="1000" value="' + p.amount + '" data-act="pramt"></label>' +
-      '<label class="field"><span class="field-k">Adding each month</span>' +
-      '<input id="pr-mon" type="number" min="0" step="50" value="' + p.monthly + '" data-act="prmon"></label>' +
-      '<label class="field"><span class="field-k">For ' + p.years + ' years</span>' +
-      '<input id="pr-yrs" type="range" min="5" max="45" step="1" value="' + p.years + '" data-act="pryrs"></label>' +
+      '<input id="pr-start" type="number" min="0" step="1000" value="' + p.startingAmount + '" data-act="prstart"></label>' +
       "</div></section>";
   }
 
-  function rangeChart(bands, contributed) {
-    var c = G.buildRangeChart(bands, state.profile.baseCurrency, contributed);
+  /**
+   * Simulated outcomes carry no precision worth printing. "$55,264" invites a
+   * reader to believe the last three digits; "$55,300" says the same thing
+   * without the false promise.
+   */
+  function roughly(v) {
+    var step = v >= 10000 ? 100 : 10;
+    return cur(Math.round(v / step) * step);
+  }
+
+  function rangeChart(bands, marker, markerLabel) {
+    var c = G.buildRangeChart(bands, state.profile.baseCurrency, marker);
     var rows = c.bars.map(function (bar, i) {
       var colour = PALETTE[i % PALETTE.length];
       return '<li style="margin-bottom:14px">' +
@@ -665,7 +675,7 @@
         esc(bar.label + ": middle outcome " + cur(bar.p50) + ", middle 80% from " + cur(bar.p10) + " to " + cur(bar.p90)) + '">' +
         '<span class="range-fill" style="left:' + bar.left.toFixed(2) + "%;width:" + bar.width.toFixed(2) + "%;background:" + colour + '"></span>' +
         '<span class="range-median" style="left:calc(' + bar.medianLeft.toFixed(2) + '% - 1.5px);background:' + colour + '"></span>' +
-        (c.contributed ? '<span class="range-paid" style="left:' + c.contributed.left.toFixed(2) + '%"></span>' : "") +
+        (c.marker ? '<span class="range-paid" style="left:' + c.marker.left.toFixed(2) + '%"></span>' : "") +
         "</div></li>";
     }).join("");
 
@@ -678,7 +688,7 @@
       '<div class="range-axis">' + ticks + "</div>" +
       '<p style="margin-top:12px;font-size:11.5px;line-height:1.5;color:var(--faint)">' +
       "Each bar is the middle 80% of 2,000 simulated outcomes; the notch is the middle one." +
-      (c.contributed ? " The thin line is the " + cur(c.contributed.value) + " paid in." : "") +
+      (c.marker ? " The thin line is the " + cur(c.marker.value) + " " + esc(markerLabel || "mark") + "." : "") +
       " In today's money. An illustration of long-run averages, not a forecast — real returns do not arrive evenly.</p>";
   }
 
@@ -712,63 +722,104 @@
       "</div>";
   }
 
+  function goalTable(plan) {
+    // Not a table element: at phone width three columns squeezed the labels
+    // into six-line wraps. The rows stack, and each figure carries its own
+    // caption once the header row is hidden.
+    var head = '<div class="goal-head wide-only"><span style="flex:1">How it is invested</span>' +
+      '<span style="width:150px;text-align:right">Put aside each month</span>' +
+      '<span style="width:180px;text-align:right">In a bad run, you land near</span></div>';
+    var rows = plan.mixes.map(function (m, i) {
+      return '<li class="goal-row"><div style="flex:1">' +
+        '<span class="goal-name"><i class="goal-dot" style="background:' + PALETTE[i % PALETTE.length] + '"></i>' + esc(m.label) + "</span>" +
+        '<span class="goal-sub">has grown ' + pct(m.realReturn, 1) + " a year above inflation</span></div>" +
+        '<div class="goal-figs">' +
+        '<div class="goal-fig"><div class="goal-cap narrow-only">Each month</div>' +
+        '<div class="goal-big num">' + (m.alreadyThere ? "nothing" : cur(m.monthly)) + "</div></div>" +
+        '<div class="goal-fig wide2"><div class="goal-cap narrow-only">In a bad run</div>' +
+        '<div class="num" style="font-size:14px;color:var(--muted)">' + roughly(m.p10) + "</div></div>" +
+        "</div></li>";
+    }).join("");
+    return '<section class="card" style="margin-top:18px">' + head +
+      '<ul class="goal-list">' + rows + "</ul>" +
+      '<p class="goal-foot">“A bad run” is the 10th percentile of 2,000 simulated runs: one run in ten did worse than that. ' +
+      "Figures are in today's money and rounded.</p></section>";
+  }
+
   function viewPrimer() {
     var p = state.primer;
-    var a = G.allocationIllustration({ amount: p.amount, monthlyContribution: p.monthly, years: p.years });
-    var f = G.feeIllustration({ amount: p.amount, monthlyContribution: p.monthly, years: p.years });
-    var safest = a.bands[0], boldest = a.bands[a.bands.length - 1];
-    var bestFloor = a.bands.reduce(function (best, b) { return b.p10 > best.p10 ? b : best; });
+    var plan = G.goalPlan({ goal: p.goal, years: p.years, startingAmount: p.startingAmount });
+    var lead = plan.leastPerMonth, most = plan.mostPerMonth;
+    var f = G.feeIllustration({
+      amount: plan.startingAmount, monthlyContribution: lead.monthly, years: plan.years,
+      growth: lead.realReturn, lowCharge: plan.lowCharge, highCharge: plan.highCharge
+    });
+    var shortBy = plan.goal - lead.highChargeOutcome;
+    var everyoneThere = plan.mixes.every(function (m) { return m.alreadyThere; });
 
     return '<header><p class="eyebrow" style="color:var(--accent-ink)">Research and education for stock and ETF investors</p>' +
-      '<h1 style="font-size:30px;margin-top:10px;max-width:34ch">Two decisions matter more than which fund you buy.</h1>' +
-      '<p class="lede" style="margin-top:12px;font-size:15px">How much sits in shares, and what you pay to hold it. ' +
-      "Both are settled before any ticker matters, and both are just arithmetic. Here they are on your numbers.</p></header>" +
+      '<h1 style="font-size:30px;margin-top:10px;max-width:30ch">Start with what you want, not with what to buy.</h1>' +
+      '<p class="lede" style="margin-top:12px;font-size:15px">Tell it the number you have in mind. It works backwards to ' +
+      "what that takes each month — and shows the two things that change the answer most.</p></header>" +
 
       primerInputs() +
-      '<p class="sub" style="font-size:12px;color:var(--faint);margin-top:-12px">' +
-      cur(a.contributed) + " of your own money goes in over " + p.years +
-      " years. Everything below is in today's money, so a figure means what it would buy today.</p>" +
 
-      '<section><div class="step-head"><span class="step-n num">01</span>' +
-      '<h2 style="font-size:20px">How much you put in shares sets the range</h2></div>' +
-      '<p class="lede" style="margin-top:8px">Shares have paid more than bonds over long periods, and moved far more along the way. ' +
-      "That trade — not the choice between two similar funds — is what decides the spread of where you end up.</p>" +
-      '<div class="card pad" style="margin-top:18px">' + rangeChart(a.bands, a.contributed) + "</div>" +
+      '<section><h2 style="font-size:20px">What it takes to get to ' + cur(plan.goal) + "</h2>" +
+      '<p class="lede" style="margin-top:8px">The answer depends on how much of your money sits in shares. Shares have paid ' +
+      "more than bonds over long periods, so they ask less of you each month — and move far more along the way.</p>" +
+
+      (everyoneThere
+        ? '<div class="note accent" style="margin-top:18px"><strong>You are already there.</strong> On these assumptions ' +
+          cur(plan.startingAmount) + " grows past " + cur(plan.goal) + " within " + plan.years +
+          " years on its own, whichever mix it sits in. Try a bigger number, a shorter time, or a smaller starting sum.</div>"
+        : goalTable(plan)) +
+
       '<div class="grid2" style="margin-top:14px">' +
-      '<div class="note accent"><strong>What more shares bought.</strong> The middle outcome went from ' + cur(safest.p50) +
-      " with no shares to " + cur(boldest.p50) + " with nothing else — about " + a.medianMultiple.toFixed(1) +
-      "× on the same " + cur(a.contributed) + " paid in.</div>" +
-      '<div class="note warn"><strong>What it cost.</strong> All shares also had the worst bad case: the lowest tenth of outcomes landed at ' +
-      cur(boldest.p10) + ", against " + cur(bestFloor.p10) + " for " + esc(bestFloor.label.toLowerCase()) +
-      ". A rough bad year runs to " + pct(Math.abs(boldest.roughBadYear), 0) + " against " + pct(Math.abs(safest.roughBadYear), 0) + ".</div>" +
-      "</div>" +
-      '<p class="sub" style="margin-top:14px">There is no mix that wins on both. Which one fits depends on when you need the money ' +
-      'and what you would do in a bad year — which is what the <button class="row-link" data-act="go" data-view="reference" style="color:var(--accent-ink)">reference portfolio</button> ' +
-      "works out from your own answers, rather than guessing at it here.</p></section>" +
+      '<div class="note accent"><strong>Why the monthly figure falls.</strong> ' + cur(most.monthly) + " a month with " +
+      esc(most.label.toLowerCase()) + ", " + cur(lead.monthly) + " with " + esc(lead.label.toLowerCase()) +
+      ". More in shares means the money is expected to do more of the work, so less has to come from you.</div>" +
+      '<div class="note warn"><strong>Why that is not simply better.</strong> The last column is the catch. In a poor run ' +
+      esc(lead.label.toLowerCase()) + " lands near " + roughly(lead.p10) + ", against " + roughly(most.p10) + " for " +
+      esc(most.label.toLowerCase()) + " — so the plan that asks least of you is also the one that can miss by most.</div></div>" +
 
-      '<section><div class="step-head"><span class="step-n num">02</span>' +
-      '<h2 style="font-size:20px">What you pay comes out of the same money</h2></div>' +
-      '<p class="lede" style="margin-top:8px">A charge is quoted as a small percentage a year. It is paid on everything you hold, ' +
-      "every year, and each year's charge also gives up whatever that money would have earned afterwards.</p>" +
-      '<div class="card pad" style="margin-top:18px">' + feeChart(f) + "</div>" +
-      '<div class="grid3" style="margin-top:14px">' +
-      '<div class="card pad"><div class="stat-k">The quoted number</div><div class="stat-v">' + cur(f.firstYearCharge) + "</div>" +
-      '<p class="stat-d">' + pct(f.highCharge, 2) + " on " + cur(f.amount) + " in the first year. It sounds small because it is small — once.</p></div>" +
-      '<div class="card pad"><div class="stat-k">What it costs by year ' + p.years + '</div><div class="stat-v t-over">' + cur(f.difference) + "</div>" +
-      '<p class="stat-d">' + pct(f.shareOfOutcome, 0) + " of what the cheaper version ends with, gone to the difference between " +
-      pct(f.highCharge, 2) + " and " + pct(f.lowCharge, 2) + ".</p></div>" +
-      '<div class="card pad"><div class="stat-k">Put another way</div><div class="stat-v">' +
-      (f.contributionYears == null ? "—" : f.contributionYears.toFixed(0) + " years") + "</div>" +
-      '<p class="stat-d">' + (f.contributionYears == null
-        ? "Add a monthly amount above to see the gap in years of contributions."
-        : "of your " + cur(p.monthly * 12) + " a year, to cover the same gap.") + "</p></div>" +
-      "</div>" +
-      '<p class="sub" style="margin-top:14px">Both lines assume the same ' + pct(f.growth, 0) +
-      " return before charges — the only difference is the " + term("ongoingCharge", "ongoing charge") +
-      ". A higher charge can still be worth paying; the point is to know what is being paid for. " +
-      '<button class="row-link" data-act="go" data-view="research" style="color:var(--accent-ink)">Check a charge you have been quoted</button>.</p></section>' +
+      '<section class="card pad" style="margin-top:14px">' +
+      '<h3 style="font-size:14px">And all of that assumed a cheap fund. Here is what a dear one does.</h3>' +
+      '<p class="sub" style="margin-top:8px">Every figure above assumes you pay ' + pct(plan.lowCharge, 2) +
+      " a year to hold the investment. Plenty of products charge " + pct(plan.highCharge, 2) +
+      ". The money comes out of the same pot, every year, so the goal needs more from you.</p>" +
+      '<div class="grid3" style="margin-top:16px">' +
+      '<div><div class="stat-k">Same plan, dearer fund</div><div class="stat-v t-over">' + cur(lead.monthlyHighCharge) + " a month</div>" +
+      '<p class="stat-d">instead of ' + cur(lead.monthly) + ", to reach the same " + cur(plan.goal) + " with " + esc(lead.label.toLowerCase()) + ".</p></div>" +
+      '<div><div class="stat-k">Over ' + plan.years + ' years</div><div class="stat-v t-over">' + cur(plan.feeCostOverTerm) + "</div>" +
+      '<p class="stat-d">extra out of your own pocket, for the same goal and the same mix.</p></div>' +
+      '<div><div class="stat-k">Or, if you do not add it</div><div class="stat-v t-over">' + roughly(shortBy) + " short</div>" +
+      '<p class="stat-d">Keep paying ' + cur(lead.monthly) + " and the dearer charge leaves you at " + roughly(lead.highChargeOutcome) + ".</p></div>" +
+      "</div></section>" +
 
-      '<section><div class="step-head"><span class="step-n num">03</span><h2 style="font-size:20px">Then, which holdings</h2></div>' +
+      '<div class="note" style="margin-top:14px"><strong>Read these as a direction, not a plan.</strong> ' +
+      "Every figure here is arithmetic on long-run averages, in today's money. Real returns do not arrive evenly, and a plan " +
+      "sized on an average lands under it about half the time — on these assumptions, " + pct(lead.shortfall, 0) +
+      " of simulated runs for " + esc(lead.label.toLowerCase()) + " finished below " + cur(plan.goal) +
+      ". The point is the comparison between the rows, not any one number.</div>" +
+
+      '<p style="margin-top:14px"><button class="row-link" data-act="prdetail" aria-expanded="' + !!state.primerDetail +
+      '" style="color:var(--accent-ink);font-size:13px;font-weight:500;text-decoration:none">' +
+      (state.primerDetail ? "Hide the detail ↑" : "Show the detail behind these numbers ↓") + "</button></p>" +
+
+      (state.primerDetail
+        ? '<div class="stack" style="margin-top:16px">' +
+          '<section class="card pad"><h3 style="font-size:14px">Where each plan actually lands</h3>' +
+          '<p class="sub" style="margin-top:6px;margin-bottom:16px">Each mix paying its own monthly figure, run 2,000 times. ' +
+          "The line is the " + cur(plan.goal) + ' goal.</p>' + rangeChart(plan.mixes, plan.goal, "goal") + "</section>" +
+          '<section class="card pad"><h3 style="font-size:14px">The same ' + cur(lead.monthly) + " a month, under both charges</h3>" +
+          '<p class="sub" style="margin-top:6px;margin-bottom:16px">Identical payments and identical returns. The shaded wedge is ' +
+          "the charge, and it widens because each year's charge also gives up what that money would have earned afterwards. " +
+          "The cheap path finishes a little above " + cur(plan.goal) + " because the monthly figure is rounded up.</p>" +
+          feeChart(f) + "</section></div>"
+        : "") +
+      "</section>" +
+
+      '<section><h2 style="font-size:20px">Then, which holdings</h2>' +
       '<p class="lede" style="margin-top:8px">Once the mix and the cost are settled, the rest is checking what you own against them. ' +
       "Gapline builds a reference from your answers, compares your holdings with it, and shows the arithmetic behind every difference.</p>" +
       '<div class="btnrow" style="margin-top:18px">' +
@@ -782,13 +833,13 @@
       '<p class="sub" style="margin-top:8px">Personal investment advice requires a licence. This tool has none and pretends to none. ' +
       "It describes, compares and explains, and shows the filter criteria behind every instrument list.</p></div>" +
       '<div class="card pad"><h3 style="font-size:14px">Not a forecast</h3>' +
-      '<p class="sub" style="margin-top:8px">The illustrations above are long-run averages run through a simulation, not a view on what ' +
+      '<p class="sub" style="margin-top:8px">The figures above are long-run averages run through a simulation, not a view on what ' +
       "happens next. No price targets, no ratings. Assumed rates are labelled wherever they are used.</p></div></div>" +
 
       '<div class="note warn"><strong>About the data in this build.</strong> ' + esc(G.DATASET_META.warning) +
       " The dataset is dated " + esc(G.DATASET_META.asOf) + ".</div>";
   }
-
+  
   function viewReference() {
     var r = report(), p = state.profile, ref = r.reference;
     var hasHoldings = r.portfolio.positions.length > 0;
@@ -1450,6 +1501,7 @@
     else if (act === "projreset") { state.projReturn = null; save(); render(); }
     else if (act === "projtable") { state.showProjTable = !state.showProjTable; render(); }
     else if (act === "showrest") { state.showRest = !state.showRest; render(); }
+    else if (act === "prdetail") { state.primerDetail = !state.primerDetail; render(); }
     else if (act === "theme") { state.theme = el.getAttribute("data-theme"); state.picked = []; state.sleeveSaved = false; save(); render(); }
     else if (act === "sleeve") { state.sleeve = Number(el.getAttribute("data-share")); state.sleeveSaved = false; save(); render(); }
     else if (act === "applysleeve") {
@@ -1466,8 +1518,8 @@
     var act = el.getAttribute("data-act");
     var num = Number(el.value);
 
-    if (act === "pramt") { state.primer = Object.assign({}, state.primer, { amount: Math.max(0, num || 0) }); save(); render(); }
-    else if (act === "prmon") { state.primer = Object.assign({}, state.primer, { monthly: Math.max(0, num || 0) }); save(); render(); }
+    if (act === "prgoal") { state.primer = Object.assign({}, state.primer, { goal: Math.max(0, num || 0) }); save(); render(); }
+    else if (act === "prstart") { state.primer = Object.assign({}, state.primer, { startingAmount: Math.max(0, num || 0) }); save(); render(); }
     else if (act === "pryrs") { state.primer = Object.assign({}, state.primer, { years: num }); save(); render(); }
     else if (act === "addq") { state.addQuery = el.value; render(); }
     else if (act === "addamt") { state.addAmount = el.value; }
