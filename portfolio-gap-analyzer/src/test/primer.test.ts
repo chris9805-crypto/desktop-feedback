@@ -1,96 +1,153 @@
 import { describe, expect, it } from "vitest";
 import { buildRangeChart, buildTwoLineChart } from "@/lib/chart";
-import { feeIllustration, goalPlan } from "@/lib/engine/primer";
+import { RISK_TOLERANCES, feeIllustration, forecastAnswer, goalAnswer, riskMix } from "@/lib/engine/primer";
 
-describe("goal plan", () => {
-  const plan = goalPlan();
-
-  it("works backwards to a monthly payment for each mix", () => {
-    expect(plan.mixes.map((m) => m.equityShare)).toEqual([0, 0.33, 0.67, 1]);
-    for (const mix of plan.mixes) expect(mix.monthly).toBeGreaterThan(0);
+describe("risk mix", () => {
+  it("uses the same risk-to-shares mapping as the reference model", () => {
+    expect(RISK_TOLERANCES.map((t) => riskMix(t).equityShare)).toEqual([0.25, 0.42, 0.6, 0.78, 0.92]);
   });
 
-  it("asks less each month the more sits in shares", () => {
-    const monthlies = plan.mixes.map((m) => m.monthly);
+  it("names each band the way the reference model names it", () => {
+    expect(RISK_TOLERANCES.map((t) => riskMix(t).label)).toEqual([
+      "Defensive",
+      "Cautious",
+      "Balanced",
+      "Growth",
+      "Adventurous",
+    ]);
+  });
+
+  it("raises both return and movement as the setting rises", () => {
+    for (let i = 1; i < RISK_TOLERANCES.length; i++) {
+      const previous = riskMix(RISK_TOLERANCES[i - 1]!);
+      const mix = riskMix(RISK_TOLERANCES[i]!);
+      expect(mix.realReturn).toBeGreaterThan(previous.realReturn);
+      expect(mix.volatility).toBeGreaterThan(previous.volatility);
+      expect(mix.roughBadYear).toBeLessThan(previous.roughBadYear);
+    }
+  });
+});
+
+describe("goal answer", () => {
+  const answer = goalAnswer();
+
+  it("answers the setting that was asked for", () => {
+    expect(goalAnswer({ tolerance: 5 }).mix.tolerance).toBe(5);
+    expect(answer.alternatives.filter((a) => a.chosen)).toHaveLength(1);
+    expect(answer.alternatives.find((a) => a.chosen)!.tolerance).toBe(answer.mix.tolerance);
+  });
+
+  it("asks less each month the more movement is accepted", () => {
+    const monthlies = answer.alternatives.map((a) => a.monthly!);
     for (let i = 1; i < monthlies.length; i++) expect(monthlies[i]!).toBeLessThan(monthlies[i - 1]!);
-    expect(plan.leastPerMonth.id).toBe("all");
-    expect(plan.mostPerMonth.id).toBe("none");
   });
 
-  it("shows the trade: the plan that asks least can miss by most", () => {
-    expect(plan.leastPerMonth.p10).toBeLessThan(plan.mostPerMonth.p10);
-    expect(plan.leastPerMonth.p90).toBeGreaterThan(plan.mostPerMonth.p90);
+  it("shows the trade: the setting that asks least lands lowest in a bad run", () => {
+    const first = answer.alternatives[0]!;
+    const last = answer.alternatives[answer.alternatives.length - 1]!;
+    expect(last.monthly!).toBeLessThan(first.monthly!);
+    expect(last.p10).toBeLessThan(first.p10);
+    expect(last.p90).toBeGreaterThan(first.p90);
   });
 
-  it("lands the middle outcome near the goal, which is what the payment was sized for", () => {
-    for (const mix of plan.mixes) {
-      expect(mix.p50).toBeGreaterThan(plan.goal * 0.85);
-      expect(mix.p50).toBeLessThan(plan.goal * 1.15);
+  it("lands the middle outcome near the target the payment was sized for", () => {
+    for (const option of answer.alternatives) {
+      expect(option.p50).toBeGreaterThan(answer.goal * 0.85);
+      expect(option.p50).toBeLessThan(answer.goal * 1.15);
     }
   });
 
-  it("reports a shortfall rate near a coin flip rather than implying the goal is reached", () => {
-    for (const mix of plan.mixes) {
-      expect(mix.shortfall).toBeGreaterThan(0.3);
-      expect(mix.shortfall).toBeLessThan(0.75);
-    }
+  it("reports a shortfall near a coin flip rather than implying the target is reached", () => {
+    expect(answer.shortfall).toBeGreaterThan(0.3);
+    expect(answer.shortfall).toBeLessThan(0.75);
   });
 
-  it("needs more each month under the dearer charge", () => {
-    for (const mix of plan.mixes) {
-      expect(mix.monthlyHighCharge).toBeGreaterThan(mix.monthly);
-      expect(mix.monthlyExtra).toBe(mix.monthlyHighCharge - mix.monthly);
-    }
-    expect(plan.feeCostOverTerm).toBeCloseTo(plan.leastPerMonth.monthlyExtra * 12 * plan.years, 6);
+  it("needs more each month under the dearer charge, and says what that totals", () => {
+    expect(answer.monthlyHighCharge).toBeGreaterThan(answer.monthly);
+    expect(answer.monthlyExtra).toBe(answer.monthlyHighCharge - answer.monthly);
+    expect(answer.feeCostOverTerm).toBeCloseTo(answer.monthlyExtra * 12 * answer.years, 6);
   });
 
-  it("falls short of the goal if the dearer charge is paid without raising the payment", () => {
-    for (const mix of plan.mixes) expect(mix.highChargeOutcome).toBeLessThan(plan.goal);
+  it("falls short if the dearer charge is paid without raising the payment", () => {
+    expect(answer.highChargeOutcome).toBeLessThan(answer.goal);
+    expect(answer.shortBy).toBeCloseTo(answer.goal - answer.highChargeOutcome, 6);
+  });
+
+  it("counts what actually came out of pocket", () => {
+    expect(answer.contributed).toBe(answer.startingAmount + answer.monthly * 12 * answer.years);
   });
 
   it("rounds the payment to a figure someone would set up a standing order for", () => {
-    for (const mix of plan.mixes) expect(mix.monthly % 5).toBe(0);
-    expect(goalPlan({ goal: 5000000, years: 20, startingAmount: 0 }).mixes[0]!.monthly % 50).toBe(0);
+    expect(answer.monthly % 5).toBe(0);
+    expect(goalAnswer({ goal: 5000000, years: 20, startingAmount: 0 }).monthly % 50).toBe(0);
   });
 
   it("says so when the starting sum already gets there on its own", () => {
-    const rich = goalPlan({ goal: 20000, years: 30, startingAmount: 40000 });
-    for (const mix of rich.mixes) {
-      expect(mix.alreadyThere).toBe(true);
-      expect(mix.monthly).toBe(0);
-    }
+    const rich = goalAnswer({ goal: 20000, years: 30, startingAmount: 40000 });
+    expect(rich.alreadyThere).toBe(true);
+    expect(rich.monthly).toBe(0);
   });
 
   it("is deterministic, so the answer does not move between renders", () => {
-    expect(goalPlan().mixes.map((m) => [m.monthly, m.p10, m.shortfall])).toEqual(
-      plan.mixes.map((m) => [m.monthly, m.p10, m.shortfall]),
-    );
+    expect(goalAnswer().p10).toBe(answer.p10);
+    expect(goalAnswer().shortfall).toBe(answer.shortfall);
+  });
+});
+
+describe("forecast answer", () => {
+  const answer = forecastAnswer();
+
+  it("widens the range as the setting rises, without promising more", () => {
+    const options = answer.alternatives;
+    for (let i = 1; i < options.length; i++) {
+      expect(options[i]!.p90 - options[i]!.p10).toBeGreaterThan(options[i - 1]!.p90 - options[i - 1]!.p10);
+    }
+    expect(options[options.length - 1]!.p10).toBeLessThan(options[0]!.p10);
   });
 
-  it("scales with the goal", () => {
-    const bigger = goalPlan({ goal: 500000, years: 20, startingAmount: 5000 });
-    expect(bigger.leastPerMonth.monthly).toBeGreaterThan(plan.leastPerMonth.monthly * 4);
+  it("counts what actually came out of pocket", () => {
+    expect(answer.contributed).toBe(answer.startingAmount + answer.monthly * 12 * answer.years);
+  });
+
+  it("reports how often the plan finished below the money paid in", () => {
+    expect(answer.belowContributed).toBeGreaterThan(0);
+    expect(answer.belowContributed).toBeLessThan(0.5);
+  });
+
+  it("costs real money in a dearer fund, at every percentile", () => {
+    expect(answer.dear.p10).toBeLessThan(answer.p10);
+    expect(answer.dear.p50).toBeLessThan(answer.p50);
+    expect(answer.dear.p90).toBeLessThan(answer.p90);
+    expect(answer.feeCost).toBeCloseTo(answer.p50 - answer.dear.p50, 6);
+    expect(answer.feeShare).toBeGreaterThan(0.05);
+  });
+
+  it("grows with a bigger monthly payment", () => {
+    expect(forecastAnswer({ monthly: 600 }).p50).toBeGreaterThan(answer.p50);
+  });
+
+  it("is deterministic, so the answer does not move between renders", () => {
+    expect(forecastAnswer().p50).toBe(answer.p50);
   });
 });
 
 describe("fee illustration", () => {
   const result = feeIllustration();
 
-  it("agrees with the goal plan it is drawn from", () => {
-    const plan = goalPlan();
-    const lead = plan.leastPerMonth;
+  it("agrees with the goal answer it is drawn from", () => {
+    const answer = goalAnswer();
     const fees = feeIllustration({
-      amount: plan.startingAmount,
-      monthlyContribution: lead.monthly,
-      years: plan.years,
-      growth: lead.realReturn,
-      lowCharge: plan.lowCharge,
-      highCharge: plan.highCharge,
+      amount: answer.startingAmount,
+      monthlyContribution: answer.monthly,
+      years: answer.years,
+      growth: answer.mix.realReturn,
+      lowCharge: answer.lowCharge,
+      highCharge: answer.highCharge,
     });
     // Same recurrence on both sides, so these are the same number twice.
-    expect(fees.highEnd).toBeCloseTo(lead.highChargeOutcome, 4);
-    // The payment was rounded up, so the cheap path clears the goal.
-    expect(fees.lowEnd).toBeGreaterThanOrEqual(plan.goal);
+    expect(fees.highEnd).toBeCloseTo(answer.highChargeOutcome, 4);
+    // The payment was rounded up, so the cheap path clears the target.
+    expect(fees.lowEnd).toBeGreaterThanOrEqual(answer.goal);
   });
 
   it("costs more the longer it runs, and by more than the headline charge", () => {
@@ -128,11 +185,11 @@ describe("fee illustration", () => {
 });
 
 describe("range chart geometry", () => {
-  const plan = goalPlan();
-  const chart = buildRangeChart(plan.mixes, "USD", plan.goal);
+  const answer = goalAnswer();
+  const chart = buildRangeChart(answer.alternatives, "USD", answer.goal);
 
-  it("draws one bar per mix, inside the plot", () => {
-    expect(chart.bars).toHaveLength(4);
+  it("draws one bar per setting, inside the plot", () => {
+    expect(chart.bars).toHaveLength(5);
     for (const bar of chart.bars) {
       expect(bar.left).toBeGreaterThanOrEqual(0);
       expect(bar.left + bar.width).toBeLessThanOrEqual(100.01);
@@ -141,19 +198,19 @@ describe("range chart geometry", () => {
     }
   });
 
-  it("widens the bar as the mix gets bolder", () => {
+  it("widens the bar as the setting rises", () => {
     const widths = chart.bars.map((b) => b.width);
     for (let i = 1; i < widths.length; i++) expect(widths[i]!).toBeGreaterThan(widths[i - 1]!);
   });
 
-  it("marks the goal", () => {
+  it("marks the target", () => {
     expect(chart.marker).not.toBeNull();
-    expect(chart.marker!.value).toBe(plan.goal);
+    expect(chart.marker!.value).toBe(answer.goal);
     expect(chart.marker!.left).toBeGreaterThan(0);
     expect(chart.marker!.left).toBeLessThanOrEqual(100);
   });
 
-  it("keeps the axis long enough to show a goal every band falls short of", () => {
+  it("keeps the axis long enough to show a target every band falls short of", () => {
     const missed = buildRangeChart([{ label: "x", p10: 10, p50: 20, p90: 30 }], "USD", 1000);
     expect(missed.marker).not.toBeNull();
     expect(missed.maxX).toBeGreaterThanOrEqual(1000);

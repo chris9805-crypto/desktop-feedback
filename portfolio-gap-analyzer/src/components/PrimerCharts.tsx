@@ -1,7 +1,7 @@
 "use client";
 
 import { buildRangeChart, buildTwoLineChart } from "@/lib/chart";
-import type { FeePoint, GoalMix } from "@/lib/engine/primer";
+import type { Alternative, FeePoint } from "@/lib/engine/primer";
 import type { Currency } from "@/lib/engine/types";
 import { formatCurrency } from "@/lib/format";
 
@@ -18,7 +18,7 @@ export function RangeChart({
   marker,
   markerLabel,
 }: {
-  bands: GoalMix[];
+  bands: Alternative[];
   currency: Currency;
   marker?: number;
   markerLabel?: string;

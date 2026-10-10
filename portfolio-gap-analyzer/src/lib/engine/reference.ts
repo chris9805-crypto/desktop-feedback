@@ -71,7 +71,12 @@ function clamp(x: number, lo: number, hi: number): number {
  * me" to "a 50% fall would not change what I do". These are the volatility
  * someone says they can live with, translated into an allocation.
  */
-const TOLERANCE_GROWTH: Record<1 | 2 | 3 | 4 | 5, number> = {
+/**
+ * The growth share each risk answer allows. Exported because the opening page
+ * asks the same question, and a second copy of this table would let the two
+ * drift into meaning different things by the same word.
+ */
+export const TOLERANCE_GROWTH: Record<1 | 2 | 3 | 4 | 5, number> = {
   1: 0.25,
   2: 0.42,
   3: 0.6,
@@ -80,7 +85,7 @@ const TOLERANCE_GROWTH: Record<1 | 2 | 3 | 4 | 5, number> = {
 };
 
 /** Names the band a growth share falls into, so the model is describable in a word. */
-function riskProfileLabel(growthShare: number): string {
+export function riskProfileLabel(growthShare: number): string {
   if (growthShare < 0.35) return "Defensive";
   if (growthShare < 0.52) return "Cautious";
   if (growthShare < 0.68) return "Balanced";

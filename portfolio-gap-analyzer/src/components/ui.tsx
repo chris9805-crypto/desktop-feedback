@@ -191,3 +191,12 @@ export function Field({
 
 export const inputClass =
   "tnum w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)]";
+
+/**
+ * The same control sized to its content, for inputs that sit inside a
+ * sentence. Deliberately not `inputClass` plus a width: both would set `width`
+ * at the same specificity, and which one won would depend on the order Tailwind
+ * happened to emit them in rather than on the order they are written here.
+ */
+export const inlineInputClass =
+  "tnum rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-2.5 py-1.5 text-[15px] font-semibold text-[var(--text)]";

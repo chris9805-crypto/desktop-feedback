@@ -27,8 +27,12 @@ export interface AppState {
   projectionOverrides: { realReturn?: number };
   /** Set once the user has acknowledged what this tool is and is not. */
   disclaimerAccepted: boolean;
-  /** The goal the opening page works backwards from. Exploratory, not a profile. */
-  primer: { goal: number; years: number; startingAmount: number };
+  /**
+   * The opening page's own inputs. Exploratory, not a profile — except the
+   * risk answer, which is `profile.riskTolerance` because it is the same
+   * question the reference model asks.
+   */
+  primer: { mode: "goal" | "forecast"; goal: number; years: number; startingAmount: number; monthly: number };
 }
 
 export const DEFAULT_PROFILE: InvestorProfile = {
@@ -66,7 +70,7 @@ export const EMPTY_STATE: AppState = {
   referenceOverrides: {},
   projectionOverrides: {},
   disclaimerAccepted: false,
-  primer: { goal: 100000, years: 20, startingAmount: 5000 },
+  primer: { mode: "goal", goal: 100000, years: 20, startingAmount: 5000, monthly: 300 },
 };
 
 export const SAMPLE_STATE: AppState = {

@@ -118,35 +118,37 @@ The words "forecast", "prediction", "expected value" and "projection of your
 portfolio" are avoided in the copy; the feature is described as an illustration
 of a historical range.
 
-### 4b2. The opening page answers a question, and does not answer the next one
+### 4b2. The opening page answers the reader's question, and never picks for them
 
-The landing tab works backwards from a goal to a monthly payment. That is the
-most advice-adjacent shape in the product — it looks like a plan — so six
-things keep it on the research side:
+The landing tab turns three answers into one number — a monthly payment, or a
+range. That is the most advice-adjacent shape in the product, because it looks
+like a plan. Six things keep it on the research side:
 
-- **It is hypothetical, and obviously so.** It runs on a goal the reader types
+- **It is hypothetical, and obviously so.** It runs on numbers the reader types
   in, not on their holdings or their circumstances. Nothing about it is
-  personalised, because nothing about it knows anything about the reader.
-- **Every mix is answered, and none is picked.** Four mixes get four payments.
-  No row is marked suitable, recommended or best, and the page never narrows
-  the four to one — which is the step that would make it advice. Choosing
-  between them needs the horizon and circumstances the reference model asks
-  for, and the page hands the reader there.
-- **The cost of each row sits in the row.** The column next to the payment is
-  the 10th percentile, so the mix asking least per month visibly carries the
-  worst bad case. A table of payments alone would read as "shares are cheaper";
-  the second column is what stops it.
-- **The payment is never presented as sufficient.** It is sized on an average
-  return, so about half of simulated runs finish below the goal. The page
-  states that with the computed figure rather than leaving the table to imply
-  a guarantee, and the detail view draws the goal line through every band.
-- **It reuses the real engine.** `goalPlan` sizes the payment with the same
-  return assumptions as the reference model and checks it with the same
-  `simulateOutcomes` as the projection. An opening page with its own, gentler
-  arithmetic would be the obvious way for this to drift.
-- **The fee comparison compares a cost, not a product.** It names no provider
-  and recommends no charge level; it converts a percentage into a monthly
-  payment and a shortfall, which is arithmetic the reader can check.
+  personalised beyond what they just said.
+- **The reader chooses the risk setting; the tool never does.** All five
+  settings stay on the page with their own answers, so the chosen one is shown
+  in context rather than as the recommendation. There is no "suggested for
+  you", no default marked as sensible, and no narrowing of five to one — that
+  last step is what would make this advice. The page says in as many words that
+  nothing here decides which row is right.
+- **The risk question is about a fall, not a preference.** Each setting is
+  labelled with the drawdown it stands for, and it writes to the same
+  `riskTolerance` the reference model uses, so an answer cannot mean one thing
+  here and another there.
+- **The cost of each setting travels with it.** Every row carries its bad-run
+  figure beside its payment, so the setting that asks least per month visibly
+  lands lowest when things go badly. A ladder of payments alone would read as
+  "more shares is cheaper"; the second figure is what stops it.
+- **The answer is never presented as sufficient.** It is sized on an average
+  return, so about half of simulated runs finish below the target, and the page
+  prints that share. In the other direction it reports how often the plan
+  finished below the money paid in, because investing can lose money.
+- **It reuses the real engine.** `riskMix` reads the reference model's own
+  `TOLERANCE_GROWTH` table, and both answers are checked with the projection's
+  `simulateOutcomes`. An opening page with its own, gentler arithmetic would be
+  the obvious way for this to drift, so there is one implementation.
 
 ### 4c. The allocation is derived from stated constraints, and names which one bound
 
@@ -284,11 +286,12 @@ into something needing a licence, or into something it should not be:
   (currency, listing country, wrapper eligibility) — for example filtering by
   what the tool thinks would suit the user.
 - Adding an overall portfolio score or grade.
-- Turning the opening page into a plan: narrowing its four mixes to one,
-  marking a row as suitable, dropping the bad-run column or the shortfall
-  figure, presenting the monthly payment as sufficient to reach the goal,
-  running it on the reader's actual holdings, or giving it its own arithmetic
-  rather than the engine's.
+- Turning the opening page into a plan: narrowing its five settings to one,
+  marking a setting as suggested or suitable, hiding the settings the reader
+  did not choose, dropping the bad-run figures or the shortfall share,
+  presenting the monthly payment as sufficient to reach the target, running it
+  on the reader's actual holdings, or giving it its own arithmetic rather than
+  the engine's.
 - Turning a theme into a curated list: hand-picking its members, dropping the
   criteria or the caution, ranking themes against each other, attaching an
   expected return to one, or presenting the sleeve diff as an improvement

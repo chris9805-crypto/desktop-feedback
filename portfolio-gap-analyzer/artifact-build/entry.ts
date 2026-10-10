@@ -36,5 +36,5 @@ export {
 } from "@/lib/engine/types";
 export { THEMES, themeById, matchesFor } from "@/lib/engine/themes";
 export { themeImpact, applySleeve } from "@/lib/engine/theme-impact";
-export { goalPlan, feeIllustration } from "@/lib/engine/primer";
+export { goalAnswer, forecastAnswer, feeIllustration, riskMix, RISK_TOLERANCES, RISK_STATEMENTS } from "@/lib/engine/primer";
 export { buildRangeChart, buildTwoLineChart } from "@/lib/chart";

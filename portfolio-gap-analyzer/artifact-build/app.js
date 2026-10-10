@@ -27,7 +27,7 @@
     openTerm: null, fee: { amount: 25000, monthly: 250, charge: 1.4, years: 25 },
     open: {}, expTab: "region", detail: null, article: null,
     theme: "ai-infrastructure", picked: [], sleeve: 0.05, sleeveSaved: false,
-    primer: { goal: 100000, years: 20, startingAmount: 5000 }, primerDetail: false,
+    primer: { mode: "goal", goal: 100000, years: 20, startingAmount: 5000, monthly: 300 }, primerDetail: false,
     screen: { q: "", kind: "all", sector: "all", sort: "size", desc: true, limit: 30 }
   };
 
@@ -37,7 +37,7 @@
       state = Object.assign(state, saved);
       state.profile = Object.assign({}, DEFAULT_PROFILE, saved.profile || {});
       state.screen = Object.assign(state.screen, saved.screen || {});
-      state.primer = Object.assign({ goal: 100000, years: 20, startingAmount: 5000 }, saved.primer || {});
+      state.primer = Object.assign({ mode: "goal", goal: 100000, years: 20, startingAmount: 5000, monthly: 300 }, saved.primer || {});
       state.open = {};
     }
   } catch (e) { /* private mode, or blocked site data: run without persistence */ }
@@ -632,25 +632,21 @@
   /* ------------------------------------------------------------ primer */
 
   /**
-   * The first screen: one question, worked backwards.
+   * The opening page, in two directions.
    *
-   * Starting from a goal collapses the two decisions that come before any
-   * ticker into a single answer — the monthly payment falls as the share in
-   * shares rises, and rises again with the charge. The detail behind it sits
-   * behind a toggle, because a beginner needs the comparison before the
-   * machinery.
+   * Both are the same arithmetic read from opposite ends — "I want this much,
+   * what does it take?" and "here is what I can do, where does it get me?" —
+   * and which one a reader wants depends entirely on whether they already have
+   * a number in mind. Guessing wrong makes the page feel like it is asking the
+   * wrong question, so it asks which.
+   *
+   * The risk question is the profile's own riskTolerance, so an answer here
+   * means exactly what it means on the reference tab.
    */
-  function primerInputs() {
-    var p = state.primer;
-    return '<section class="card pad"><div class="grid3">' +
-      '<label class="field"><span class="field-k">I want to have</span>' +
-      '<input id="pr-goal" type="number" min="0" step="10000" value="' + p.goal + '" data-act="prgoal"></label>' +
-      '<label class="field"><span class="field-k">In ' + p.years + ' years</span>' +
-      '<input id="pr-yrs" type="range" min="3" max="45" step="1" value="' + p.years + '" data-act="pryrs"></label>' +
-      '<label class="field"><span class="field-k">Starting with</span>' +
-      '<input id="pr-start" type="number" min="0" step="1000" value="' + p.startingAmount + '" data-act="prstart"></label>' +
-      "</div></section>";
-  }
+  var PRIMER_MODES = [
+    ["goal", "I have a target", "Work out what it takes"],
+    ["forecast", "I have a plan", "Work out where it gets me"]
+  ];
 
   /**
    * Simulated outcomes carry no precision worth printing. "$55,264" invites a
@@ -660,6 +656,63 @@
   function roughly(v) {
     var step = v >= 10000 ? 100 : 10;
     return cur(Math.round(v / step) * step);
+  }
+
+  function amountInput(id, act, value, step) {
+    return '<input class="inline-in" id="' + id + '" type="number" min="0" step="' + step + '" value="' + value + '" data-act="' + act + '">';
+  }
+
+  function yearsInput(value) {
+    var options = "";
+    for (var y = 3; y <= 45; y++) options += '<option value="' + y + '"' + (y === value ? " selected" : "") + ">" + y + "</option>";
+    return '<select class="inline-in yrs" id="pr-yrs" data-act="pryrs">' + options + "</select>";
+  }
+
+  function riskPicker() {
+    var chosen = G.riskMix(state.profile.riskTolerance);
+    return '<div class="risk-grid" role="radiogroup" aria-label="How much movement you can live with">' +
+      G.RISK_TOLERANCES.map(function (level) {
+        var mix = G.riskMix(level);
+        var on = level === state.profile.riskTolerance;
+        return '<button type="button" role="radio" aria-checked="' + on + '" class="risk-opt' + (on ? " on" : "") +
+          '" data-act="risk" data-level="' + level + '">' + esc(mix.label) + "</button>";
+      }).join("") + "</div>" +
+      '<p style="margin-top:8px;font-size:12.5px;line-height:1.45;color:var(--muted)">' +
+      '<strong style="color:var(--ink)">“' + esc(chosen.statement) + '”</strong> ' +
+      '<span style="color:var(--faint)">That puts about ' + Math.round(chosen.equityShare * 100) +
+      "% in shares, and sets your reference portfolio too.</span></p>";
+  }
+
+  function answerCard(eyebrow, value, detail) {
+    return '<div class="answer"><div class="answer-k">' + esc(eyebrow) + "</div>" +
+      '<div class="answer-v num">' + esc(value) + "</div>" +
+      '<p class="answer-d">' + detail + "</p></div>";
+  }
+
+  function factCard(label, value, body) {
+    return '<div class="card pad"><div class="stat-k">' + esc(label) + "</div>" +
+      '<div class="stat-v" style="font-size:18px">' + esc(value) + "</div>" +
+      '<p class="stat-d">' + body + "</p></div>";
+  }
+
+  function ladder(plan) {
+    return '<section class="card pad"><h2 style="font-size:14px">If you could live with more, or less, movement</h2>' +
+      '<p class="sub" style="margin-top:6px;font-size:12.5px">The same question at every setting. ' +
+      (plan.mode === "goal"
+        ? "More in shares asks less of you each month — and lands lower in a bad run."
+        : "More in shares lifts the middle outcome — and lowers the bad run.") +
+      " Nothing here says which row is right for you; that depends on when you need the money.</p>" +
+      '<ul class="ladder">' + plan.alternatives.map(function (o, i) {
+        return '<li class="ladder-row' + (o.chosen ? " on" : "") + '">' +
+          '<span class="ladder-name"><i class="goal-dot" style="background:' + PALETTE[i % PALETTE.length] + '"></i>' +
+          '<span' + (o.chosen ? ' style="font-weight:600;color:var(--ink)"' : "") + ">" + esc(o.label) + "</span>" +
+          '<span style="font-size:11.5px;color:var(--faint)">' + Math.round(o.equityShare * 100) + "% shares</span></span>" +
+          '<span class="ladder-vals num">' +
+          (o.monthly != null
+            ? '<strong style="color:var(--ink)">' + cur(o.monthly) + "</strong> a month"
+            : 'middle <strong style="color:var(--ink)">' + roughly(o.p50) + "</strong>") +
+          '<span style="margin-left:12px;color:var(--faint)">bad run ' + roughly(o.p10) + "</span></span></li>";
+      }).join("") + "</ul></section>";
   }
 
   function rangeChart(bands, marker, markerLabel) {
@@ -678,12 +731,10 @@
         (c.marker ? '<span class="range-paid" style="left:' + c.marker.left.toFixed(2) + '%"></span>' : "") +
         "</div></li>";
     }).join("");
-
     var ticks = c.ticks.map(function (t, i) {
       var shift = i === 0 ? "none" : i === c.ticks.length - 1 ? "translateX(-100%)" : "translateX(-50%)";
       return '<span class="range-tick num" style="left:' + t.left.toFixed(2) + "%;transform:" + shift + '">' + esc(t.label) + "</span>";
     }).join("");
-
     return '<ul style="list-style:none;padding:0;margin:0">' + rows + "</ul>" +
       '<div class="range-axis">' + ticks + "</div>" +
       '<p style="margin-top:12px;font-size:11.5px;line-height:1.5;color:var(--faint)">' +
@@ -722,102 +773,102 @@
       "</div>";
   }
 
-  function goalTable(plan) {
-    // Not a table element: at phone width three columns squeezed the labels
-    // into six-line wraps. The rows stack, and each figure carries its own
-    // caption once the header row is hidden.
-    var head = '<div class="goal-head wide-only"><span style="flex:1">How it is invested</span>' +
-      '<span style="width:150px;text-align:right">Put aside each month</span>' +
-      '<span style="width:180px;text-align:right">In a bad run, you land near</span></div>';
-    var rows = plan.mixes.map(function (m, i) {
-      return '<li class="goal-row"><div style="flex:1">' +
-        '<span class="goal-name"><i class="goal-dot" style="background:' + PALETTE[i % PALETTE.length] + '"></i>' + esc(m.label) + "</span>" +
-        '<span class="goal-sub">has grown ' + pct(m.realReturn, 1) + " a year above inflation</span></div>" +
-        '<div class="goal-figs">' +
-        '<div class="goal-fig"><div class="goal-cap narrow-only">Each month</div>' +
-        '<div class="goal-big num">' + (m.alreadyThere ? "nothing" : cur(m.monthly)) + "</div></div>" +
-        '<div class="goal-fig wide2"><div class="goal-cap narrow-only">In a bad run</div>' +
-        '<div class="num" style="font-size:14px;color:var(--muted)">' + roughly(m.p10) + "</div></div>" +
-        "</div></li>";
-    }).join("");
-    return '<section class="card" style="margin-top:18px">' + head +
-      '<ul class="goal-list">' + rows + "</ul>" +
-      '<p class="goal-foot">“A bad run” is the 10th percentile of 2,000 simulated runs: one run in ten did worse than that. ' +
-      "Figures are in today's money and rounded.</p></section>";
-  }
-
   function viewPrimer() {
-    var p = state.primer;
-    var plan = G.goalPlan({ goal: p.goal, years: p.years, startingAmount: p.startingAmount });
-    var lead = plan.leastPerMonth, most = plan.mostPerMonth;
+    var p = state.primer, tol = state.profile.riskTolerance;
+    var plan = p.mode === "goal"
+      ? G.goalAnswer({ goal: p.goal, years: p.years, startingAmount: p.startingAmount, tolerance: tol })
+      : G.forecastAnswer({ monthly: p.monthly, years: p.years, startingAmount: p.startingAmount, tolerance: tol });
     var f = G.feeIllustration({
-      amount: plan.startingAmount, monthlyContribution: lead.monthly, years: plan.years,
-      growth: lead.realReturn, lowCharge: plan.lowCharge, highCharge: plan.highCharge
+      amount: p.startingAmount, monthlyContribution: plan.monthly, years: p.years,
+      growth: plan.mix.realReturn, lowCharge: plan.lowCharge, highCharge: plan.highCharge
     });
-    var shortBy = plan.goal - lead.highChargeOutcome;
-    var everyoneThere = plan.mixes.every(function (m) { return m.alreadyThere; });
+    var mixName = esc(plan.mix.label.toLowerCase());
+    var sharePct = Math.round(plan.mix.equityShare * 100);
+
+    var answer = plan.mode === "goal"
+      ? (plan.alreadyThere
+        ? '<div class="note accent"><strong>You are already there.</strong> On these assumptions ' + cur(p.startingAmount) +
+          " grows past " + cur(plan.goal) + " within " + p.years +
+          " years on its own. Try a bigger target, fewer years, or a smaller starting sum.</div>"
+        : answerCard("To reach " + cur(plan.goal) + " in " + p.years + " years", cur(plan.monthly) + " a month",
+            "Held in a " + mixName + " mix — about " + sharePct + "% shares — in a fund charging " + pct(plan.lowCharge, 2) +
+            " a year. You would pay in " + cur(plan.contributed) + " altogether, and the investment is expected to make up the rest."))
+      : answerCard("In " + p.years + " years, on these assumptions", roughly(plan.p10) + " to " + roughly(plan.p90),
+          "Middle outcome " + roughly(plan.p50) + ", against " + cur(plan.contributed) + " paid in. Held in a " + mixName +
+          " mix — about " + sharePct + "% shares — in a fund charging " + pct(plan.lowCharge, 2) + " a year. In today's money.");
+
+    var facts = plan.mode === "goal"
+      ? factCard("In a bad run you land near", roughly(plan.p10),
+          "One run in ten did worse than that. " + pct(plan.shortfall, 0) + " of runs finished below " + cur(plan.goal) +
+          " — a payment sized on an average return is roughly a coin flip.") +
+        factCard("In a dear fund instead", cur(plan.monthlyHighCharge) + " a month",
+          "At " + pct(plan.highCharge, 2) + " a year rather than " + pct(plan.lowCharge, 2) + ". That is " +
+          cur(plan.monthlyExtra) + " more every month, " + cur(plan.feeCostOverTerm) + " over " + p.years + " years.") +
+        factCard("Or keep paying the same", roughly(plan.shortBy) + " short",
+          "Pay " + cur(plan.monthly) + " into the dearer fund and you land at " + roughly(plan.highChargeOutcome) +
+          " instead of " + cur(plan.goal) + ".")
+      : factCard("You would have paid in", cur(plan.contributed),
+          cur(p.startingAmount) + " to start plus " + cur(p.monthly) + " a month. " + pct(plan.belowContributed, 0) +
+          " of runs finished below that — investing can lose money.") +
+        factCard("In a dear fund instead", roughly(plan.dear.p50),
+          "The same payments at " + pct(plan.highCharge, 2) + " a year rather than " + pct(plan.lowCharge, 2) + ", as a middle outcome.") +
+        factCard("So the charge costs", roughly(plan.feeCost),
+          pct(plan.feeShare, 0) + " of the middle outcome, for an identical plan held in a dearer fund.");
 
     return '<header><p class="eyebrow" style="color:var(--accent-ink)">Research and education for stock and ETF investors</p>' +
-      '<h1 style="font-size:30px;margin-top:10px;max-width:30ch">Start with what you want, not with what to buy.</h1>' +
-      '<p class="lede" style="margin-top:12px;font-size:15px">Tell it the number you have in mind. It works backwards to ' +
-      "what that takes each month — and shows the two things that change the answer most.</p></header>" +
+      '<h1 style="font-size:30px;margin-top:10px;max-width:28ch">Answer three questions. Get one number.</h1>' +
+      '<p class="lede" style="margin-top:12px;font-size:15px">No jargon and nothing to buy. Start from a target you have ' +
+      "in mind, or from what you can already put aside.</p></header>" +
 
-      primerInputs() +
+      '<div class="grid2">' + PRIMER_MODES.map(function (m) {
+        var on = m[0] === p.mode;
+        return '<button type="button" class="card pad mode-card' + (on ? " on" : "") + '" aria-pressed="' + on +
+          '" data-act="prmode" data-mode="' + m[0] + '" style="text-align:left;border-radius:var(--r)">' +
+          '<div style="font-size:15px;font-weight:600' + (on ? ";color:var(--accent-ink)" : "") + '">' + esc(m[1]) + "</div>" +
+          '<div class="sub" style="font-size:12.5px;margin-top:2px">' + esc(m[2]) + "</div></button>";
+      }).join("") + "</div>" +
 
-      '<section><h2 style="font-size:20px">What it takes to get to ' + cur(plan.goal) + "</h2>" +
-      '<p class="lede" style="margin-top:8px">The answer depends on how much of your money sits in shares. Shares have paid ' +
-      "more than bonds over long periods, so they ask less of you each month — and move far more along the way.</p>" +
+      '<section class="card">' +
+      '<div class="ask"><div class="ask-line"><span>I have</span>' + amountInput("pr-start", "prstart", p.startingAmount, 1000) +
+      (p.mode === "forecast"
+        ? "<span>today, and can add</span>" + amountInput("pr-mon", "prmon", p.monthly, 50) + "<span>a month.</span>"
+        : "<span>today.</span>") +
+      "</div></div>" +
+      '<div class="ask"><div class="ask-line">' +
+      (p.mode === "goal"
+        ? "<span>In</span>" + yearsInput(p.years) + "<span>years I want to have</span>" + amountInput("pr-goal", "prgoal", p.goal, 10000)
+        : "<span>Show me what I would have in</span>" + yearsInput(p.years) + "<span>years.</span>") +
+      "</div></div>" +
+      '<div class="ask"><div style="font-size:15px;margin-bottom:12px">I am comfortable with this much movement:</div>' +
+      riskPicker() + "</div></section>" +
 
-      (everyoneThere
-        ? '<div class="note accent" style="margin-top:18px"><strong>You are already there.</strong> On these assumptions ' +
-          cur(plan.startingAmount) + " grows past " + cur(plan.goal) + " within " + plan.years +
-          " years on its own, whichever mix it sits in. Try a bigger number, a shorter time, or a smaller starting sum.</div>"
-        : goalTable(plan)) +
+      answer +
+      '<div class="grid3">' + facts + "</div>" +
+      ladder(plan) +
 
-      '<div class="grid2" style="margin-top:14px">' +
-      '<div class="note accent"><strong>Why the monthly figure falls.</strong> ' + cur(most.monthly) + " a month with " +
-      esc(most.label.toLowerCase()) + ", " + cur(lead.monthly) + " with " + esc(lead.label.toLowerCase()) +
-      ". More in shares means the money is expected to do more of the work, so less has to come from you.</div>" +
-      '<div class="note warn"><strong>Why that is not simply better.</strong> The last column is the catch. In a poor run ' +
-      esc(lead.label.toLowerCase()) + " lands near " + roughly(lead.p10) + ", against " + roughly(most.p10) + " for " +
-      esc(most.label.toLowerCase()) + " — so the plan that asks least of you is also the one that can miss by most.</div></div>" +
+      '<div class="note"><strong>Read this as a direction, not a plan.</strong> Every figure here is arithmetic on long-run ' +
+      "averages, in today's money, on a " + pct(plan.mix.realReturn, 1) + " return before charges. Real returns do not arrive " +
+      "evenly — a " + mixName + " mix has had years down around " + pct(Math.abs(plan.mix.roughBadYear), 0) +
+      ". The comparison between settings is the useful part, not any single number.</div>" +
 
-      '<section class="card pad" style="margin-top:14px">' +
-      '<h3 style="font-size:14px">And all of that assumed a cheap fund. Here is what a dear one does.</h3>' +
-      '<p class="sub" style="margin-top:8px">Every figure above assumes you pay ' + pct(plan.lowCharge, 2) +
-      " a year to hold the investment. Plenty of products charge " + pct(plan.highCharge, 2) +
-      ". The money comes out of the same pot, every year, so the goal needs more from you.</p>" +
-      '<div class="grid3" style="margin-top:16px">' +
-      '<div><div class="stat-k">Same plan, dearer fund</div><div class="stat-v t-over">' + cur(lead.monthlyHighCharge) + " a month</div>" +
-      '<p class="stat-d">instead of ' + cur(lead.monthly) + ", to reach the same " + cur(plan.goal) + " with " + esc(lead.label.toLowerCase()) + ".</p></div>" +
-      '<div><div class="stat-k">Over ' + plan.years + ' years</div><div class="stat-v t-over">' + cur(plan.feeCostOverTerm) + "</div>" +
-      '<p class="stat-d">extra out of your own pocket, for the same goal and the same mix.</p></div>' +
-      '<div><div class="stat-k">Or, if you do not add it</div><div class="stat-v t-over">' + roughly(shortBy) + " short</div>" +
-      '<p class="stat-d">Keep paying ' + cur(lead.monthly) + " and the dearer charge leaves you at " + roughly(lead.highChargeOutcome) + ".</p></div>" +
-      "</div></section>" +
-
-      '<div class="note" style="margin-top:14px"><strong>Read these as a direction, not a plan.</strong> ' +
-      "Every figure here is arithmetic on long-run averages, in today's money. Real returns do not arrive evenly, and a plan " +
-      "sized on an average lands under it about half the time — on these assumptions, " + pct(lead.shortfall, 0) +
-      " of simulated runs for " + esc(lead.label.toLowerCase()) + " finished below " + cur(plan.goal) +
-      ". The point is the comparison between the rows, not any one number.</div>" +
-
-      '<p style="margin-top:14px"><button class="row-link" data-act="prdetail" aria-expanded="' + !!state.primerDetail +
+      '<p><button class="row-link" data-act="prdetail" aria-expanded="' + !!state.primerDetail +
       '" style="color:var(--accent-ink);font-size:13px;font-weight:500;text-decoration:none">' +
       (state.primerDetail ? "Hide the detail ↑" : "Show the detail behind these numbers ↓") + "</button></p>" +
 
       (state.primerDetail
-        ? '<div class="stack" style="margin-top:16px">' +
-          '<section class="card pad"><h3 style="font-size:14px">Where each plan actually lands</h3>' +
-          '<p class="sub" style="margin-top:6px;margin-bottom:16px">Each mix paying its own monthly figure, run 2,000 times. ' +
-          "The line is the " + cur(plan.goal) + ' goal.</p>' + rangeChart(plan.mixes, plan.goal, "goal") + "</section>" +
-          '<section class="card pad"><h3 style="font-size:14px">The same ' + cur(lead.monthly) + " a month, under both charges</h3>" +
-          '<p class="sub" style="margin-top:6px;margin-bottom:16px">Identical payments and identical returns. The shaded wedge is ' +
-          "the charge, and it widens because each year's charge also gives up what that money would have earned afterwards. " +
-          "The cheap path finishes a little above " + cur(plan.goal) + " because the monthly figure is rounded up.</p>" +
-          feeChart(f) + "</section></div>"
+        ? '<section class="card pad"><h3 style="font-size:14px">Where each setting actually lands</h3>' +
+          '<p class="sub" style="margin-top:6px;margin-bottom:16px;font-size:12.5px">Each setting run 2,000 times. ' +
+          (plan.mode === "goal"
+            ? "Each one pays its own monthly figure, and the line is the " + cur(plan.goal) + " target."
+            : "All paying the same " + cur(p.monthly) + " a month, and the line is the " + cur(plan.contributed) + " paid in.") +
+          "</p>" +
+          rangeChart(plan.alternatives, plan.mode === "goal" ? plan.goal : plan.contributed,
+            plan.mode === "goal" ? "target" : "paid in") + "</section>" +
+          '<section class="card pad"><h3 style="font-size:14px">The same ' + cur(plan.monthly) + " a month, under both charges</h3>" +
+          '<p class="sub" style="margin-top:6px;margin-bottom:16px;font-size:12.5px">Identical payments and identical returns. ' +
+          "The shaded wedge is the charge, and it widens because each year's charge also gives up what that money would have " +
+          "earned afterwards.</p>" + feeChart(f) + "</section>"
         : "") +
-      "</section>" +
 
       '<section><h2 style="font-size:20px">Then, which holdings</h2>' +
       '<p class="lede" style="margin-top:8px">Once the mix and the cost are settled, the rest is checking what you own against them. ' +
@@ -1502,6 +1553,8 @@
     else if (act === "projtable") { state.showProjTable = !state.showProjTable; render(); }
     else if (act === "showrest") { state.showRest = !state.showRest; render(); }
     else if (act === "prdetail") { state.primerDetail = !state.primerDetail; render(); }
+    else if (act === "prmode") { state.primer = Object.assign({}, state.primer, { mode: el.getAttribute("data-mode") }); save(); render(); }
+    else if (act === "risk") { setProfile({ riskTolerance: Number(el.getAttribute("data-level")) }); }
     else if (act === "theme") { state.theme = el.getAttribute("data-theme"); state.picked = []; state.sleeveSaved = false; save(); render(); }
     else if (act === "sleeve") { state.sleeve = Number(el.getAttribute("data-share")); state.sleeveSaved = false; save(); render(); }
     else if (act === "applysleeve") {
@@ -1520,7 +1573,7 @@
 
     if (act === "prgoal") { state.primer = Object.assign({}, state.primer, { goal: Math.max(0, num || 0) }); save(); render(); }
     else if (act === "prstart") { state.primer = Object.assign({}, state.primer, { startingAmount: Math.max(0, num || 0) }); save(); render(); }
-    else if (act === "pryrs") { state.primer = Object.assign({}, state.primer, { years: num }); save(); render(); }
+    else if (act === "prmon") { state.primer = Object.assign({}, state.primer, { monthly: Math.max(0, num || 0) }); save(); render(); }
     else if (act === "addq") { state.addQuery = el.value; render(); }
     else if (act === "addamt") { state.addAmount = el.value; }
     else if (act === "cash") { state.cash = Math.max(0, num || 0); state.isSample = false; save(); render(); }
@@ -1552,6 +1605,7 @@
         : state.picked.concat([symbol]);
       state.sleeveSaved = false; save(); render();
     }
+    else if (act === "pryrs") { state.primer = Object.assign({}, state.primer, { years: Number(el.value) }); save(); render(); }
     else if (act === "ccy") { setProfile({ baseCurrency: el.value }); }
     else if (act === "goal") { setProfile({ goal: el.value }); }
     else if (act === "home") { setProfile({ homeRegion: el.value }); }

@@ -2,45 +2,117 @@
 
 import { useMemo, useState } from "react";
 import { FeeGapChart, RangeChart } from "@/components/PrimerCharts";
+import { RiskPicker } from "@/components/RiskPicker";
 import { StartButtons } from "@/components/StartButtons";
-import { Callout, Card, Field, inputClass } from "@/components/ui";
+import { Callout, Card, inlineInputClass } from "@/components/ui";
 import { DATASET_META } from "@/lib/data/dataset-meta";
-import { feeIllustration, goalPlan } from "@/lib/engine/primer";
+import { feeIllustration, forecastAnswer, goalAnswer, type RiskTolerance } from "@/lib/engine/primer";
 import { formatCurrency, formatPercent } from "@/lib/format";
 import { useStore } from "@/lib/state/store";
 
 /**
- * The first screen: one question, worked backwards.
+ * The opening page, in two directions.
  *
- * An earlier version of this page put two illustrations side by side — what a
- * share/bond split does to the range, and what a charge costs over time — and
- * asked the reader to hold both at once before they had a reason to care about
- * either. Starting from a goal collapses them into a single answer: the monthly
- * payment falls as the share in shares rises, and rises again with the charge.
- * Same two lessons, one table, and a question someone with no background can
- * answer about themselves.
+ * Both are the same arithmetic read from opposite ends — "I want this much,
+ * what does it take?" and "here is what I can do, where does it get me?" — and
+ * which one a reader wants depends entirely on whether they already have a
+ * number in mind. Guessing wrong makes the page feel like it is asking the
+ * wrong question, so it asks which.
  */
+
+/** A sentence with its inputs on the line, stacking on a narrow screen. */
+function Line({ children }: { children: React.ReactNode }) {
+  return <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 text-[15px] text-[var(--text)]">{children}</div>;
+}
+
+function Amount({
+  value,
+  onChange,
+  step = 1000,
+  width = "w-32",
+}: {
+  value: number;
+  onChange: (value: number) => void;
+  step?: number;
+  width?: string;
+}) {
+  return (
+    <input
+      className={`${inlineInputClass} ${width}`}
+      type="number"
+      min={0}
+      step={step}
+      value={value}
+      onChange={(event) => onChange(Math.max(0, Number(event.target.value) || 0))}
+    />
+  );
+}
+
+function Years({ value, onChange }: { value: number; onChange: (value: number) => void }) {
+  return (
+    <select
+      className={`${inlineInputClass} w-[4.5rem]`}
+      value={value}
+      onChange={(event) => onChange(Number(event.target.value))}
+    >
+      {Array.from({ length: 43 }, (_, index) => index + 3).map((year) => (
+        <option key={year} value={year}>
+          {year}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+/** The answer, as one number with its units spelled out. */
+function Answer({ eyebrow, value, detail }: { eyebrow: string; value: string; detail: string }) {
+  return (
+    <div className="rounded-[var(--radius)] border border-[var(--accent)]/30 bg-[var(--accent-soft)] px-5 py-5">
+      <div className="text-[11.5px] uppercase tracking-wide text-[var(--accent-text)]">{eyebrow}</div>
+      <div className="tnum mt-1.5 text-[30px] font-semibold leading-none text-[var(--text)] sm:text-[34px]">{value}</div>
+      <p className="mt-2.5 text-[13px] leading-relaxed text-[var(--text-muted)]">{detail}</p>
+    </div>
+  );
+}
+
+function Fact({ label, value, children }: { label: string; value: string; children: React.ReactNode }) {
+  return (
+    <Card className="p-4">
+      <div className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">{label}</div>
+      <div className="tnum mt-1 text-[18px] font-semibold text-[var(--text)]">{value}</div>
+      <p className="mt-1.5 text-[12px] leading-snug text-[var(--text-muted)]">{children}</p>
+    </Card>
+  );
+}
+
 export default function HomePage() {
-  const { state, setPrimer } = useStore();
-  const { goal, years, startingAmount } = state.primer;
+  const { state, setPrimer, setProfile } = useStore();
+  const { mode, goal, years, startingAmount, monthly } = state.primer;
+  const tolerance = state.profile.riskTolerance;
   const currency = state.profile.baseCurrency;
   const [showDetail, setShowDetail] = useState(false);
 
-  const plan = useMemo(() => goalPlan({ goal, years, startingAmount }), [goal, years, startingAmount]);
-  // The fee chart follows the plan that needs the least each month: same
-  // payment, two charges, so the gap is the charge and nothing else.
-  const lead = plan.leastPerMonth;
+  const plan = useMemo(
+    () =>
+      mode === "goal"
+        ? goalAnswer({ goal, years, startingAmount, tolerance })
+        : forecastAnswer({ monthly, years, startingAmount, tolerance }),
+    [mode, goal, years, startingAmount, monthly, tolerance],
+  );
+
+  // The fee chart follows whatever payment the chosen mode settled on.
+  const payment = plan.mode === "goal" ? plan.monthly : plan.monthly;
   const fees = useMemo(
     () =>
       feeIllustration({
         amount: startingAmount,
-        monthlyContribution: lead.monthly,
+        monthlyContribution: payment,
         years,
-        growth: lead.realReturn,
+        growth: plan.mix.realReturn,
         lowCharge: plan.lowCharge,
         highCharge: plan.highCharge,
       }),
-    [startingAmount, lead.monthly, lead.realReturn, years, plan.lowCharge, plan.highCharge],
+    [startingAmount, payment, years, plan.mix.realReturn, plan.lowCharge, plan.highCharge],
   );
 
   const money = (value: number) => formatCurrency(value, currency);
@@ -49,12 +121,12 @@ export default function HomePage() {
    * reader to believe the last three digits; "$55,300" says the same thing
    * without the false promise.
    */
-  const roughly = (value: number) => {
-    const step = value >= 10000 ? 100 : 10;
-    return money(Math.round(value / step) * step);
-  };
-  const shortBy = plan.goal - lead.highChargeOutcome;
-  const everyoneThere = plan.mixes.every((mix) => mix.alreadyThere);
+  const roughly = (value: number) => money(Math.round(value / (value >= 10000 ? 100 : 10)) * (value >= 10000 ? 100 : 10));
+
+  const modes = [
+    { id: "goal" as const, label: "I have a target", hint: "Work out what it takes" },
+    { id: "forecast" as const, label: "I have a plan", hint: "Work out where it gets me" },
+  ];
 
   return (
     <div className="space-y-10">
@@ -63,203 +135,232 @@ export default function HomePage() {
           Research and education for stock and ETF investors
         </p>
         <h1 className="mt-3 max-w-2xl text-[30px] font-semibold leading-[1.15] tracking-tight text-[var(--text)] sm:text-[36px]">
-          Start with what you want, not with what to buy.
+          Answer three questions. Get one number.
         </h1>
         <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-[var(--text-muted)]">
-          Tell it the number you have in mind. It works backwards to what that takes each month — and shows the two
-          things that change the answer most.
+          No jargon and nothing to buy. Start from a target you have in mind, or from what you can already put aside.
         </p>
       </section>
 
-      <Card className="p-5">
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="I want to have">
-            <input
-              className={inputClass}
-              type="number"
-              min={0}
-              step={10000}
-              value={goal}
-              onChange={(event) => setPrimer({ goal: Math.max(0, Number(event.target.value) || 0) })}
-            />
-          </Field>
-          <Field label={`In ${years} years`}>
-            <input
-              type="range"
-              min={3}
-              max={45}
-              step={1}
-              value={years}
-              onChange={(event) => setPrimer({ years: Number(event.target.value) })}
-              className="mt-2 w-full accent-[var(--accent)]"
-            />
-          </Field>
-          <Field label="Starting with">
-            <input
-              className={inputClass}
-              type="number"
-              min={0}
-              step={1000}
-              value={startingAmount}
-              onChange={(event) => setPrimer({ startingAmount: Math.max(0, Number(event.target.value) || 0) })}
-            />
-          </Field>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {modes.map((option) => {
+          const active = option.id === mode;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              aria-pressed={active}
+              onClick={() => setPrimer({ mode: option.id })}
+              className={`card px-5 py-4 text-left transition-colors ${
+                active ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "hover:bg-[var(--surface-2)]"
+              }`}
+            >
+              <div className={`text-[15px] font-semibold ${active ? "text-[var(--accent-text)]" : "text-[var(--text)]"}`}>
+                {option.label}
+              </div>
+              <div className="mt-0.5 text-[12.5px] text-[var(--text-muted)]">{option.hint}</div>
+            </button>
+          );
+        })}
+      </div>
+
+      <Card className="divide-y divide-[var(--border)]">
+        <div className="px-5 py-4">
+          <Line>
+            <span>I have</span>
+            <Amount value={startingAmount} onChange={(value) => setPrimer({ startingAmount: value })} />
+            {mode === "forecast" ? (
+              <>
+                <span>today, and can add</span>
+                <Amount value={monthly} onChange={(value) => setPrimer({ monthly: value })} step={50} width="w-28" />
+                <span>a month.</span>
+              </>
+            ) : (
+              <span>today.</span>
+            )}
+          </Line>
+        </div>
+
+        <div className="px-5 py-4">
+          {mode === "goal" ? (
+            <Line>
+              <span>In</span>
+              <Years value={years} onChange={(value) => setPrimer({ years: value })} />
+              <span>years I want to have</span>
+              <Amount value={goal} onChange={(value) => setPrimer({ goal: value })} step={10000} />
+            </Line>
+          ) : (
+            <Line>
+              <span>Show me what I would have in</span>
+              <Years value={years} onChange={(value) => setPrimer({ years: value })} />
+              <span>years.</span>
+            </Line>
+          )}
+        </div>
+
+        <div className="px-5 py-4">
+          <div className="mb-3 text-[15px] text-[var(--text)]">I am comfortable with this much movement:</div>
+          <RiskPicker value={tolerance} onChange={(value) => setProfile({ riskTolerance: value as RiskTolerance })} />
         </div>
       </Card>
 
-      <section>
-        <h2 className="text-[20px] font-semibold tracking-tight text-[var(--text)]">
-          What it takes to get to {money(plan.goal)}
-        </h2>
-        <p className="mt-2 max-w-2xl text-[13.5px] leading-relaxed text-[var(--text-muted)]">
-          The answer depends on how much of your money sits in shares. Shares have paid more than bonds over long
-          periods, so they ask less of you each month — and move far more along the way.
-        </p>
-
-        {everyoneThere ? (
-          <Callout title="You are already there" tone="accent">
-            On these assumptions {money(startingAmount)} grows past {money(plan.goal)} within {years} years on its own,
-            whichever mix it sits in. Try a bigger number, a shorter time, or a smaller starting sum.
-          </Callout>
+      <section className="space-y-4">
+        {plan.mode === "goal" ? (
+          plan.alreadyThere ? (
+            <Callout title="You are already there" tone="accent">
+              On these assumptions {money(startingAmount)} grows past {money(plan.goal)} within {years} years on its
+              own. Try a bigger target, fewer years, or a smaller starting sum.
+            </Callout>
+          ) : (
+            <Answer
+              eyebrow={`To reach ${money(plan.goal)} in ${years} years`}
+              value={`${money(plan.monthly)} a month`}
+              detail={`Held in a ${plan.mix.label.toLowerCase()} mix — about ${Math.round(
+                plan.mix.equityShare * 100,
+              )}% shares — in a fund charging ${formatPercent(plan.lowCharge, 2)} a year. You would pay in ${money(
+                plan.contributed,
+              )} altogether, and the investment is expected to make up the rest.`}
+            />
+          )
         ) : (
-          <Card className="mt-5 overflow-hidden">
-            {/* Not a <table>: at phone width three columns squeezed the labels
-                into six-line wraps. The rows stack instead, and each figure
-                carries its own caption once the header row is gone. */}
-            <div className="hidden border-b border-[var(--border)] px-5 py-3 text-[11px] uppercase tracking-wide text-[var(--text-faint)] sm:flex">
-              <span className="flex-1">How it is invested</span>
-              <span className="w-36 text-right">Put aside each month</span>
-              <span className="w-44 text-right">In a bad run, you land near</span>
-            </div>
-            <ul className="divide-y divide-[var(--border)]">
-              {plan.mixes.map((mix, index) => (
-                <li key={mix.id} className="px-5 py-3.5 sm:flex sm:items-center">
-                  <div className="flex-1">
-                    <span className="flex items-center gap-2.5 text-[14px] font-medium text-[var(--text)]">
-                      <span
-                        className="inline-block h-2.5 w-2.5 shrink-0 rounded-[3px]"
-                        style={{ background: `var(--chart-${index + 1})` }}
-                        aria-hidden="true"
-                      />
-                      {mix.label}
-                    </span>
-                    <span className="mt-0.5 block pl-5 text-[11.5px] text-[var(--text-faint)]">
-                      has grown {formatPercent(mix.realReturn, 1)} a year above inflation
-                    </span>
-                  </div>
-                  <div className="mt-2.5 flex items-baseline gap-8 pl-5 sm:mt-0 sm:gap-0 sm:pl-0">
-                    <div className="sm:w-36 sm:text-right">
-                      <div className="text-[11px] uppercase tracking-wide text-[var(--text-faint)] sm:hidden">
-                        Each month
-                      </div>
-                      <div className="tnum text-[18px] font-semibold text-[var(--text)]">
-                        {mix.alreadyThere ? "nothing" : money(mix.monthly)}
-                      </div>
-                    </div>
-                    <div className="sm:w-44 sm:text-right">
-                      <div className="text-[11px] uppercase tracking-wide text-[var(--text-faint)] sm:hidden">
-                        In a bad run
-                      </div>
-                      <div className="tnum text-[14px] text-[var(--text-muted)]">{roughly(mix.p10)}</div>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-            <p className="border-t border-[var(--border)] px-5 py-3 text-[11.5px] leading-relaxed text-[var(--text-faint)]">
-              &ldquo;A bad run&rdquo; is the 10th percentile of 2,000 simulated runs: one run in ten did worse than
-              that. Figures are in today&apos;s money and rounded.
-            </p>
-          </Card>
+          <Answer
+            eyebrow={`In ${years} years, on these assumptions`}
+            value={`${roughly(plan.p10)} to ${roughly(plan.p90)}`}
+            detail={`Middle outcome ${roughly(plan.p50)}, against ${money(
+              plan.contributed,
+            )} paid in. Held in a ${plan.mix.label.toLowerCase()} mix — about ${Math.round(
+              plan.mix.equityShare * 100,
+            )}% shares — in a fund charging ${formatPercent(plan.lowCharge, 2)} a year. In today's money.`}
+          />
         )}
 
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <Callout title="Why the monthly figure falls" tone="accent">
-            {money(plan.mostPerMonth.monthly)} a month with {plan.mostPerMonth.label.toLowerCase()},{" "}
-            {money(lead.monthly)} with {lead.label.toLowerCase()}. More in shares means the money is expected to do more
-            of the work, so less has to come from you.
-          </Callout>
-          <Callout title="Why that is not simply better" tone="warn">
-            The last column is the catch. In a poor run {lead.label.toLowerCase()} lands near {roughly(lead.p10)}, against{" "}
-            {roughly(plan.mostPerMonth.p10)} for {plan.mostPerMonth.label.toLowerCase()} — so the plan that asks least of
-            you is also the one that can miss by most.
-          </Callout>
+        <div className="grid gap-4 sm:grid-cols-3">
+          {plan.mode === "goal" ? (
+            <>
+              <Fact label="In a bad run you land near" value={roughly(plan.p10)}>
+                One run in ten did worse than that. {formatPercent(plan.shortfall, 0)} of runs finished below{" "}
+                {money(plan.goal)} — a payment sized on an average return is roughly a coin flip.
+              </Fact>
+              <Fact label="In a dear fund instead" value={`${money(plan.monthlyHighCharge)} a month`}>
+                At {formatPercent(plan.highCharge, 2)} a year rather than {formatPercent(plan.lowCharge, 2)}. That is{" "}
+                {money(plan.monthlyExtra)} more every month, {money(plan.feeCostOverTerm)} over {years} years.
+              </Fact>
+              <Fact label="Or keep paying the same" value={`${roughly(plan.shortBy)} short`}>
+                Pay {money(plan.monthly)} into the dearer fund and you land at {roughly(plan.highChargeOutcome)} instead
+                of {money(plan.goal)}.
+              </Fact>
+            </>
+          ) : (
+            <>
+              <Fact label="You would have paid in" value={money(plan.contributed)}>
+                {money(startingAmount)} to start plus {money(monthly)} a month.{" "}
+                {formatPercent(plan.belowContributed, 0)} of runs finished below that — investing can lose money.
+              </Fact>
+              <Fact label="In a dear fund instead" value={roughly(plan.dear.p50)}>
+                The same payments at {formatPercent(plan.highCharge, 2)} a year rather than{" "}
+                {formatPercent(plan.lowCharge, 2)}, as a middle outcome.
+              </Fact>
+              <Fact label="So the charge costs" value={roughly(plan.feeCost)}>
+                {formatPercent(plan.feeShare, 0)} of the middle outcome, for an identical plan held in a dearer fund.
+              </Fact>
+            </>
+          )}
         </div>
 
-        <Card className="mt-4 p-5">
-          <h3 className="text-[14px] font-semibold text-[var(--text)]">
-            And all of that assumed a cheap fund. Here is what a dear one does.
-          </h3>
-          <p className="mt-2 max-w-3xl text-[13px] leading-relaxed text-[var(--text-muted)]">
-            Every figure above assumes you pay {formatPercent(plan.lowCharge, 2)} a year to hold the investment. Plenty
-            of products charge {formatPercent(plan.highCharge, 2)}. The money comes out of the same pot, every year, so
-            the goal needs more from you.
+        <Card className="p-5">
+          <h2 className="text-[14px] font-semibold text-[var(--text)]">If you could live with more, or less, movement</h2>
+          <p className="mt-1.5 text-[12.5px] leading-relaxed text-[var(--text-muted)]">
+            The same question at every setting.{" "}
+            {plan.mode === "goal"
+              ? "More in shares asks less of you each month — and lands lower in a bad run."
+              : "More in shares lifts the middle outcome — and lowers the bad run."}{" "}
+            Nothing here says which row is right for you; that depends on when you need the money.
           </p>
-          <div className="mt-4 grid gap-4 sm:grid-cols-3">
-            <div>
-              <div className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">Same plan, dearer fund</div>
-              <div className="tnum mt-1 text-[19px] font-semibold text-[var(--over)]">
-                {money(lead.monthlyHighCharge)} a month
-              </div>
-              <p className="mt-1.5 text-[12px] leading-snug text-[var(--text-muted)]">
-                instead of {money(lead.monthly)}, to reach the same {money(plan.goal)} with{" "}
-                {lead.label.toLowerCase()}.
-              </p>
-            </div>
-            <div>
-              <div className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">Over {years} years</div>
-              <div className="tnum mt-1 text-[19px] font-semibold text-[var(--over)]">{money(plan.feeCostOverTerm)}</div>
-              <p className="mt-1.5 text-[12px] leading-snug text-[var(--text-muted)]">
-                extra out of your own pocket, for the same goal and the same mix.
-              </p>
-            </div>
-            <div>
-              <div className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">Or, if you do not add it</div>
-              <div className="tnum mt-1 text-[19px] font-semibold text-[var(--over)]">
-                {roughly(shortBy)} short
-              </div>
-              <p className="mt-1.5 text-[12px] leading-snug text-[var(--text-muted)]">
-                Keep paying {money(lead.monthly)} and the dearer charge leaves you at {roughly(lead.highChargeOutcome)}.
-              </p>
-            </div>
-          </div>
+          <ul className="mt-4 space-y-2">
+            {plan.alternatives.map((option, index) => (
+              <li
+                key={option.tolerance}
+                className={`flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 rounded-lg px-3 py-2 ${
+                  option.chosen ? "bg-[var(--accent-soft)]" : ""
+                }`}
+              >
+                <span className="flex items-center gap-2.5 text-[13px]">
+                  <span
+                    className="inline-block h-2.5 w-2.5 shrink-0 rounded-[3px]"
+                    style={{ background: `var(--chart-${index + 1})` }}
+                    aria-hidden="true"
+                  />
+                  <span className={option.chosen ? "font-semibold text-[var(--text)]" : "text-[var(--text-muted)]"}>
+                    {option.label}
+                  </span>
+                  <span className="text-[11.5px] text-[var(--text-faint)]">
+                    {Math.round(option.equityShare * 100)}% shares
+                  </span>
+                </span>
+                <span className="tnum text-[13px] text-[var(--text-muted)]">
+                  {option.monthly !== null ? (
+                    <>
+                      <span className="font-semibold text-[var(--text)]">{money(option.monthly)}</span> a month
+                    </>
+                  ) : (
+                    <>
+                      middle <span className="font-semibold text-[var(--text)]">{roughly(option.p50)}</span>
+                    </>
+                  )}
+                  <span className="ml-3 text-[var(--text-faint)]">bad run {roughly(option.p10)}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
         </Card>
 
-        <Callout title="Read these as a direction, not a plan">
-          Every figure here is arithmetic on long-run averages, in today&apos;s money. Real returns do not arrive
-          evenly, and a plan sized on an average lands under it about half the time — on these assumptions,{" "}
-          {formatPercent(lead.shortfall, 0)} of simulated runs for {lead.label.toLowerCase()} finished below{" "}
-          {money(plan.goal)}. The point is the comparison between the rows, not any one number.
+        <Callout title="Read this as a direction, not a plan">
+          Every figure here is arithmetic on long-run averages, in today&apos;s money, on a {formatPercent(
+            plan.mix.realReturn,
+            1,
+          )}{" "}
+          return before charges. Real returns do not arrive evenly — a {plan.mix.label.toLowerCase()} mix has had years
+          down around {formatPercent(Math.abs(plan.mix.roughBadYear), 0)}. The comparison between settings is the useful
+          part, not any single number.
         </Callout>
 
-        <div className="mt-4">
+        <div>
           <button
             type="button"
             onClick={() => setShowDetail((value) => !value)}
             aria-expanded={showDetail}
             className="text-[13px] font-medium text-[var(--accent-text)] hover:underline"
           >
-            {showDetail ? "Hide the detail" : "Show the detail behind these numbers"} {showDetail ? "↑" : "↓"}
+            {showDetail ? "Hide the detail ↑" : "Show the detail behind these numbers ↓"}
           </button>
         </div>
 
         {showDetail ? (
-          <div className="mt-4 space-y-5">
+          <div className="space-y-5">
             <Card className="p-5">
-              <h3 className="text-[14px] font-semibold text-[var(--text)]">Where each plan actually lands</h3>
-              <p className="mt-1.5 mb-4 max-w-2xl text-[12.5px] leading-relaxed text-[var(--text-muted)]">
-                Each mix paying its own monthly figure, run 2,000 times. The line is the {money(plan.goal)} goal.
+              <h3 className="text-[14px] font-semibold text-[var(--text)]">Where each setting actually lands</h3>
+              <p className="mb-4 mt-1.5 max-w-2xl text-[12.5px] leading-relaxed text-[var(--text-muted)]">
+                Each setting run 2,000 times.{" "}
+                {plan.mode === "goal"
+                  ? `Each one pays its own monthly figure, and the line is the ${money(plan.goal)} target.`
+                  : `All paying the same ${money(monthly)} a month, and the line is the ${money(
+                      plan.contributed,
+                    )} paid in.`}
               </p>
-              <RangeChart bands={plan.mixes} currency={currency} marker={plan.goal} markerLabel="goal" />
+              <RangeChart
+                bands={plan.alternatives}
+                currency={currency}
+                marker={plan.mode === "goal" ? plan.goal : plan.contributed}
+                markerLabel={plan.mode === "goal" ? "target" : "paid in"}
+              />
             </Card>
             <Card className="p-5">
               <h3 className="text-[14px] font-semibold text-[var(--text)]">
-                The same {money(lead.monthly)} a month, under both charges
+                The same {money(payment)} a month, under both charges
               </h3>
-              <p className="mt-1.5 mb-4 max-w-2xl text-[12.5px] leading-relaxed text-[var(--text-muted)]">
+              <p className="mb-4 mt-1.5 max-w-2xl text-[12.5px] leading-relaxed text-[var(--text-muted)]">
                 Identical payments and identical returns. The shaded wedge is the charge, and it widens because each
-                year&apos;s charge also gives up what that money would have earned afterwards. The cheap path finishes
-                a little above {money(plan.goal)} because the monthly figure is rounded up.
+                year&apos;s charge also gives up what that money would have earned afterwards.
               </p>
               <FeeGapChart points={fees.points} currency={currency} difference={fees.difference} />
             </Card>
