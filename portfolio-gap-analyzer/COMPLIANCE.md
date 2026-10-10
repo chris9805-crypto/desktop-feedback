@@ -137,10 +137,16 @@ like a plan. Six things keep it on the research side:
   labelled with the drawdown it stands for, and it writes to the same
   `riskTolerance` the reference model uses, so an answer cannot mean one thing
   here and another there.
-- **The cost of each setting travels with it.** Every row carries its bad-run
-  figure beside its payment, so the setting that asks least per month visibly
-  lands lowest when things go badly. A ladder of payments alone would read as
-  "more shares is cheaper"; the second figure is what stops it.
+- **The cost of each setting travels with it.** The comparison chart draws
+  each setting as an outcome range, so the setting that asks least per month
+  visibly stretches furthest down as well as up. A ladder of payments alone
+  would read as "more shares is cheaper"; the shape of the bar is what stops
+  it.
+- **The picture shows runs, not a cone.** The journey chart draws seven
+  individual simulated runs over the percentile band. A band on its own reads
+  as smooth compounding, which would overstate how orderly the thing is; the
+  runs cross, dip and stall, and are replayed from the simulator's own seed so
+  they are the actual paths behind the band rather than a decorative sketch.
 - **The answer is never presented as sufficient.** It is sized on an average
   return, so about half of simulated runs finish below the target, and the page
   prints that share. In the other direction it reports how often the plan
@@ -289,9 +295,9 @@ into something needing a licence, or into something it should not be:
 - Turning the opening page into a plan: narrowing its five settings to one,
   marking a setting as suggested or suitable, hiding the settings the reader
   did not choose, dropping the bad-run figures or the shortfall share,
-  presenting the monthly payment as sufficient to reach the target, running it
-  on the reader's actual holdings, or giving it its own arithmetic rather than
-  the engine's.
+  presenting the monthly payment as sufficient to reach the target, replacing
+  the individual runs with a smooth band alone, running it on the reader's
+  actual holdings, or giving it its own arithmetic rather than the engine's.
 - Turning a theme into a curated list: hand-picking its members, dropping the
   criteria or the caution, ranking themes against each other, attaching an
   expected return to one, or presenting the sleeve diff as an improvement

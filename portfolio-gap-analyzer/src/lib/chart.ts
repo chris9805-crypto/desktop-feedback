@@ -15,6 +15,8 @@ export interface FanChart {
   maxY: number;
   xFor: (year: number) => number;
   yFor: (value: number) => number;
+  /** Individual simulated runs drawn over the band, if any were supplied. */
+  pathLines: string[];
   /** Index of the point nearest a pixel position, for the hover readout. */
   pointAt: (pixelX: number) => number;
 }
@@ -54,6 +56,8 @@ export function buildFanChart(
   currency: Currency = "USD",
   width = 640,
   height = 260,
+  /** Whole runs to draw over the band, each one value per year from year 0. */
+  paths: number[][] = [],
 ): FanChart {
   const plot = { left: 56, top: 14, right: 12, bottom: 26 };
   const innerWidth = Math.max(1, width - plot.left - plot.right);
@@ -63,7 +67,10 @@ export function buildFanChart(
   // Pick a round gridline step first, then let the top of the scale fall on a
   // multiple of it. Quartering an arbitrary maximum produces ticks like
   // "$313K", which are values the chart reaches but nobody can read at a glance.
-  const peak = points.reduce((a, p) => Math.max(a, p.p90, p.contributed), 0) * 1.02;
+  // Sample runs can finish above the 90th percentile, and a line leaving the
+  // top of the plot reads as a drawing error rather than as a good year.
+  const pathPeak = paths.reduce((a, path) => Math.max(a, ...path), 0);
+  const peak = Math.max(points.reduce((a, p) => Math.max(a, p.p90, p.contributed), 0), pathPeak) * 1.02;
   const step = niceCeiling(peak / 4);
   const maxY = step * Math.max(1, Math.ceil(peak / step));
 
@@ -109,6 +116,9 @@ export function buildFanChart(
     bandPath: `${upper} ${lower} Z`,
     medianPath: line((p) => p.p50),
     contributedPath: line((p) => p.contributed),
+    pathLines: paths.map((path) =>
+      path.map((value, year) => `${year === 0 ? "M" : "L"}${xFor(year).toFixed(1)},${yFor(value).toFixed(1)}`).join(" "),
+    ),
     yTicks,
     xTicks,
     maxY,

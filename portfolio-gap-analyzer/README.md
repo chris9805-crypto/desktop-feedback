@@ -98,14 +98,24 @@ something private to this page.
 Three facts sit under the answer, and one of them is always the charge, in the
 units the question was asked in: reaching the same target through a 1.50% fund
 needs **$320 a month instead of $270**, or **$12,500 short** if the payment
-does not go up. Below that, the same question at all five settings, so the
-reader can see what more or less movement would have done — the page answers
-every setting and picks none.
+does not go up.
 
-A disclosure holds the detail: where each setting actually lands against the
-target, and the two compounding paths with the charge shaded between them. A
-payment sized on an average return finishes below the target in just over half
-of simulated runs, and the page says so in as many words.
+Then two charts rather than a column of figures. The first draws the journey:
+the middle 80% of 2,000 runs as a band over the years, with **seven of the runs
+themselves** drawn through it. The band alone reads as a smooth widening cone,
+which is the one thing growth reliably is not — the individual runs cross each
+other, dip, and spend years going sideways, and in forecast mode several visibly
+cross back under the money paid in. They are real paths out of the same 2,000,
+picked by where their final value sits and replayed from the simulator's own
+seed, so they are the very runs the band is drawn from.
+
+The second compares all five risk settings as outcome ranges against the target
+line, each row labelled with what that setting would cost per month. The page
+answers every setting and picks none.
+
+A payment sized on an average return finishes below the target in just over half
+of simulated runs, and the page says so in as many words. A disclosure holds the
+last chart: the two compounding paths with the charge shaded between them.
 
 **Maps the portfolio.** Holdings are resolved against a security master and
 normalised into exposure across asset class, region, sector, size, style,

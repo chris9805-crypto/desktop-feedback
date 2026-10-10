@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { FeeGapChart, RangeChart } from "@/components/PrimerCharts";
+import { FeeGapChart, JourneyChart, RangeChart } from "@/components/PrimerCharts";
 import { RiskPicker } from "@/components/RiskPicker";
 import { StartButtons } from "@/components/StartButtons";
 import { Callout, Card, inlineInputClass } from "@/components/ui";
@@ -268,50 +268,34 @@ export default function HomePage() {
         </div>
 
         <Card className="p-5">
-          <h2 className="text-[14px] font-semibold text-[var(--text)]">If you could live with more, or less, movement</h2>
-          <p className="mt-1.5 text-[12.5px] leading-relaxed text-[var(--text-muted)]">
-            The same question at every setting.{" "}
-            {plan.mode === "goal"
-              ? "More in shares asks less of you each month — and lands lower in a bad run."
-              : "More in shares lifts the middle outcome — and lowers the bad run."}{" "}
-            Nothing here says which row is right for you; that depends on when you need the money.
+          <h2 className="text-[14px] font-semibold text-[var(--text)]">What the next {years} years might look like</h2>
+          <p className="mb-4 mt-1.5 max-w-2xl text-[12.5px] leading-relaxed text-[var(--text-muted)]">
+            The same plan run 2,000 times. The shaded area is where the middle 80% of those runs ended up; the thin
+            lines are seven of the runs themselves, so you can see that none of them is a straight line.
           </p>
-          <ul className="mt-4 space-y-2">
-            {plan.alternatives.map((option, index) => (
-              <li
-                key={option.tolerance}
-                className={`flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 rounded-lg px-3 py-2 ${
-                  option.chosen ? "bg-[var(--accent-soft)]" : ""
-                }`}
-              >
-                <span className="flex items-center gap-2.5 text-[13px]">
-                  <span
-                    className="inline-block h-2.5 w-2.5 shrink-0 rounded-[3px]"
-                    style={{ background: `var(--chart-${index + 1})` }}
-                    aria-hidden="true"
-                  />
-                  <span className={option.chosen ? "font-semibold text-[var(--text)]" : "text-[var(--text-muted)]"}>
-                    {option.label}
-                  </span>
-                  <span className="text-[11.5px] text-[var(--text-faint)]">
-                    {Math.round(option.equityShare * 100)}% shares
-                  </span>
-                </span>
-                <span className="tnum text-[13px] text-[var(--text-muted)]">
-                  {option.monthly !== null ? (
-                    <>
-                      <span className="font-semibold text-[var(--text)]">{money(option.monthly)}</span> a month
-                    </>
-                  ) : (
-                    <>
-                      middle <span className="font-semibold text-[var(--text)]">{roughly(option.p50)}</span>
-                    </>
-                  )}
-                  <span className="ml-3 text-[var(--text-faint)]">bad run {roughly(option.p10)}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
+          <JourneyChart
+            journey={plan.journey}
+            currency={currency}
+            marker={plan.mode === "goal" ? plan.goal : undefined}
+            markerLabel="target"
+          />
+        </Card>
+
+        <Card className="p-5">
+          <h2 className="text-[14px] font-semibold text-[var(--text)]">If you could live with more, or less, movement</h2>
+          <p className="mb-5 mt-1.5 max-w-2xl text-[12.5px] leading-relaxed text-[var(--text-muted)]">
+            Every setting, run the same way.{" "}
+            {plan.mode === "goal"
+              ? "More in shares asks less of you each month — and the bar stretches further down as well as up."
+              : "More in shares lifts the middle outcome — and stretches the bar further down as well as up."}{" "}
+            Nothing here says which one is right for you; that depends on when you need the money.
+          </p>
+          <RangeChart
+            bands={plan.alternatives}
+            currency={currency}
+            marker={plan.mode === "goal" ? plan.goal : plan.contributed}
+            markerLabel={plan.mode === "goal" ? "target" : "paid in"}
+          />
         </Card>
 
         <Callout title="Read this as a direction, not a plan">
@@ -331,40 +315,21 @@ export default function HomePage() {
             aria-expanded={showDetail}
             className="text-[13px] font-medium text-[var(--accent-text)] hover:underline"
           >
-            {showDetail ? "Hide the detail ↑" : "Show the detail behind these numbers ↓"}
+            {showDetail ? "Hide what the charge does over time ↑" : "Show what the charge does over time ↓"}
           </button>
         </div>
 
         {showDetail ? (
-          <div className="space-y-5">
-            <Card className="p-5">
-              <h3 className="text-[14px] font-semibold text-[var(--text)]">Where each setting actually lands</h3>
-              <p className="mb-4 mt-1.5 max-w-2xl text-[12.5px] leading-relaxed text-[var(--text-muted)]">
-                Each setting run 2,000 times.{" "}
-                {plan.mode === "goal"
-                  ? `Each one pays its own monthly figure, and the line is the ${money(plan.goal)} target.`
-                  : `All paying the same ${money(monthly)} a month, and the line is the ${money(
-                      plan.contributed,
-                    )} paid in.`}
-              </p>
-              <RangeChart
-                bands={plan.alternatives}
-                currency={currency}
-                marker={plan.mode === "goal" ? plan.goal : plan.contributed}
-                markerLabel={plan.mode === "goal" ? "target" : "paid in"}
-              />
-            </Card>
-            <Card className="p-5">
-              <h3 className="text-[14px] font-semibold text-[var(--text)]">
-                The same {money(payment)} a month, under both charges
-              </h3>
-              <p className="mb-4 mt-1.5 max-w-2xl text-[12.5px] leading-relaxed text-[var(--text-muted)]">
-                Identical payments and identical returns. The shaded wedge is the charge, and it widens because each
-                year&apos;s charge also gives up what that money would have earned afterwards.
-              </p>
-              <FeeGapChart points={fees.points} currency={currency} difference={fees.difference} />
-            </Card>
-          </div>
+          <Card className="p-5">
+            <h3 className="text-[14px] font-semibold text-[var(--text)]">
+              The same {money(payment)} a month, under both charges
+            </h3>
+            <p className="mb-4 mt-1.5 max-w-2xl text-[12.5px] leading-relaxed text-[var(--text-muted)]">
+              Identical payments and identical returns. The shaded wedge is the charge, and it widens because each
+              year&apos;s charge also gives up what that money would have earned afterwards.
+            </p>
+            <FeeGapChart points={fees.points} currency={currency} difference={fees.difference} />
+          </Card>
         ) : null}
       </section>
 

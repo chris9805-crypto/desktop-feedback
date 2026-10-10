@@ -129,6 +129,58 @@ export function simulateOutcomes(input: SimulationInput): ProjectionPoint[] {
 }
 
 /**
+ * A handful of whole paths, drawn from across the same distribution.
+ *
+ * Percentiles describe the spread but hide the shape: they make growth look
+ * like a smooth widening cone, when the point a beginner most needs is that
+ * no single run is smooth. These are real paths out of the same 2,000, picked
+ * by where their final value sits so the sample spans the band rather than
+ * flattering it, and replayed from the same seed so they are the very runs the
+ * band is drawn from.
+ */
+export function samplePaths(input: SimulationInput, count = 7): number[][] {
+  const { realReturn, volatility, startValue, annualContribution } = input;
+  const years = Math.max(1, Math.round(input.years));
+  const seed = hashSeed([realReturn, volatility, years, startValue, annualContribution]);
+
+  // Pass one: every path's final value, so the sample can be chosen by
+  // outcome rather than by whichever paths happen to be drawn first.
+  const first = makeGaussian(seed);
+  const finals: { index: number; value: number }[] = [];
+  for (let path = 0; path < PATHS; path++) {
+    let value = startValue;
+    for (let year = 1; year <= years; year++) {
+      value = Math.max(0, value * (1 + realReturn + volatility * first()) + annualContribution);
+    }
+    finals.push({ index: path, value });
+  }
+  finals.sort((a, b) => a.value - b.value);
+
+  const wanted = new Set<number>();
+  for (let i = 0; i < count; i++) {
+    // Spread across the 5th to 95th percentile: the extremes of 2,000 runs are
+    // noise, and drawing them would overstate the width of the plausible range.
+    const q = count === 1 ? 0.5 : 0.05 + (0.9 * i) / (count - 1);
+    wanted.add(finals[Math.round(q * (PATHS - 1))]!.index);
+  }
+
+  // Pass two: the same seed replayed, keeping only the chosen paths whole.
+  const second = makeGaussian(seed);
+  const out: number[][] = [];
+  for (let path = 0; path < PATHS; path++) {
+    const keep = wanted.has(path);
+    const trace = keep ? [startValue] : [];
+    let value = startValue;
+    for (let year = 1; year <= years; year++) {
+      value = Math.max(0, value * (1 + realReturn + volatility * second()) + annualContribution);
+      if (keep) trace.push(value);
+    }
+    if (keep) out.push(trace);
+  }
+  return out;
+}
+
+/**
  * The share of simulated paths that finish below a target.
  *
  * A plan sized on an average return reaches its goal on an average run, and

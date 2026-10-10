@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { buildRangeChart, buildTwoLineChart } from "@/lib/chart";
+import { buildFanChart, buildRangeChart, buildTwoLineChart } from "@/lib/chart";
 import { RISK_TOLERANCES, feeIllustration, forecastAnswer, goalAnswer, riskMix } from "@/lib/engine/primer";
+import { samplePaths, simulateOutcomes } from "@/lib/engine/projection";
 
 describe("risk mix", () => {
   it("uses the same risk-to-shares mapping as the reference model", () => {
@@ -248,5 +249,68 @@ describe("two-line chart geometry", () => {
     const last = fee.points[fee.points.length - 1]!;
     expect(chart.gapLabel.y).toBeGreaterThan(chart.yFor(last.low));
     expect(chart.gapLabel.y).toBeLessThan(chart.yFor(last.high));
+  });
+});
+
+describe("sample paths", () => {
+  const input = { realReturn: 0.04, volatility: 0.12, years: 20, startValue: 5000, annualContribution: 3600 };
+
+  it("returns whole runs, one value per year from today", () => {
+    const paths = samplePaths(input, 7);
+    expect(paths).toHaveLength(7);
+    for (const path of paths) {
+      expect(path).toHaveLength(21);
+      expect(path[0]).toBe(5000);
+    }
+  });
+
+  it("draws from the same distribution the band is drawn from", () => {
+    // The sample is replayed from the simulator's own seed, so every sampled
+    // run must sit inside the full run's extremes at the end.
+    const points = simulateOutcomes(input);
+    const final = points[20]!;
+    const finals = samplePaths(input, 7).map((path) => path[20]!);
+    expect(Math.min(...finals)).toBeLessThan(final.p50);
+    expect(Math.max(...finals)).toBeGreaterThan(final.p50);
+    // Picked between the 5th and 95th percentile, so none is an outlier.
+    expect(Math.min(...finals)).toBeLessThanOrEqual(final.p10 * 1.05);
+    expect(Math.max(...finals)).toBeGreaterThanOrEqual(final.p90 * 0.95);
+  });
+
+  it("spans the range rather than clustering", () => {
+    const finals = samplePaths(input, 7).map((path) => path[20]!);
+    const sorted = [...finals].sort((a, b) => a - b);
+    expect(sorted[sorted.length - 1]! / sorted[0]!).toBeGreaterThan(2);
+  });
+
+  it("gives runs that are not straight lines", () => {
+    // The whole reason for drawing them: at least one run must fall in some
+    // year, or the picture would imply growth arrives smoothly.
+    const paths = samplePaths(input, 7);
+    const anyFall = paths.some((path) => path.some((value, year) => year > 0 && value < path[year - 1]!));
+    expect(anyFall).toBe(true);
+  });
+
+  it("is deterministic", () => {
+    expect(samplePaths(input, 7)).toEqual(samplePaths(input, 7));
+  });
+});
+
+describe("journey", () => {
+  it("rides along with both answers", () => {
+    for (const answer of [goalAnswer(), forecastAnswer()]) {
+      expect(answer.journey.points).toHaveLength(answer.years + 1);
+      expect(answer.journey.paths).toHaveLength(7);
+      expect(answer.journey.points[answer.years]!.p10).toBeCloseTo(answer.p10, 6);
+      expect(answer.journey.points[answer.years]!.p90).toBeCloseTo(answer.p90, 6);
+    }
+  });
+
+  it("is drawn with its runs inside the plot", () => {
+    const answer = goalAnswer();
+    const chart = buildFanChart(answer.journey.points, "USD", 640, 260, answer.journey.paths);
+    expect(chart.pathLines).toHaveLength(7);
+    const peak = Math.max(...answer.journey.paths.flat());
+    expect(chart.maxY).toBeGreaterThanOrEqual(peak);
   });
 });

@@ -1,7 +1,7 @@
 "use client";
 
-import { buildRangeChart, buildTwoLineChart } from "@/lib/chart";
-import type { Alternative, FeePoint } from "@/lib/engine/primer";
+import { buildFanChart, buildRangeChart, buildTwoLineChart } from "@/lib/chart";
+import type { Alternative, FeePoint, Journey } from "@/lib/engine/primer";
 import type { Currency } from "@/lib/engine/types";
 import { formatCurrency } from "@/lib/format";
 
@@ -32,7 +32,14 @@ export function RangeChart({
         {chart.bars.map((bar, index) => (
           <li key={bar.label}>
             <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-              <span className="w-full text-[13px] font-medium text-[var(--text)] sm:w-auto">{bar.label}</span>
+              <span className="w-full text-[13px] font-medium text-[var(--text)] sm:w-auto">
+                {bar.label}
+                {bands[index]?.monthly != null ? (
+                  <span className="tnum ml-2 font-normal text-[var(--text-muted)]">
+                    {money(bands[index]!.monthly!)}/mo
+                  </span>
+                ) : null}
+              </span>
               <span className="tnum text-[12px] text-[var(--text-muted)]">
                 {money(bar.p10)} <span className="text-[var(--text-faint)]">to</span> {money(bar.p90)}
                 <span className="ml-2 font-semibold text-[var(--text)]">{money(bar.p50)}</span>
@@ -91,6 +98,130 @@ export function RangeChart({
         {chart.marker ? ` The thin line is the ${money(chart.marker.value)} ${markerLabel ?? "mark"}.` : ""} In
         today&apos;s money. An illustration of long-run averages, not a forecast — real returns do not arrive evenly.
       </figcaption>
+    </figure>
+  );
+}
+
+/**
+ * The band over time, with a few whole runs drawn through it.
+ *
+ * A percentile band on its own reads as a smooth widening cone, which is the
+ * one thing growth reliably is not. The individual runs are the point: they
+ * are real paths out of the same 2,000, they cross each other, and several
+ * spend years going sideways or down before finishing where they finish.
+ */
+export function JourneyChart({
+  journey,
+  currency,
+  marker,
+  markerLabel,
+}: {
+  journey: Journey;
+  currency: Currency;
+  marker?: number;
+  markerLabel?: string;
+}) {
+  const wide = buildFanChart(journey.points, currency, 640, 260, journey.paths);
+  const narrow = buildFanChart(journey.points, currency, 340, 240, journey.paths);
+  const final = journey.points[journey.points.length - 1]!;
+
+  const plot = (chart: typeof wide, className: string) => (
+    <svg
+      viewBox={`0 0 ${chart.width} ${chart.height}`}
+      className={`w-full ${className}`}
+      style={{ height: "auto" }}
+      role="img"
+      aria-label={`Simulated outcomes over ${final.year} years: the middle 80% of runs finish between ${formatCurrency(
+        final.p10,
+        currency,
+      )} and ${formatCurrency(final.p90, currency)}, with a middle outcome of ${formatCurrency(final.p50, currency)}.`}
+    >
+      {chart.yTicks.map((tick) => (
+        <g key={tick.value}>
+          <line
+            x1={chart.plot.left}
+            x2={chart.width - chart.plot.right}
+            y1={tick.y}
+            y2={tick.y}
+            stroke="var(--border)"
+            strokeWidth={1}
+          />
+          <text x={chart.plot.left - 8} y={tick.y + 4} textAnchor="end" className="tnum" fontSize={11} fill="var(--text-faint)">
+            {tick.label}
+          </text>
+        </g>
+      ))}
+      {chart.xTicks.map((tick) => (
+        <text
+          key={tick.value}
+          x={tick.x}
+          y={chart.height - 8}
+          textAnchor={tick.value === 0 ? "start" : tick.x > chart.width - 40 ? "end" : "middle"}
+          className="tnum"
+          fontSize={11}
+          fill="var(--text-faint)"
+        >
+          {tick.label}
+        </text>
+      ))}
+
+      <path d={chart.bandPath} fill="var(--accent)" opacity={0.14} />
+      {chart.pathLines.map((d, index) => (
+        <path key={index} d={d} fill="none" stroke="var(--text)" strokeWidth={1.1} opacity={0.38} strokeLinejoin="round" />
+      ))}
+      <path d={chart.medianPath} fill="none" stroke="var(--accent)" strokeWidth={2.4} strokeLinejoin="round" />
+      <path
+        d={chart.contributedPath}
+        fill="none"
+        stroke="var(--text-faint)"
+        strokeWidth={1.5}
+        strokeDasharray="4 3"
+        strokeLinejoin="round"
+      />
+      {marker !== undefined && marker > 0 && marker <= chart.maxY ? (
+        <g>
+          <line
+            x1={chart.plot.left}
+            x2={chart.width - chart.plot.right}
+            y1={chart.yFor(marker)}
+            y2={chart.yFor(marker)}
+            stroke="var(--text)"
+            strokeWidth={1.5}
+          />
+          <text x={chart.plot.left + 4} y={chart.yFor(marker) - 5} fontSize={10.5} fill="var(--text-muted)">
+            {markerLabel ?? "target"}
+          </text>
+        </g>
+      ) : null}
+    </svg>
+  );
+
+  return (
+    <figure className="m-0">
+      {plot(wide, "hidden sm:block")}
+      {plot(narrow, "sm:hidden")}
+      <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1.5 text-[12px] text-[var(--text-muted)]">
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-2.5 w-4 rounded-[2px]" style={{ background: "var(--accent)", opacity: 0.2 }} aria-hidden="true" />
+          Middle 80% of runs
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-0.5 w-4 rounded-full" style={{ background: "var(--accent)" }} aria-hidden="true" />
+          Middle outcome
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-px w-4" style={{ background: "var(--text)", opacity: 0.4 }} aria-hidden="true" />
+          Seven individual runs
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span
+            className="inline-block h-px w-4"
+            style={{ borderTop: "1.5px dashed var(--text-faint)" }}
+            aria-hidden="true"
+          />
+          Money paid in
+        </span>
+      </div>
     </figure>
   );
 }

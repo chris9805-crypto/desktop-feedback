@@ -695,24 +695,21 @@
       '<p class="stat-d">' + body + "</p></div>";
   }
 
-  function ladder(plan) {
-    return '<section class="card pad"><h2 style="font-size:14px">If you could live with more, or less, movement</h2>' +
-      '<p class="sub" style="margin-top:6px;font-size:12.5px">The same question at every setting. ' +
+  function comparison(plan) {
+    return '<section class="card pad"><h2 style="font-size:14px">What the next ' + plan.years + " years might look like</h2>" +
+      '<p class="sub" style="margin-top:6px;margin-bottom:16px;font-size:12.5px">The same plan run 2,000 times. ' +
+      "The shaded area is where the middle 80% of those runs ended up; the thin lines are seven of the runs themselves, " +
+      "so you can see that none of them is a straight line.</p>" +
+      journeyChart(plan.journey, plan.mode === "goal" ? plan.goal : null, "target") + "</section>" +
+
+      '<section class="card pad"><h2 style="font-size:14px">If you could live with more, or less, movement</h2>' +
+      '<p class="sub" style="margin-top:6px;margin-bottom:20px;font-size:12.5px">Every setting, run the same way. ' +
       (plan.mode === "goal"
-        ? "More in shares asks less of you each month — and lands lower in a bad run."
-        : "More in shares lifts the middle outcome — and lowers the bad run.") +
-      " Nothing here says which row is right for you; that depends on when you need the money.</p>" +
-      '<ul class="ladder">' + plan.alternatives.map(function (o, i) {
-        return '<li class="ladder-row' + (o.chosen ? " on" : "") + '">' +
-          '<span class="ladder-name"><i class="goal-dot" style="background:' + PALETTE[i % PALETTE.length] + '"></i>' +
-          '<span' + (o.chosen ? ' style="font-weight:600;color:var(--ink)"' : "") + ">" + esc(o.label) + "</span>" +
-          '<span style="font-size:11.5px;color:var(--faint)">' + Math.round(o.equityShare * 100) + "% shares</span></span>" +
-          '<span class="ladder-vals num">' +
-          (o.monthly != null
-            ? '<strong style="color:var(--ink)">' + cur(o.monthly) + "</strong> a month"
-            : 'middle <strong style="color:var(--ink)">' + roughly(o.p50) + "</strong>") +
-          '<span style="margin-left:12px;color:var(--faint)">bad run ' + roughly(o.p10) + "</span></span></li>";
-      }).join("") + "</ul></section>";
+        ? "More in shares asks less of you each month — and the bar stretches further down as well as up."
+        : "More in shares lifts the middle outcome — and stretches the bar further down as well as up.") +
+      " Nothing here says which one is right for you; that depends on when you need the money.</p>" +
+      rangeChart(plan.alternatives, plan.mode === "goal" ? plan.goal : plan.contributed,
+        plan.mode === "goal" ? "target" : "paid in") + "</section>";
   }
 
   function rangeChart(bands, marker, markerLabel) {
@@ -721,7 +718,10 @@
       var colour = PALETTE[i % PALETTE.length];
       return '<li style="margin-bottom:14px">' +
         '<div class="range-head">' +
-        '<span class="range-label">' + esc(bar.label) + "</span>" +
+        '<span class="range-label">' + esc(bar.label) +
+        (bands[i] && bands[i].monthly != null
+          ? ' <span class="num" style="font-weight:400;color:var(--muted)">' + cur(bands[i].monthly) + "/mo</span>"
+          : "") + "</span>" +
         '<span class="range-vals num">' + cur(bar.p10) + ' <span style="color:var(--faint)">to</span> ' + cur(bar.p90) +
         '<strong style="margin-left:8px;color:var(--ink)">' + cur(bar.p50) + "</strong></span></div>" +
         '<div class="range-track" role="img" aria-label="' +
@@ -741,6 +741,53 @@
       "Each bar is the middle 80% of 2,000 simulated outcomes; the notch is the middle one." +
       (c.marker ? " The thin line is the " + cur(c.marker.value) + " " + esc(markerLabel || "mark") + "." : "") +
       " In today's money. An illustration of long-run averages, not a forecast — real returns do not arrive evenly.</p>";
+  }
+
+  function journeyPlot(j, width, height, cls, marker, markerLabel) {
+    var c = G.buildFanChart(j.points, state.profile.baseCurrency, width, height, j.paths);
+    var last = j.points[j.points.length - 1];
+    return '<svg class="' + cls + '" viewBox="0 0 ' + c.width + " " + c.height + '" style="width:100%;height:auto" role="img" aria-label="' +
+      esc("Simulated outcomes over " + last.year + " years: the middle 80% of runs finish between " + cur(last.p10) +
+        " and " + cur(last.p90) + ", with a middle outcome of " + cur(last.p50) + ".") + '">' +
+      c.yTicks.map(function (t) {
+        return '<line x1="' + c.plot.left + '" x2="' + (c.width - c.plot.right) + '" y1="' + t.y + '" y2="' + t.y + '" stroke="var(--line)"/>' +
+          '<text x="' + (c.plot.left - 8) + '" y="' + (t.y + 4) + '" text-anchor="end" font-size="11" fill="var(--faint)" font-family="var(--mono)">' + esc(t.label) + "</text>";
+      }).join("") +
+      c.xTicks.map(function (t) {
+        var anchor = t.value === 0 ? "start" : t.x > c.width - 40 ? "end" : "middle";
+        return '<text x="' + t.x + '" y="' + (c.height - 8) + '" text-anchor="' + anchor + '" font-size="11" fill="var(--faint)" font-family="var(--mono)">' + esc(t.label) + "</text>";
+      }).join("") +
+      '<path d="' + c.bandPath + '" fill="var(--accent)" opacity="0.14"/>' +
+      c.pathLines.map(function (d) {
+        return '<path d="' + d + '" fill="none" stroke="var(--ink)" stroke-width="1.1" opacity="0.38" stroke-linejoin="round"/>';
+      }).join("") +
+      '<path d="' + c.medianPath + '" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-linejoin="round"/>' +
+      '<path d="' + c.contributedPath + '" fill="none" stroke="var(--faint)" stroke-width="1.5" stroke-dasharray="4 3" stroke-linejoin="round"/>' +
+      (marker != null && marker > 0 && marker <= c.maxY
+        ? '<line x1="' + c.plot.left + '" x2="' + (c.width - c.plot.right) + '" y1="' + c.yFor(marker) + '" y2="' + c.yFor(marker) +
+          '" stroke="var(--ink)" stroke-width="1.5"/>' +
+          '<text x="' + (c.plot.left + 4) + '" y="' + (c.yFor(marker) - 5) + '" font-size="10.5" fill="var(--muted)">' + esc(markerLabel || "target") + "</text>"
+        : "") +
+      "</svg>";
+  }
+
+  /**
+   * The band over time, with a few whole runs drawn through it.
+   *
+   * A percentile band on its own reads as a smooth widening cone, which is the
+   * one thing growth reliably is not. The individual runs are the point: they
+   * are real paths out of the same 2,000, they cross each other, and several
+   * spend years going sideways or down before finishing where they finish.
+   */
+  function journeyChart(j, marker, markerLabel) {
+    return journeyPlot(j, 640, 260, "wide-only", marker, markerLabel) +
+      journeyPlot(j, 340, 240, "narrow-only", marker, markerLabel) +
+      '<div class="legend" style="margin-top:8px">' +
+      '<span class="legend-item"><i class="swatch" style="width:16px;height:10px;background:var(--accent);opacity:.2"></i>Middle 80% of runs</span>' +
+      '<span class="legend-item"><i style="width:16px;height:2px;border-radius:99px;background:var(--accent)"></i>Middle outcome</span>' +
+      '<span class="legend-item"><i style="width:16px;height:1px;background:var(--ink);opacity:.4"></i>Seven individual runs</span>' +
+      '<span class="legend-item"><i style="width:16px;height:0;border-top:1.5px dashed var(--faint)"></i>Money paid in</span>' +
+      "</div>";
   }
 
   function feePlot(points, width, height, cls) {
@@ -844,7 +891,7 @@
 
       answer +
       '<div class="grid3">' + facts + "</div>" +
-      ladder(plan) +
+      comparison(plan) +
 
       '<div class="note"><strong>Read this as a direction, not a plan.</strong> Every figure here is arithmetic on long-run ' +
       "averages, in today's money, on a " + pct(plan.mix.realReturn, 1) + " return before charges. Real returns do not arrive " +
@@ -853,18 +900,10 @@
 
       '<p><button class="row-link" data-act="prdetail" aria-expanded="' + !!state.primerDetail +
       '" style="color:var(--accent-ink);font-size:13px;font-weight:500;text-decoration:none">' +
-      (state.primerDetail ? "Hide the detail ↑" : "Show the detail behind these numbers ↓") + "</button></p>" +
+      (state.primerDetail ? "Hide what the charge does over time ↑" : "Show what the charge does over time ↓") + "</button></p>" +
 
       (state.primerDetail
-        ? '<section class="card pad"><h3 style="font-size:14px">Where each setting actually lands</h3>' +
-          '<p class="sub" style="margin-top:6px;margin-bottom:16px;font-size:12.5px">Each setting run 2,000 times. ' +
-          (plan.mode === "goal"
-            ? "Each one pays its own monthly figure, and the line is the " + cur(plan.goal) + " target."
-            : "All paying the same " + cur(p.monthly) + " a month, and the line is the " + cur(plan.contributed) + " paid in.") +
-          "</p>" +
-          rangeChart(plan.alternatives, plan.mode === "goal" ? plan.goal : plan.contributed,
-            plan.mode === "goal" ? "target" : "paid in") + "</section>" +
-          '<section class="card pad"><h3 style="font-size:14px">The same ' + cur(plan.monthly) + " a month, under both charges</h3>" +
+        ? '<section class="card pad"><h3 style="font-size:14px">The same ' + cur(plan.monthly) + " a month, under both charges</h3>" +
           '<p class="sub" style="margin-top:6px;margin-bottom:16px;font-size:12.5px">Identical payments and identical returns. ' +
           "The shaded wedge is the charge, and it widens because each year's charge also gives up what that money would have " +
           "earned afterwards.</p>" + feeChart(f) + "</section>"

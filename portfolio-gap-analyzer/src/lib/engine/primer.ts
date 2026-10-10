@@ -1,5 +1,5 @@
 import { DEFAULT_PRESET, PRESETS, SLEEVE_ASSUMPTIONS, type ReferencePresetId } from "./presets";
-import { shortfallRate, simulateOutcomes } from "./projection";
+import { samplePaths, shortfallRate, simulateOutcomes, type ProjectionPoint } from "./projection";
 import { TOLERANCE_GROWTH, riskProfileLabel } from "./reference";
 
 /**
@@ -71,6 +71,17 @@ export interface Spread {
   p10: number;
   p50: number;
   p90: number;
+}
+
+/** The whole run, year by year, plus a few individual paths out of it. */
+export interface Journey {
+  points: ProjectionPoint[];
+  paths: number[][];
+}
+
+function journeyOf(realReturn: number, volatility: number, years: number, startValue: number, monthly: number): Journey {
+  const simulation = { realReturn, volatility, years, startValue, annualContribution: monthly * 12 };
+  return { points: simulateOutcomes(simulation), paths: samplePaths(simulation, 7) };
 }
 
 /** One rung of the risk ladder, so the chosen answer can be seen in context. */
@@ -165,6 +176,8 @@ export interface GoalAnswer extends Spread {
   contributed: number;
   /** The starting sum alone gets there; nothing monthly is needed. */
   alreadyThere: boolean;
+  /** The chosen setting year by year, with a few whole runs out of it. */
+  journey: Journey;
   alternatives: Alternative[];
 }
 
@@ -226,6 +239,7 @@ export function goalAnswer(input: GoalInput = {}): GoalAnswer {
     ),
     contributed: startingAmount + monthly * 12 * years,
     alreadyThere: monthly === 0,
+    journey: journeyOf(mix.realReturn - lowCharge, mix.volatility, years, startingAmount, monthly),
     alternatives,
   };
 }
@@ -256,6 +270,8 @@ export interface ForecastAnswer extends Spread {
   feeShare: number;
   /** Share of runs that finished below the money paid in. */
   belowContributed: number;
+  /** The chosen setting year by year, with a few whole runs out of it. */
+  journey: Journey;
   alternatives: Alternative[];
 }
 
@@ -307,6 +323,7 @@ export function forecastAnswer(input: ForecastInput = {}): ForecastAnswer {
       },
       contributed,
     ),
+    journey: journeyOf(mix.realReturn - lowCharge, mix.volatility, years, startingAmount, monthly),
     alternatives,
   };
 }
