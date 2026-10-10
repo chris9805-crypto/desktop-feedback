@@ -1,7 +1,7 @@
-import { ETF_UNIVERSE } from "@/lib/data/securities";
+import { FUND_UNIVERSE } from "@/lib/data/securities";
 import { formatCurrency, formatPercent, label } from "@/lib/format";
 import { buildExposure } from "./exposure";
-import type { CandidateScreen, EtfSecurity, InvestorProfile } from "./types";
+import type { CandidateScreen, FundSecurity, InvestorProfile } from "./types";
 
 export type ScreenDimension = "assetClass" | "region" | "sector" | "size" | "style" | "factor" | "credit";
 
@@ -15,7 +15,7 @@ export interface ScreenOptions {
   /** Restrict to funds listed in this country, for wrapper and tax reasons. */
   listingCountry?: string;
   /** Extra constraint applied after the exposure filter, e.g. a duration band. */
-  extraFilter?: (etf: EtfSecurity) => boolean;
+  extraFilter?: (etf: FundSecurity) => boolean;
   extraFilterLabel?: string;
   limit?: number;
 }
@@ -44,7 +44,7 @@ function runScreen(options: ScreenOptions): CandidateScreen {
   const { dimension, bucket, minPurity, maxExpenseRatio, excludeSymbols = [], listingCountry, limit = 4 } = options;
   const excluded = new Set(excludeSymbols.map((s) => s.toUpperCase()));
 
-  const matches = ETF_UNIVERSE.map((etf) => {
+  const matches = FUND_UNIVERSE.map((etf) => {
     const exposure = buildExposure(etf);
     const map = exposure[dimension] as Record<string, number>;
     return { etf, purity: map[bucket] ?? 0 };

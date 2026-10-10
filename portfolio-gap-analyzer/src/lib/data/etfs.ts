@@ -1,19 +1,20 @@
-import type { EtfSecurity } from "@/lib/engine/types";
+import type { FundSecurity } from "@/lib/engine/types";
 import * as B from "./blends";
 import { trailingFor } from "./trailing";
 
-type EtfInit = Omit<EtfSecurity, "kind" | "fund" | "breakdown" | "trailing"> & {
-  fund: Partial<EtfSecurity["fund"]> & Pick<EtfSecurity["fund"], "expenseRatio" | "aumUsd" | "indexName">;
-  breakdown: Partial<EtfSecurity["breakdown"]>;
+type EtfInit = Omit<FundSecurity, "kind" | "fund" | "breakdown" | "trailing"> & {
+  fund: Partial<FundSecurity["fund"]> & Pick<FundSecurity["fund"], "expenseRatio" | "aumUsd" | "indexName">;
+  breakdown: Partial<FundSecurity["breakdown"]>;
 };
 
-function etf(init: EtfInit): EtfSecurity {
+function etf(init: EtfInit): FundSecurity {
   return {
-    kind: "etf",
+    kind: "fund",
     // Returns live in their own table, so a live feed replaces one file.
     trailing: trailingFor(init.symbol),
     ...init,
     fund: {
+      structure: "etf",
       inceptionYear: 2010,
       domicile: "US",
       replication: "physicalFull",
@@ -56,7 +57,7 @@ const CORE_US_TOP = [
 /** Same names, diluted by the extra small/mid tail a total-market fund holds. */
 const TOTAL_MARKET_TOP = CORE_US_TOP.map((h) => ({ ...h, weight: h.weight * 0.88 }));
 
-export const ETFS: EtfSecurity[] = [
+export const ETFS: FundSecurity[] = [
   // ---------------------------------------------------------------- core equity
   etf({
     symbol: "VTI",

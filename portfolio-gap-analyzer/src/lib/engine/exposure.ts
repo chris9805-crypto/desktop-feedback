@@ -1,3 +1,4 @@
+import { lookupSecurity } from "@/lib/data/securities";
 import {
   ASSET_CLASSES,
   CREDIT_BUCKETS,
@@ -14,6 +15,7 @@ import {
   type Position,
   type Region,
   type Sector,
+  type FundSecurity,
   type Security,
   type SizeBucket,
   type StyleBucket,
@@ -117,8 +119,41 @@ export function buildExposure(security: Security): ExposureProfile {
   exposure.duration = security.duration;
   exposure.yield = security.yield;
   exposure.expenseRatio = security.fund.expenseRatio;
-  exposure.lookThrough = Object.fromEntries(security.topHoldings.map((h) => [h.symbol, h.weight]));
+  exposure.lookThrough = fundLookThrough(security);
   return exposure;
+}
+
+/**
+ * Who a fund actually owns, one level further down where it owns funds.
+ *
+ * A target-date fund holds four other funds, not four companies. Mapping its
+ * disclosed holdings straight into the look-through would put "VTSAX 54%" in a
+ * single-company concentration table, which is both wrong and the exact
+ * opposite of what the number means. Where a holding resolves to another fund
+ * in the master, its weight is spread across that fund's own holdings instead.
+ *
+ * One level, deliberately. Two would need cycle detection for a thing that
+ * does not occur in practice, and each level loses more to undisclosed
+ * remainders — the residual modelling in `metrics` is a better answer to that
+ * than a deeper walk would be.
+ */
+function fundLookThrough(security: FundSecurity): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const holding of security.topHoldings) {
+    const held = lookupSecurity(holding.symbol);
+    if (held && held.kind === "fund") {
+      // A fund that discloses nothing — a bond fund listing no individual
+      // issues — contributes no company weight at all. Leaving its own ticker
+      // in would file it as a single company, which is the bug this function
+      // exists to prevent; an undisclosed holding simply is not in this map.
+      for (const inner of held.topHoldings) {
+        out[inner.symbol] = (out[inner.symbol] ?? 0) + holding.weight * inner.weight;
+      }
+      continue;
+    }
+    out[holding.symbol] = (out[holding.symbol] ?? 0) + holding.weight;
+  }
+  return out;
 }
 
 function addScaled<K extends string>(into: Record<K, number>, from: Record<K, number>, keys: readonly K[], w: number) {

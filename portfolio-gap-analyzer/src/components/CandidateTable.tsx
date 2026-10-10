@@ -11,7 +11,7 @@ import { formatCompactCurrency, formatPercent, label } from "@/lib/format";
  * endorsed — which is exactly what this is not.
  */
 export function CandidateTable({ screen }: { screen: CandidateScreen }) {
-  const rows = screen.symbols.map((symbol) => lookupSecurity(symbol)).filter((s) => s?.kind === "etf");
+  const rows = screen.symbols.map((symbol) => lookupSecurity(symbol)).filter((s) => s?.kind === "fund");
   if (rows.length === 0) return null;
 
   return (
@@ -34,7 +34,7 @@ export function CandidateTable({ screen }: { screen: CandidateScreen }) {
           </thead>
           <tbody className="divide-y divide-[var(--border)]">
             {rows.map((security) => {
-              if (!security || security.kind !== "etf") return null;
+              if (!security || security.kind !== "fund") return null;
               return (
                 <tr key={security.symbol}>
                   <td className="px-4 py-2.5">

@@ -44,7 +44,7 @@ const sectorWeight = (s: Security, sector: string) => (buildExposure(s)[ "sector
  * short enough to print and specific enough to be right.
  */
 const fundLedBy = (s: Security, test: (stock: StockSecurity) => boolean, share = 0.5) => {
-  if (s.kind !== "etf" || s.topHoldings.length === 0) return false;
+  if (s.kind !== "fund" || s.topHoldings.length === 0) return false;
   const hits = s.topHoldings.filter((holding) => {
     const held = lookupSecurity(holding.symbol);
     return held !== undefined && held.kind === "stock" && test(held);
@@ -72,7 +72,7 @@ export const THEMES: Theme[] = [
       "This is one sector, one supply chain and largely one customer group. The same handful of names already sit at the top of any index fund you own, so a sleeve here concentrates what you already hold rather than adding something new.",
     matches: (s) =>
       industryIn(s, AI_INDUSTRIES) ||
-      (s.kind === "etf" &&
+      (s.kind === "fund" &&
         sectorWeight(s, "informationTechnology") >= 0.6 &&
         fundLedBy(s, (stock) => AI_INDUSTRIES.includes(stock.industry))),
     rank: (s) => s.trailing.return12m,
@@ -90,7 +90,7 @@ export const THEMES: Theme[] = [
         s.fundamentals.dividendGrowthStreakYears >= 10 &&
         s.fundamentals.payoutRatio < 0.75 &&
         s.fundamentals.dividendYield > 0.015) ||
-      (s.kind === "etf" && (s.breakdown.factor?.dividendYield ?? 0) >= 0.5),
+      (s.kind === "fund" && (s.breakdown.factor?.dividendYield ?? 0) >= 0.5),
     rank: (s) => (isStock(s) ? s.fundamentals.dividendGrowthStreakYears : 25),
   },
   {
@@ -100,7 +100,7 @@ export const THEMES: Theme[] = [
     criteria: "Companies classified in the cybersecurity industry, plus funds tracking cybersecurity indices. Ranked by revenue growth.",
     caution:
       "A narrow slice of software. The funds here charge several times what a broad technology fund does, and their largest holdings are already inside any index fund you own. Structural demand for a product is not the same as a good return from its shares.",
-    matches: (s) => industryIn(s, ["Cybersecurity"]) || (s.kind === "etf" && /cybersecurity/i.test(s.fund.indexName)),
+    matches: (s) => industryIn(s, ["Cybersecurity"]) || (s.kind === "fund" && /cybersecurity/i.test(s.fund.indexName)),
     rank: (s) => (isStock(s) ? s.fundamentals.revenueCagr3y : 0.2),
   },
   {
@@ -112,7 +112,7 @@ export const THEMES: Theme[] = [
       "The clearest cautionary theme in this dataset: the main fund here fell roughly 60% from its 2021 peak. Returns depend heavily on subsidy and interest-rate policy, neither of which is a business quality you can analyse.",
     matches: (s) =>
       industryIn(s, ["Solar"]) ||
-      (s.kind === "etf" && /clean energy/i.test(s.fund.indexName)) ||
+      (s.kind === "fund" && /clean energy/i.test(s.fund.indexName)) ||
       (isStock(s) && s.sector === "utilities" && s.fundamentals.revenueCagr3y > 0),
     rank: (s) => s.trailing.return12m,
   },
@@ -129,7 +129,7 @@ export const THEMES: Theme[] = [
         s.fundamentals.returnOnInvestedCapital > 0.2 &&
         s.fundamentals.netDebtToEbitda < 2 &&
         s.fundamentals.freeCashFlowMargin > 0) ||
-      (s.kind === "etf" && (s.breakdown.factor?.quality ?? 0) >= 0.6),
+      (s.kind === "fund" && (s.breakdown.factor?.quality ?? 0) >= 0.6),
     rank: (s) => (isStock(s) ? s.fundamentals.returnOnInvestedCapital : 0.25),
   },
   {
@@ -145,8 +145,8 @@ export const THEMES: Theme[] = [
         s.beta < 0.8 &&
         s.fundamentals.dividendYield > 0.02 &&
         ["consumerStaples", "utilities", "healthCare", "communicationServices"].includes(s.sector)) ||
-      (s.kind === "etf" && ((s.breakdown.factor?.lowVolatility ?? 0) >= 0.5 || (s.breakdown.factor?.dividendYield ?? 0) >= 0.7)),
-    rank: (s) => (s.kind === "etf" ? s.yield : s.fundamentals.dividendYield),
+      (s.kind === "fund" && ((s.breakdown.factor?.lowVolatility ?? 0) >= 0.5 || (s.breakdown.factor?.dividendYield ?? 0) >= 0.7)),
+    rank: (s) => (s.kind === "fund" ? s.yield : s.fundamentals.dividendYield),
   },
 ];
 
@@ -165,6 +165,6 @@ export function matchesFor(theme: Theme): ThemeMatches {
   return {
     theme,
     stocks: all.filter((s) => s.kind === "stock"),
-    funds: all.filter((s) => s.kind === "etf"),
+    funds: all.filter((s) => s.kind === "fund"),
   };
 }

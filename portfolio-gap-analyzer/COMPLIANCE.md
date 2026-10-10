@@ -185,6 +185,27 @@ A tool that showed the same number while implying the product was a rip-off
 would be giving a recommendation about a specific product. This one hands over
 the figure and stops.
 
+### 4e. A sales charge is reported as a cost, not as a reason to sell
+
+Front-end loads are the single most alarming number the tool can show — 5.75%
+of everything put in — and the obvious way to misuse that is to turn it into
+"get out of this fund". Four things keep the finding on the research side:
+
+- **It prices the next contribution, not the holding.** What has already been
+  paid is sunk, and the finding says so in those words. The evidence line for
+  the existing position is labelled "the charge on this was paid when it was
+  bought" precisely so the figure is not read as recoverable.
+- **The trade-off names the trap.** Moving out of a fund to escape a charge
+  already taken converts a past cost into a present one, and may realise tax.
+  That sentence is part of the finding, not a footnote elsewhere.
+- **It checks itself before it accuses.** Two of the three routes are reasons
+  the published number may not be the number paid — a different share class,
+  or a waiver inside a workplace plan, at a breakpoint, or on reinvested
+  distributions. A screening tool cannot see which, and says so.
+- **It leaves the judgement with the reader.** The last route is "or decide the
+  fund is worth it": a load buys advice or access, and whether that is worth
+  the number is not something this tool is in a position to rule on.
+
 ### 5. Composite scores are summaries, shown with their inputs
 
 The research scores (quality, financial strength, growth, valuation, dividend

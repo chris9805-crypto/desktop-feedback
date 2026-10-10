@@ -7,13 +7,13 @@ import { FeeCheck } from "@/components/FeeCheck";
 import { Button, Card, Field, Pill, SectionHeading, inputClass } from "@/components/ui";
 import { SECURITIES } from "@/lib/data/securities";
 import { growthScore, qualityScore, valuationScore } from "@/lib/engine/scores";
-import { SECTORS, type Sector, type Security } from "@/lib/engine/types";
+import { SECTORS, fundStructureLabel, type Sector, type Security } from "@/lib/engine/types";
 import { formatCompactCurrency, formatPercent, label } from "@/lib/format";
 
 /** Enough rows to scan without scrolling past the filters that produced them. */
 const PAGE_SIZE = 30;
 
-type Kind = "all" | "etf" | "stock";
+type Kind = "all" | "etf" | "mutualFund" | "stock";
 type SortKey = "name" | "cost" | "yield" | "size" | "quality" | "value" | "growth" | "momentum";
 
 /**
@@ -36,11 +36,11 @@ const COLUMNS: { id: SortKey | null; label: string; align?: "right"; numeric?: b
 ];
 
 function yieldOf(security: Security): number {
-  return security.kind === "etf" ? security.yield : security.fundamentals.dividendYield;
+  return security.kind === "fund" ? security.yield : security.fundamentals.dividendYield;
 }
 
 function sizeOf(security: Security): number {
-  return security.kind === "etf" ? security.fund.aumUsd : security.marketCapUsd;
+  return security.kind === "fund" ? security.fund.aumUsd : security.marketCapUsd;
 }
 
 /** The value a column sorts on, or null where the column does not apply. */
@@ -53,7 +53,7 @@ function sortValue(s: Security, key: SortKey): number | null {
     case "momentum":
       return s.trailing.return12m;
     case "cost":
-      return s.kind === "etf" ? s.fund.expenseRatio : null;
+      return s.kind === "fund" ? s.fund.expenseRatio : null;
     case "quality":
       return s.kind === "stock" ? qualityScore(s).score : null;
     case "growth":
@@ -77,13 +77,15 @@ export default function ResearchPage() {
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
     return SECURITIES.filter((security) => {
-      if (kind !== "all" && security.kind !== kind) return false;
+      if (kind === "stock" && security.kind !== "stock") return false;
+      if (kind === "etf" && !(security.kind === "fund" && security.fund.structure === "etf")) return false;
+      if (kind === "mutualFund" && !(security.kind === "fund" && security.fund.structure === "mutualFund")) return false;
       if (q && !security.symbol.toLowerCase().includes(q) && !security.name.toLowerCase().includes(q)) return false;
       if (sector !== "all") {
         if (security.kind === "stock" && security.sector !== sector) return false;
-        if (security.kind === "etf" && (security.breakdown.sector?.[sector] ?? 0) < 0.3) return false;
+        if (security.kind === "fund" && (security.breakdown.sector?.[sector] ?? 0) < 0.3) return false;
       }
-      if (security.kind === "etf" && security.fund.expenseRatio * 10000 > maxCost) return false;
+      if (security.kind === "fund" && security.fund.expenseRatio * 10000 > maxCost) return false;
       return true;
     }).sort((a, b) => {
       if (sort === "name") {
@@ -129,6 +131,7 @@ export default function ResearchPage() {
             <select className={inputClass} value={kind} onChange={(event) => { setKind(event.target.value as Kind); setLimit(PAGE_SIZE); }}>
               <option value="all">All</option>
               <option value="etf">ETFs</option>
+              <option value="mutualFund">Mutual funds</option>
               <option value="stock">Companies</option>
             </select>
           </Field>
@@ -233,8 +236,8 @@ export default function ResearchPage() {
                     <div className="text-[12px] text-[var(--text-muted)]">{security.name}</div>
                   </td>
                   <td className="px-3 py-2.5">
-                    <Pill tone={security.kind === "etf" ? "accent" : "neutral"}>
-                      {security.kind === "etf" ? "ETF" : label(security.sector)}
+                    <Pill tone={security.kind === "fund" ? "accent" : "neutral"}>
+                      {security.kind === "fund" ? fundStructureLabel(security.fund.structure) : label(security.sector)}
                     </Pill>
                   </td>
                   <td className="tnum px-3 py-2.5 text-right text-[var(--text-muted)]">
@@ -242,7 +245,7 @@ export default function ResearchPage() {
                   </td>
                   <td className="tnum px-3 py-2.5 text-right">{formatPercent(yieldOf(security))}</td>
                   <td className="tnum px-3 py-2.5 text-right">
-                    {security.kind === "etf" ? formatPercent(security.fund.expenseRatio, 2) : "—"}
+                    {security.kind === "fund" ? formatPercent(security.fund.expenseRatio, 2) : "—"}
                   </td>
                   <td
                     className="tnum px-3 py-2.5 text-right"

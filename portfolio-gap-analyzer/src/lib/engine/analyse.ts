@@ -29,7 +29,7 @@ function buildCaveats(portfolio: Portfolio, metrics: ReturnType<typeof computeMe
     }
   }
 
-  const fundWeight = portfolio.positions.filter((p) => p.security.kind === "etf").reduce((a, p) => a + p.weight, 0);
+  const fundWeight = portfolio.positions.filter((p) => p.security.kind === "fund").reduce((a, p) => a + p.weight, 0);
   if (fundWeight > 0.1) {
     caveats.push(
       "Look-through uses each fund's disclosed top holdings plus an even spread across the rest, so single-name concentration is an estimate and a slight understatement.",

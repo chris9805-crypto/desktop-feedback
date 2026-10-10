@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { lookupSecurity } from "@/lib/data/securities";
 import { estimateOverlap } from "@/lib/engine/gaps/overlap";
-import type { EtfSecurity } from "@/lib/engine/types";
+import type { FundSecurity } from "@/lib/engine/types";
 
-const etf = (symbol: string) => lookupSecurity(symbol) as EtfSecurity;
+const etf = (symbol: string) => lookupSecurity(symbol) as FundSecurity;
 
 describe("estimateOverlap", () => {
   it("scores two funds on the same index as near-identical", () => {

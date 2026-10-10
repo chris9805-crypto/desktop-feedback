@@ -34,6 +34,10 @@ export const TRAILING: Record<string, TrailingReturns> = {
   BND: T(0.014, 0.058), AGG: T(0.014, 0.057), BNDX: T(0.012, 0.051), VGIT: T(0.015, 0.054),
   VGSH: T(0.011, 0.049), TLT: T(0.021, 0.018), TIP: T(0.016, 0.062), LQD: T(0.017, 0.074),
   HYG: T(0.018, 0.101), SGOV: T(0.012, 0.051), AGGU: T(0.013, 0.053),
+  // --- mutual funds
+  VFIAX: T(0.043, 0.244), FXAIX: T(0.043, 0.245), VTSAX: T(0.041, 0.237),
+  VTIAX: T(0.022, 0.12), VBTLX: T(0.014, 0.057), VFIFX: T(0.034, 0.192),
+  AGTHX: T(0.058, 0.291), ANCFX: T(0.039, 0.218), FCNTX: T(0.071, 0.336),
   // --- real assets
   VNQ: T(0.032, 0.104), IAU: T(0.081, 0.284),
 

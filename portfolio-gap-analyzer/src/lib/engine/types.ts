@@ -132,7 +132,18 @@ export interface ExposureProfile {
 export type Replication = "physicalFull" | "physicalSampled" | "synthetic" | "direct";
 export type Distribution = "accumulating" | "distributing";
 
+/**
+ * How a pooled fund is bought and sold.
+ *
+ * Everything the engine does to a fund — look-through, exposure, overlap,
+ * concentration — is the same either way, because a fund is a fund. The
+ * wrapper changes what it costs to own and how you trade it, which is exactly
+ * where the differences worth flagging live.
+ */
+export type FundStructure = "etf" | "mutualFund";
+
 export interface FundFacts {
+  structure: FundStructure;
   expenseRatio: number;
   aumUsd: number;
   inceptionYear: number;
@@ -146,6 +157,22 @@ export interface FundFacts {
   /** Annualised gap between fund and index return, decimal. Negative = lagging. */
   trackingDifference: number;
   currencyHedged: boolean;
+  /**
+   * Mutual-fund-only facts. A sales charge is a one-off bite out of the money
+   * before any of it is invested, so no comparison of annual charges sees it;
+   * it is held separately for that reason rather than folded into the expense
+   * ratio.
+   */
+  /** Sales charge taken on the way in, as a decimal. */
+  frontLoad?: number;
+  /** Sales charge taken on the way out, as a decimal. */
+  deferredLoad?: number;
+  /** Marketing and distribution fee, already inside `expenseRatio`. */
+  twelveB1Fee?: number;
+  /** Smallest initial purchase the share class accepts. */
+  minimumInvestment?: number;
+  /** True where the fund picks holdings rather than tracking an index. */
+  activelyManaged?: boolean;
 }
 
 export interface Fundamentals {
@@ -204,8 +231,8 @@ export interface StockSecurity extends SecurityCommon {
   description: string;
 }
 
-export interface EtfSecurity extends SecurityCommon {
-  kind: "etf";
+export interface FundSecurity extends SecurityCommon {
+  kind: "fund";
   fund: FundFacts;
   /** Raw declared breakdown; `buildExposure` normalises it. */
   breakdown: {
@@ -224,7 +251,7 @@ export interface EtfSecurity extends SecurityCommon {
   description: string;
 }
 
-export type Security = StockSecurity | EtfSecurity;
+export type Security = StockSecurity | FundSecurity;
 
 /** One line in the user's portfolio, before pricing. */
 export interface HoldingInput {
@@ -434,4 +461,9 @@ export interface AnalysisReport {
   projection: import("./projection").Projection;
   /** Coverage caveats the reader needs in order to judge the findings. */
   caveats: string[];
+}
+
+/** "ETF" or "Mutual fund", for a label. */
+export function fundStructureLabel(structure: FundStructure): string {
+  return structure === "etf" ? "ETF" : "Mutual fund";
 }

@@ -122,6 +122,32 @@ normalised into exposure across asset class, region, sector, size, style,
 factor, credit and currency — then looked through funds to the individual
 companies underneath them.
 
+**ETFs and mutual funds are the same thing to the engine.** Both are a
+`FundSecurity` with a `structure`, because every piece of analysis — exposure,
+look-through, overlap, concentration, factor tilts — is identical either way.
+A fund is a fund. What the wrapper changes is what it costs to own and how you
+trade it, and that is where they are told apart: a mutual fund has no bid/ask
+spread because it transacts once a day at net asset value, it has a minimum,
+and it may carry a sales load.
+
+**Look-through goes two levels where it has to.** A target-date fund holds four
+other funds, not four companies. Mapping its disclosed holdings straight
+through would file "VTSAX 54%" in a single-company concentration table, which
+is the opposite of what the number means — so where a holding resolves to
+another fund in the master, its weight is spread across that fund's own
+holdings instead. A child fund that discloses nothing, such as a bond sleeve
+listing no individual issues, contributes no company weight and does not appear
+under its own ticker either. One level, deliberately: two would need cycle
+detection for something that does not occur, and the residual modelling in
+`metrics` is a better answer to undisclosed remainders than a deeper walk.
+
+**Sales charges are flagged separately from ongoing charges.** A front-end load
+is taken once, before the money is invested, so it never appears in an
+ongoing-charge comparison or in the fund's published returns. The detector
+prices it against what is still being paid in — a 5.75% load on $500 a month is
+$345 a year handed over before anything is invested — and says plainly that
+what has already been paid is sunk.
+
 **Builds a reference to compare against.** The equity side is anchored on a
 published index the user picks — **MSCI World** by default, or the S&P 500, or a
 global all-cap index.
@@ -231,7 +257,7 @@ src/
       implement.ts   Exposure screener and implementation routes
       gaps/          The nine detector families
       analyse.ts     Entry point: portfolio + profile -> report
-    data/            Security master, trailing returns, FX, provider seam
+    data/            Security master (ETFs, mutual funds, companies), returns, FX
     content/         Education articles and the plain-English glossary
     state/           Client store (localStorage)
     chart.ts         Fan, pie, range and two-line geometry, shared by both renderers
@@ -276,8 +302,8 @@ as its ten largest holdings.
 
 ## Data
 
-**The bundled security master is illustrative sample data.** 48 funds and 61
-companies, hand-curated to be plausible and internally consistent, rounded,
+**The bundled security master is illustrative sample data.** 52 ETFs, 9 mutual
+funds and 72 companies, hand-curated to be plausible and internally consistent, rounded,
 and frozen at a single date. It exists so the engine can be exercised end to end
 and so the interface has something real to render. It is not live market data,
 and the app says so on every screen that uses it.

@@ -5,7 +5,7 @@ export { buildExposure, normaliseSleeve } from "@/lib/engine/exposure";
 export { allScores } from "@/lib/engine/scores";
 export {
   SECURITIES,
-  ETF_UNIVERSE,
+  FUND_UNIVERSE,
   STOCK_UNIVERSE,
   lookupSecurity,
   searchSecurities,

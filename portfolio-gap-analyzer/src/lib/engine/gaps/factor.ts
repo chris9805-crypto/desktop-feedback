@@ -50,7 +50,7 @@ export function factorFindings(ctx: GapContext): Finding[] {
     if (tilt < 0.22) continue;
 
     const contributors = ctx.portfolio.positions
-      .filter((p) => p.security.kind === "etf" && (p.security.breakdown.factor?.[factor] ?? 0) > 0.3)
+      .filter((p) => p.security.kind === "fund" && (p.security.breakdown.factor?.[factor] ?? 0) > 0.3)
       .sort((a, b) => b.weight - a.weight)
       .slice(0, 3);
 

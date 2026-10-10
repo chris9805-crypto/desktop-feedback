@@ -168,7 +168,7 @@
   /* ----------------------------------------------------------------- views */
 
   function candidateTable(screen) {
-    var rows = screen.symbols.map(G.lookupSecurity).filter(function (s) { return s && s.kind === "etf"; });
+    var rows = screen.symbols.map(G.lookupSecurity).filter(function (s) { return s && s.kind === "fund"; });
     if (!rows.length) return "";
     return '<div class="note"><strong>Screen used:</strong> ' + esc(screen.description) +
       " These are filter results, not a shortlist — check each one against your own account, wrapper and country." +
@@ -365,6 +365,11 @@
       "</ul></div></section>";
   }
 
+  /** "ETF" or "Mutual fund": a fund's wrapper, for a label. */
+  function wrapper(x) {
+    return x.kind === "fund" ? (x.fund.structure === "mutualFund" ? "Mutual fund" : "ETF") : null;
+  }
+
   function statTile(k, v, d, tone) {
     return '<div class="stat"><div class="stat-k">' + esc(k) + "</div>" +
       '<div class="stat-v ' + (tone || "") + '">' + esc(v) + "</div>" +
@@ -540,10 +545,10 @@
     var rows = r.portfolio.positions.map(function (p) {
       return "<tr><td><button class=\"row-link sym\" data-act=\"detail\" data-symbol=\"" + esc(p.symbol) + '">' + esc(p.symbol) + "</button>" +
         '<div style="font-size:12px;color:var(--muted)">' + esc(p.security.name) + "</div></td>" +
-        '<td><span class="pill ' + (p.security.kind === "etf" ? "accent" : "") + '">' + (p.security.kind === "etf" ? "ETF" : "Stock") + "</span></td>" +
+        '<td><span class="pill ' + (p.security.kind === "fund" ? "accent" : "") + '">' + (wrapper(p.security) || "Stock") + "</span></td>" +
         '<td class="r num">' + cur(p.value) + "</td>" +
         '<td class="r num" style="font-weight:500">' + pct(p.weight) + "</td>" +
-        '<td class="r num" style="color:var(--muted)">' + (p.security.kind === "etf" ? pct(p.security.fund.expenseRatio, 2) : "—") + "</td>" +
+        '<td class="r num" style="color:var(--muted)">' + (p.security.kind === "fund" ? pct(p.security.fund.expenseRatio, 2) : "—") + "</td>" +
         '<td class="r"><button class="row-link" data-act="remove" data-symbol="' + esc(p.symbol) + '" style="font-size:12px;color:var(--faint);text-decoration:none">Remove</button></td></tr>';
     }).join("");
 
@@ -590,7 +595,7 @@
             return '<div class="card"><table class="data"><tbody>' + hits.map(function (s) {
               return '<tr><td><button class="row-link sym" data-act="add" data-symbol="' + esc(s.symbol) + '" style="text-decoration:none">' +
                 esc(s.symbol) + '</button> <span style="color:var(--muted);font-size:12px">' + esc(s.name) + "</span></td>" +
-                '<td class="r"><span class="pill ' + (s.kind === "etf" ? "accent" : "") + '">' + (s.kind === "etf" ? "ETF" : "Stock") + "</span></td></tr>";
+                '<td class="r"><span class="pill ' + (s.kind === "fund" ? "accent" : "") + '">' + (wrapper(s) || "Stock") + "</span></td></tr>";
             }).join("") + "</tbody></table></div>";
           })()
         : "") + "</div></section></div>" +
@@ -1090,22 +1095,24 @@
     if (state.detail) return viewDetail(state.detail);
     var s = state.screen, q = s.q.trim().toLowerCase();
     var rows = G.SECURITIES.filter(function (x) {
-      if (s.kind !== "all" && x.kind !== s.kind) return false;
+      if (s.kind === "stock" && x.kind !== "stock") return false;
+      if (s.kind === "etf" && !(x.kind === "fund" && x.fund.structure === "etf")) return false;
+      if (s.kind === "mutualFund" && !(x.kind === "fund" && x.fund.structure === "mutualFund")) return false;
       if (q && x.symbol.toLowerCase().indexOf(q) < 0 && x.name.toLowerCase().indexOf(q) < 0) return false;
       if (s.sector !== "all") {
         if (x.kind === "stock" && x.sector !== s.sector) return false;
-        if (x.kind === "etf" && ((x.breakdown.sector || {})[s.sector] || 0) < 0.3) return false;
+        if (x.kind === "fund" && ((x.breakdown.sector || {})[s.sector] || 0) < 0.3) return false;
       }
       return true;
     });
-    function yieldOf(x) { return x.kind === "etf" ? x.yield : x.fundamentals.dividendYield; }
-    function sizeOf(x) { return x.kind === "etf" ? x.fund.aumUsd : x.marketCapUsd; }
+    function yieldOf(x) { return x.kind === "fund" ? x.yield : x.fundamentals.dividendYield; }
+    function sizeOf(x) { return x.kind === "fund" ? x.fund.aumUsd : x.marketCapUsd; }
     // The value a column sorts on, or null where the column does not apply.
     function sortValue(x, key) {
       if (key === "size") return sizeOf(x);
       if (key === "yield") return yieldOf(x);
       if (key === "momentum") return x.trailing.return12m;
-      if (key === "cost") return x.kind === "etf" ? x.fund.expenseRatio : null;
+      if (key === "cost") return x.kind === "fund" ? x.fund.expenseRatio : null;
       if (key === "quality") return x.kind === "stock" ? G.allScores(x).quality.score : null;
       if (key === "growth") return x.kind === "stock" ? G.allScores(x).growth.score : null;
       if (key === "value") return x.kind === "stock" ? G.allScores(x).valuation.score : null;
@@ -1133,7 +1140,7 @@
       '<section class="card pad"><div class="grid4">' +
       '<label class="field"><span class="field-k">Search</span><input type="text" id="sq" data-act="sq" value="' + esc(s.q) + '" placeholder="Ticker or name"></label>' +
       '<label class="field"><span class="field-k">Instrument type</span><select id="skind" data-act="skind">' +
-      [["all", "All"], ["etf", "ETFs"], ["stock", "Companies"]].map(function (o) {
+      [["all", "All"], ["etf", "ETFs"], ["mutualFund", "Mutual funds"], ["stock", "Companies"]].map(function (o) {
         return '<option value="' + o[0] + '"' + (s.kind === o[0] ? " selected" : "") + ">" + o[1] + "</option>";
       }).join("") + "</select></label>" +
       '<label class="field"><span class="field-k">Sector</span><select id="ssec" data-act="ssec">' +
@@ -1163,10 +1170,10 @@
       visible.map(function (x) {
         return "<tr><td><button class=\"row-link sym\" data-act=\"detail\" data-symbol=\"" + esc(x.symbol) + '">' + esc(x.symbol) + "</button>" +
           '<div style="font-size:12px;color:var(--muted)">' + esc(x.name) + "</div></td>" +
-          '<td><span class="pill ' + (x.kind === "etf" ? "accent" : "") + '">' + esc(x.kind === "etf" ? "ETF" : lab(x.sector)) + "</span></td>" +
+          '<td><span class="pill ' + (x.kind === "fund" ? "accent" : "") + '">' + esc(wrapper(x) || lab(x.sector)) + "</span></td>" +
           '<td class="r num" style="color:var(--muted)">' + G.formatCompactCurrency(sizeOf(x), "USD") + "</td>" +
           '<td class="r num">' + pct(yieldOf(x)) + "</td>" +
-          '<td class="r num">' + (x.kind === "etf" ? pct(x.fund.expenseRatio, 2) : "—") + "</td>" +
+          '<td class="r num">' + (x.kind === "fund" ? pct(x.fund.expenseRatio, 2) : "—") + "</td>" +
           '<td class="r num" style="color:' + (x.trailing.return12m >= 0 ? "var(--under)" : "var(--over)") + '">' +
           pct(x.trailing.return12m, 1) + "</td>" +
           '<td class="r num">' + (x.kind === "stock" ? G.allScores(x).quality.score : "—") + "</td>" +
@@ -1195,12 +1202,12 @@
     var head = '<p style="margin-bottom:14px"><button class="row-link" data-act="back" style="font-size:12.5px;color:var(--accent-ink);text-decoration:none">← Back to research</button></p>' +
       '<header><div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">' +
       '<h1 class="sym" style="font-size:24px;font-family:var(--mono)">' + esc(x.symbol) + "</h1>" +
-      '<span class="pill ' + (x.kind === "etf" ? "accent" : "") + '">' + (x.kind === "etf" ? "ETF" : "Company") + "</span>" +
+      '<span class="pill ' + (x.kind === "fund" ? "accent" : "") + '">' + (wrapper(x) || "Company") + "</span>" +
       '<span class="pill">' + esc(x.listingCountry) + '</span><span class="pill">' + esc(x.currency) + "</span></div>" +
       '<p style="font-size:15px;color:var(--muted);margin-top:4px">' + esc(x.name) + "</p>" +
       '<p class="lede" style="margin-top:10px">' + esc(x.description) + "</p></header>";
 
-    if (x.kind === "etf") {
+    if (x.kind === "fund") {
       var ex = G.buildExposure(x);
       var regions = G.REGIONS.filter(function (k) { return ex.region[k] > 0.005; }).map(function (k) { return { label: lab(k), value: ex.region[k] }; });
       var sectors = G.SECTORS.filter(function (k) { return ex.sector[k] > 0.01; }).map(function (k) { return { label: lab(k), value: ex.sector[k] }; })
@@ -1211,9 +1218,18 @@
         statTile("Fund size", G.formatCompactCurrency(x.fund.aumUsd, "USD")) +
         statTile("Holdings", x.fund.holdingsCount.toLocaleString()) +
         statTile("Distribution yield", x.yield > 0 ? pct(x.yield) : "Accumulating") +
-        statTile("Median spread", pct(x.fund.spread, 3), "Paid on every trade, in and out") +
+        (x.fund.structure === "mutualFund"
+          ? statTile("Sales charge", x.fund.frontLoad ? pct(x.fund.frontLoad, 2) : "None",
+              x.fund.frontLoad
+                ? cur(10000 * x.fund.frontLoad) + " taken from every $10,000 before it is invested"
+                : "No charge on the way in",
+              x.fund.frontLoad ? "t-over" : "")
+          : statTile("Median spread", pct(x.fund.spread, 3), "Paid on every trade, in and out")) +
         statTile("Tracking difference", pct(x.fund.trackingDifference, 2), "Annualised gap to the index, after costs") +
-        statTile("Domicile", x.fund.domicile, lab(x.fund.distribution)) +
+        (x.fund.structure === "mutualFund"
+          ? statTile("Minimum to open", x.fund.minimumInvestment ? cur(x.fund.minimumInvestment) : "None",
+              "Priced once a day at net asset value, not through the day")
+          : statTile("Domicile", x.fund.domicile, lab(x.fund.distribution))) +
         statTile("Duration", x.duration > 0 ? x.duration.toFixed(1) + "y" : "—", x.duration > 0 ? "A 1pp yield rise costs about " + pct(x.duration * 0.01, 1) : "") +
         "</div></div>" +
         '<div class="cols">' +
@@ -1222,8 +1238,14 @@
         "</div>" +
         (x.topHoldings.length
           ? '<section class="card pad"><h2 class="sec-title">Largest disclosed holdings</h2>' +
-            '<p class="sub" style="margin-top:4px">The top ' + x.topHoldings.length + " of " + x.fund.holdingsCount.toLocaleString() + " positions, and " +
-            pct(x.topHoldings.reduce(function (a, h) { return a + h.weight; }, 0)) + ' of the fund.</p><table class="data" style="margin-top:10px"><tbody>' +
+            '<p class="sub" style="margin-top:4px">' +
+            (x.topHoldings.every(function (h) { var k = G.lookupSecurity(h.symbol); return k && k.kind === "fund"; })
+              ? "This fund holds other funds rather than companies. The " + x.topHoldings.length + " below are " +
+                pct(x.topHoldings.reduce(function (a, h) { return a + h.weight; }, 0)) +
+                " of it; open one to see the companies underneath, which is also where the gap report looks."
+              : "The top " + x.topHoldings.length + " of " + x.fund.holdingsCount.toLocaleString() + " positions, and " +
+                pct(x.topHoldings.reduce(function (a, h) { return a + h.weight; }, 0)) + " of the fund.") +
+            '</p><table class="data" style="margin-top:10px"><tbody>' +
             x.topHoldings.map(function (h) {
               var known = G.lookupSecurity(h.symbol);
               return '<tr><td style="padding-left:0">' + (known
@@ -1232,7 +1254,11 @@
                 ' <span class="sym" style="font-size:11px;color:var(--faint)">' + esc(h.symbol) + "</span></td>" +
                 '<td class="r num" style="width:70px;padding-right:0">' + pct(h.weight) + "</td></tr>";
             }).join("") + "</tbody></table></section>" : "") +
-        '<div class="note"><strong>What to check on any fund before the fee.</strong> Tracking difference tells you what the fund actually delivered against its index after everything. Spread is paid on each trade. Domicile and distribution policy decide the tax treatment, which in a taxable account can outweigh all of it.</div>';
+        '<div class="note"><strong>What to check on any fund before the fee.</strong> Tracking difference tells you what the fund actually delivered against its index after everything. ' +
+        (x.fund.structure === "mutualFund"
+          ? "A sales charge is taken once, before the money is invested, so it never appears in the ongoing charge or in the fund's published returns."
+          : "Spread is paid on each trade.") +
+        ' Domicile and distribution policy decide the tax treatment, which in a taxable account can outweigh all of it.</div>';
     }
 
     var sc = G.allScores(x), f = x.fundamentals, v = x.valuation;
@@ -1290,7 +1316,7 @@
     if (id === "dividend-growers") return x.kind === "stock" ? x.fundamentals.dividendGrowthStreakYears + "y of rises" : "Index rule";
     if (id === "quality-compounders") return x.kind === "stock" ? pct(x.fundamentals.returnOnInvestedCapital) + " ROIC" : "Index rule";
     if (id === "cybersecurity") return x.kind === "stock" ? pct(x.fundamentals.revenueCagr3y) + " revenue growth" : "Index rule";
-    if (id === "defensive-income") return pct(x.kind === "etf" ? x.yield : x.fundamentals.dividendYield) + " yield";
+    if (id === "defensive-income") return pct(x.kind === "fund" ? x.yield : x.fundamentals.dividendYield) + " yield";
     return pct(x.trailing.return12m, 1) + " over 12m";
   }
 
@@ -1302,7 +1328,7 @@
       '<span class="match-top"><span class="sym" style="font-weight:600">' + esc(x.symbol) + "</span>" +
       '<span class="sub" style="font-size:12.5px">' + esc(x.name) + "</span></span>" +
       '<span class="match-meta"><span class="num">' + esc(rankLine(theme().id, x)) + "</span>" +
-      (x.kind === "etf" ? '<span class="num">' + pct(x.fund.expenseRatio, 2) + " charge</span>" : "<span>" + esc(lab(x.sector)) + "</span>") +
+      (x.kind === "fund" ? '<span class="num">' + pct(x.fund.expenseRatio, 2) + " charge</span>" : "<span>" + esc(lab(x.sector)) + "</span>") +
       '<button class="row-link" data-act="detail" data-symbol="' + esc(x.symbol) + '" style="color:var(--accent-ink)">Details</button>' +
       "</span></span></label>";
   }

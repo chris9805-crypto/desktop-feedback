@@ -14,7 +14,7 @@ import { useStore } from "@/lib/state/store";
 const SLEEVE_STEPS = [0.02, 0.05, 0.1, 0.15, 0.2];
 
 function yieldOf(s: Security): number {
-  return s.kind === "etf" ? s.yield : s.fundamentals.dividendYield;
+  return s.kind === "fund" ? s.yield : s.fundamentals.dividendYield;
 }
 
 /** The number the theme actually ranked on, so the ordering is legible. */
@@ -62,7 +62,7 @@ function MatchRow({
         </span>
         <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-[var(--text-faint)]">
           <span className="tnum">{rankLine(themeId, security)}</span>
-          {security.kind === "etf" ? (
+          {security.kind === "fund" ? (
             <span className="tnum">{formatPercent(security.fund.expenseRatio, 2)} charge</span>
           ) : (
             <span>{label(security.sector)}</span>

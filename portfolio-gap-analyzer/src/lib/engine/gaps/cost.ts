@@ -1,6 +1,6 @@
-import { ETF_UNIVERSE } from "@/lib/data/securities";
+import { FUND_UNIVERSE } from "@/lib/data/securities";
 import { formatCurrency, formatPercent } from "@/lib/format";
-import type { EtfSecurity, Finding, Position } from "../types";
+import type { FundSecurity, Finding, Position } from "../types";
 import { materiality, type GapContext } from "./context";
 import { estimateOverlap } from "./overlap";
 
@@ -16,8 +16,8 @@ function compoundedDrag(value: number, feeGap: number, years: number, growth = 0
 }
 
 interface SwapCandidate {
-  position: Position & { security: EtfSecurity };
-  alternative: EtfSecurity;
+  position: Position & { security: FundSecurity };
+  alternative: FundSecurity;
   overlap: number;
   feeGap: number;
   annualSaving: number;
@@ -28,11 +28,11 @@ function findCheaperEquivalents(ctx: GapContext): SwapCandidate[] {
   const out: SwapCandidate[] = [];
 
   for (const position of ctx.portfolio.positions) {
-    if (position.security.kind !== "etf") continue;
+    if (position.security.kind !== "fund") continue;
     const security = position.security;
-    let best: { alternative: EtfSecurity; overlap: number } | null = null;
+    let best: { alternative: FundSecurity; overlap: number } | null = null;
 
-    for (const candidate of ETF_UNIVERSE) {
+    for (const candidate of FUND_UNIVERSE) {
       if (candidate.symbol === security.symbol || held.has(candidate.symbol)) continue;
       if (candidate.fund.expenseRatio >= security.fund.expenseRatio - 0.0002) continue;
       if (candidate.listingCountry !== security.listingCountry) continue;
@@ -47,7 +47,7 @@ function findCheaperEquivalents(ctx: GapContext): SwapCandidate[] {
     if (best) {
       const feeGap = security.fund.expenseRatio - best.alternative.fund.expenseRatio;
       out.push({
-        position: position as Position & { security: EtfSecurity },
+        position: position as Position & { security: FundSecurity },
         alternative: best.alternative,
         overlap: best.overlap,
         feeGap,
@@ -130,6 +130,55 @@ export function costFindings(ctx: GapContext): Finding[] {
         screen: { description: `Funds overlapping ${swap.position.symbol} by 90% or more at a lower ongoing charge, same listing country.`, symbols: [swap.alternative.symbol] },
         tradeoffs: [
           "A fee saving is certain; everything else about the two funds is not identical. Read both factsheets before treating them as interchangeable.",
+        ],
+      },
+    });
+  }
+
+  // Sales charges. These are the one cost an ongoing-charge comparison cannot
+  // see, and the one most likely to be news to whoever holds the fund.
+  const loaded = ctx.portfolio.positions
+    .filter((p) => p.security.kind === "fund" && (p.security.fund.frontLoad ?? 0) > 0)
+    .sort((a, b) => b.value - a.value);
+
+  for (const position of loaded.slice(0, 2)) {
+    const security = position.security as FundSecurity;
+    const load = security.fund.frontLoad ?? 0;
+    const monthly = Math.max(0, ctx.profile.monthlyContribution);
+    const onAYearOfContributions = monthly * 12 * load;
+    const per10k = 10000 * load;
+
+    findings.push({
+      id: `cost-load-${position.symbol}`,
+      category: "cost",
+      direction: "over",
+      // A load is charged on new money, not on the balance, so its materiality
+      // follows what is still being paid in rather than the position's size.
+      severity: materiality({ magnitude: load, scaleAt: 0.06, valueShare: Math.max(position.weight, 0.25) }),
+      title: `${position.symbol} takes ${formatPercent(load, 2)} off the top of anything you add`,
+      summary: `${security.name} carries a ${formatPercent(load, 2)} front-end sales charge. Every ${formatCurrency(10000, currency)} put in buys ${formatCurrency(10000 - per10k, currency)} of fund${monthly > 0 ? `, so a year of ${formatCurrency(monthly, currency)}-a-month contributions hands over ${formatCurrency(onAYearOfContributions, currency)} before any of it is invested` : ""}. That is separate from the ${formatPercent(security.fund.expenseRatio, 2)} charged every year afterwards.`,
+      why:
+        "A sales charge is paid once, on the way in, and comes out before the money is invested — so it never appears in an ongoing-charge comparison and never shows up in the fund's own return figures. It is a cost of buying the fund, not of owning it, which is why it is easy to compare two funds carefully and miss it entirely. What is already paid is spent; the figure that matters from here is what the next contribution costs.",
+      evidence: [
+        { label: "Front-end sales charge", value: formatPercent(load, 2), detail: `${formatCurrency(per10k, currency)} on every ${formatCurrency(10000, currency)} added` },
+        { label: "Ongoing charge, separately", value: formatPercent(security.fund.expenseRatio, 2), detail: security.fund.twelveB1Fee ? `includes a ${formatPercent(security.fund.twelveB1Fee, 2)} distribution fee` : undefined },
+        ...(monthly > 0
+          ? [{ label: "A year of your contributions", value: formatCurrency(onAYearOfContributions, currency), detail: `at ${formatCurrency(monthly, currency)} a month` }]
+          : []),
+        { label: "Held today", value: formatCurrency(position.value, currency), detail: "the charge on this was paid when it was bought" },
+      ],
+      learnSlug: "costs",
+      implementation: {
+        objective: `Know what the next contribution to ${position.symbol} costs before it is made.`,
+        gapValue: onAYearOfContributions,
+        routes: [
+          { label: "Check which share class you hold", detail: "The same fund is often sold in several classes: one with a front charge, one with a charge on exit, and one with neither but a higher annual fee. The letter after the name is the difference." },
+          { label: "Ask whether the load has already been waived", detail: "Loads are frequently waived inside workplace plans, at breakpoints above a certain amount, and on reinvested distributions. The published figure is not always the figure paid." },
+          { label: "Or decide the fund is worth it", detail: "A sales charge buys advice or access, not performance. If that is what it is for, the question is whether the advice is worth the number above — not whether the number is large." },
+        ],
+        screen: null,
+        tradeoffs: [
+          "What has already been paid is sunk. Moving out of the fund to avoid a charge already taken turns a past cost into a present one, and may realise tax as well.",
         ],
       },
     });

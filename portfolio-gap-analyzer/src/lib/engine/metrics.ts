@@ -54,7 +54,7 @@ function diversification(portfolio: Portfolio): DiversificationStats {
       disclosed += share;
     }
 
-    if (position.security.kind === "etf") {
+    if (position.security.kind === "fund") {
       const equityish = exposure.assetClass.equity + exposure.assetClass.realEstate;
       const residualShare = Math.max(equityish - disclosed, 0);
       const undisclosedCount = Math.max(position.security.fund.holdingsCount - position.security.topHoldings.length, 1);
@@ -124,7 +124,7 @@ function weighted<T extends { weight: number }>(items: T[], pick: (item: T) => n
 function nameFor(symbol: string, portfolio: Portfolio): string {
   for (const position of portfolio.positions) {
     if (position.symbol === symbol) return position.security.name;
-    if (position.security.kind === "etf") {
+    if (position.security.kind === "fund") {
       const hit = position.security.topHoldings.find((h) => h.symbol === symbol);
       if (hit) return hit.name;
     }

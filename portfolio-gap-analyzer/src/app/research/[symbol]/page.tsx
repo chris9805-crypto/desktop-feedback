@@ -7,7 +7,7 @@ import { Callout, Card, LearnLink, Pill, SectionHeading, Stat, StatGrid } from "
 import { SECURITIES, lookupSecurity } from "@/lib/data/securities";
 import { buildExposure } from "@/lib/engine/exposure";
 import { allScores, type ScoreBreakdown } from "@/lib/engine/scores";
-import { REGIONS, SECTORS, type EtfSecurity, type StockSecurity } from "@/lib/engine/types";
+import { REGIONS, SECTORS, fundStructureLabel, type FundSecurity, type StockSecurity } from "@/lib/engine/types";
 import { formatCompactCurrency, formatCurrency, formatMultiple, formatPercent, label } from "@/lib/format";
 
 export function generateStaticParams() {
@@ -31,7 +31,9 @@ export default async function SecurityPage({ params }: { params: Promise<{ symbo
       <header>
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-[24px] font-semibold tracking-tight text-[var(--text)]">{security.symbol}</h1>
-          <Pill tone={security.kind === "etf" ? "accent" : "neutral"}>{security.kind === "etf" ? "ETF" : "Company"}</Pill>
+          <Pill tone={security.kind === "fund" ? "accent" : "neutral"}>
+            {security.kind === "fund" ? fundStructureLabel(security.fund.structure) : "Company"}
+          </Pill>
           <Pill>{security.listingCountry}</Pill>
           <Pill>{security.currency}</Pill>
         </div>
@@ -39,7 +41,7 @@ export default async function SecurityPage({ params }: { params: Promise<{ symbo
         <p className="mt-3 max-w-3xl text-[13.5px] leading-relaxed text-[var(--text-muted)]">{security.description}</p>
       </header>
 
-      {security.kind === "etf" ? <EtfDetail security={security} /> : <StockDetail security={security} />}
+      {security.kind === "fund" ? <EtfDetail security={security} /> : <StockDetail security={security} />}
 
       <p className="text-[12px] text-[var(--text-faint)]">
         <Link href="/research" className="text-[var(--accent-text)] hover:underline">
@@ -52,7 +54,7 @@ export default async function SecurityPage({ params }: { params: Promise<{ symbo
   );
 }
 
-function EtfDetail({ security }: { security: EtfSecurity }) {
+function EtfDetail({ security }: { security: FundSecurity }) {
   const exposure = buildExposure(security);
   const regionSlices = REGIONS.filter((key) => exposure.region[key] > 0.005).map((key) => ({
     label: label(key),
@@ -70,9 +72,30 @@ function EtfDetail({ security }: { security: EtfSecurity }) {
           <Stat label="Fund size" value={formatCompactCurrency(security.fund.aumUsd, "USD")} />
           <Stat label="Holdings" value={security.fund.holdingsCount.toLocaleString()} />
           <Stat label="Distribution yield" value={security.yield > 0 ? formatPercent(security.yield) : "Accumulating"} />
-          <Stat label="Median spread" value={formatPercent(security.fund.spread, 3)} detail="Paid on every trade, in and out" />
+          {security.fund.structure === "mutualFund" ? (
+            <Stat
+              label="Sales charge"
+              value={security.fund.frontLoad ? formatPercent(security.fund.frontLoad, 2) : "None"}
+              tone={security.fund.frontLoad ? "over" : "neutral"}
+              detail={
+                security.fund.frontLoad
+                  ? `${formatCurrency(10000 * security.fund.frontLoad, "USD")} taken from every $10,000 before it is invested`
+                  : "No charge on the way in"
+              }
+            />
+          ) : (
+            <Stat label="Median spread" value={formatPercent(security.fund.spread, 3)} detail="Paid on every trade, in and out" />
+          )}
           <Stat label="Tracking difference" value={formatPercent(security.fund.trackingDifference, 2)} detail="Annualised gap to the index, after costs" />
-          <Stat label="Domicile" value={security.fund.domicile} detail={label(security.fund.distribution)} />
+          {security.fund.structure === "mutualFund" ? (
+            <Stat
+              label="Minimum to open"
+              value={security.fund.minimumInvestment ? formatCurrency(security.fund.minimumInvestment, "USD") : "None"}
+              detail="Priced once a day at net asset value, not through the day"
+            />
+          ) : (
+            <Stat label="Domicile" value={security.fund.domicile} detail={label(security.fund.distribution)} />
+          )}
           <Stat label="Duration" value={security.duration > 0 ? `${security.duration.toFixed(1)}y` : "—"} detail={security.duration > 0 ? `A 1pp yield rise costs about ${formatPercent(security.duration * 0.01, 1)}` : undefined} />
         </StatGrid>
       </Card>
@@ -96,7 +119,11 @@ function EtfDetail({ security }: { security: EtfSecurity }) {
         <Card className="p-5">
           <SectionHeading
             title="Largest disclosed holdings"
-            description={`The top ${security.topHoldings.length} of ${security.fund.holdingsCount.toLocaleString()} positions, and ${formatPercent(security.topHoldings.reduce((a, h) => a + h.weight, 0))} of the fund.`}
+            description={
+              security.topHoldings.every((h) => lookupSecurity(h.symbol)?.kind === "fund")
+                ? `This fund holds other funds rather than companies. The ${security.topHoldings.length} below are ${formatPercent(security.topHoldings.reduce((a, h) => a + h.weight, 0))} of it; open one to see the companies underneath, which is also where the gap report looks.`
+                : `The top ${security.topHoldings.length} of ${security.fund.holdingsCount.toLocaleString()} positions, and ${formatPercent(security.topHoldings.reduce((a, h) => a + h.weight, 0))} of the fund.`
+            }
           />
           <table className="w-full text-[13px]">
             <tbody className="divide-y divide-[var(--border)]">
@@ -123,7 +150,10 @@ function EtfDetail({ security }: { security: EtfSecurity }) {
       <Callout title="What to check on any fund before the fee">
         The ongoing charge is the visible cost and rarely the whole cost. Tracking difference tells you what the fund
         actually delivered against its index after everything, including any securities-lending revenue that offsets
-        charges. Spread is paid on each trade and matters most for smaller funds and frequent purchases. Domicile and
+        charges. {security.fund.structure === "mutualFund"
+          ? "A sales charge is taken once, before the money is invested, so it never appears in the ongoing charge or in the fund's published returns."
+          : "Spread is paid on each trade and matters most for smaller funds and frequent purchases."}{" "}
+        Domicile and
         distribution policy decide the tax treatment, which in a taxable account can outweigh all of it.{" "}
         <LearnLink slug="costs">More on costs</LearnLink>
       </Callout>

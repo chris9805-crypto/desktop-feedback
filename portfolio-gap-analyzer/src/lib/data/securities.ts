@@ -1,8 +1,9 @@
-import type { EtfSecurity, Security, StockSecurity } from "@/lib/engine/types";
+import type { FundSecurity, Security, StockSecurity } from "@/lib/engine/types";
 import { ETFS } from "./etfs";
+import { MUTUAL_FUNDS } from "./mutual-funds";
 import { STOCKS } from "./stocks";
 
-export const SECURITIES: Security[] = [...ETFS, ...STOCKS];
+export const SECURITIES: Security[] = [...ETFS, ...MUTUAL_FUNDS, ...STOCKS];
 
 /** Strip the punctuation people type differently: BRK.B, BRK-B and BRKB are one thing. */
 export function normaliseSymbol(symbol: string): string {
@@ -42,15 +43,18 @@ export function lookupSecurity(symbol: string): Security | undefined {
   return alias ? BY_SYMBOL.get(normaliseSymbol(alias)) : undefined;
 }
 
-export function isEtf(s: Security): s is EtfSecurity {
-  return s.kind === "etf";
+export function isFund(s: Security): s is FundSecurity {
+  return s.kind === "fund";
 }
 
 export function isStock(s: Security): s is StockSecurity {
   return s.kind === "stock";
 }
 
-export const ETF_UNIVERSE: EtfSecurity[] = SECURITIES.filter(isEtf);
+export const FUND_UNIVERSE: FundSecurity[] = SECURITIES.filter(isFund);
+/** Funds that hold other funds, so a look-through has to go another level. */
+export const ETF_UNIVERSE: FundSecurity[] = FUND_UNIVERSE.filter((f) => f.fund.structure === "etf");
+export const MUTUAL_FUND_UNIVERSE: FundSecurity[] = FUND_UNIVERSE.filter((f) => f.fund.structure === "mutualFund");
 export const STOCK_UNIVERSE: StockSecurity[] = SECURITIES.filter(isStock);
 
 export function searchSecurities(query: string, limit = 12): Security[] {

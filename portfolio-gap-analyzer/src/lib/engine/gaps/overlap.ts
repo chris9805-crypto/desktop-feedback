@@ -1,6 +1,6 @@
 import { formatCurrency, formatPercent } from "@/lib/format";
 import { buildExposure } from "../exposure";
-import type { EtfSecurity, Finding, Position } from "../types";
+import type { FundSecurity, Finding, Position } from "../types";
 import { materiality, type GapContext } from "./context";
 
 /**
@@ -11,7 +11,7 @@ import { materiality, type GapContext } from "./context";
  * by the disclosed share to estimate overlap across the whole fund. That makes
  * it an estimate, and the finding says so.
  */
-export function estimateOverlap(a: EtfSecurity, b: EtfSecurity): number {
+export function estimateOverlap(a: FundSecurity, b: FundSecurity): number {
   const mapA = new Map(a.topHoldings.map((h) => [h.symbol, h.weight]));
   const mapB = new Map(b.topHoldings.map((h) => [h.symbol, h.weight]));
   const disclosedA = a.topHoldings.reduce((s, h) => s + h.weight, 0);
@@ -40,7 +40,7 @@ export function estimateOverlap(a: EtfSecurity, b: EtfSecurity): number {
  * duplicate of a sector fund. Sector and size are what actually distinguish two
  * equity funds from each other, so they carry the score.
  */
-function indexOverlapFallback(a: EtfSecurity, b: EtfSecurity): number {
+function indexOverlapFallback(a: FundSecurity, b: FundSecurity): number {
   const ea = buildExposure(a);
   const eb = buildExposure(b);
 
@@ -74,7 +74,7 @@ const MATERIAL_WEIGHT = 0.03;
 export function overlapFindings(ctx: GapContext): Finding[] {
   const currency = ctx.portfolio.baseCurrency;
   const funds = ctx.portfolio.positions.filter(
-    (p): p is Position & { security: EtfSecurity } => p.security.kind === "etf" && p.weight >= MATERIAL_WEIGHT,
+    (p): p is Position & { security: FundSecurity } => p.security.kind === "fund" && p.weight >= MATERIAL_WEIGHT,
   );
 
   const findings: Finding[] = [];

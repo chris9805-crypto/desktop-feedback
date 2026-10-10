@@ -6,7 +6,7 @@ import { DisclaimerFooter } from "@/components/Disclaimer";
 import { Button, Callout, Card, EmptyState, Field, Pill, SectionHeading, inputClass } from "@/components/ui";
 import { normaliseSymbol, searchSecurities } from "@/lib/data/securities";
 import { parseHoldings } from "@/lib/engine/portfolio";
-import type { Currency, HoldingInput } from "@/lib/engine/types";
+import { fundStructureLabel, type Currency, type HoldingInput } from "@/lib/engine/types";
 import { formatCurrency, formatPercent } from "@/lib/format";
 import { useStore } from "@/lib/state/store";
 
@@ -146,8 +146,8 @@ export default function PortfolioPage() {
                         <span className="text-[12.5px] font-semibold text-[var(--text)]">{security.symbol}</span>
                         <span className="ml-2 text-[12px] text-[var(--text-muted)]">{security.name}</span>
                       </span>
-                      <Pill tone={security.kind === "etf" ? "accent" : "neutral"}>
-                        {security.kind === "etf" ? "ETF" : "Stock"}
+                      <Pill tone={security.kind === "fund" ? "accent" : "neutral"}>
+                        {security.kind === "fund" ? fundStructureLabel(security.fund.structure) : "Stock"}
                       </Pill>
                     </button>
                   </li>
@@ -253,14 +253,14 @@ export default function PortfolioPage() {
                       <div className="text-[12px] text-[var(--text-muted)]">{position.security.name}</div>
                     </td>
                     <td className="px-3 py-2.5">
-                      <Pill tone={position.security.kind === "etf" ? "accent" : "neutral"}>
-                        {position.security.kind === "etf" ? "ETF" : "Stock"}
+                      <Pill tone={position.security.kind === "fund" ? "accent" : "neutral"}>
+                        {position.security.kind === "fund" ? fundStructureLabel(position.security.fund.structure) : "Stock"}
                       </Pill>
                     </td>
                     <td className="tnum px-3 py-2.5 text-right">{formatCurrency(position.value, currency)}</td>
                     <td className="tnum px-3 py-2.5 text-right font-medium">{formatPercent(position.weight)}</td>
                     <td className="tnum px-3 py-2.5 text-right text-[var(--text-muted)]">
-                      {position.security.kind === "etf" ? formatPercent(position.security.fund.expenseRatio, 2) : "—"}
+                      {position.security.kind === "fund" ? formatPercent(position.security.fund.expenseRatio, 2) : "—"}
                     </td>
                     <td className="px-5 py-2.5 text-right">
                       <button
